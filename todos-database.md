@@ -221,21 +221,21 @@
   - [x] Migration fájl ellenőrzése
   - [ ] Rollback tesztelése
 
-- [ ] **Foreign Key Constraints**
-  - [ ] CASCADE DELETE tesztelése
-  - [ ] SET NULL tesztelése
-  - [ ] Constraint nevek definiálása
+- [x] **Foreign Key Constraints**
+  - [x] CASCADE DELETE tesztelése
+  - [x] SET NULL tesztelése
+  - [x] Constraint nevek definiálása
 
-- [ ] **Check Constraints**
-  - [ ] Status enum értékek validálása
-  - [ ] Role enum értékek validálása
-  - [ ] Type enum értékek validálása
+- [x] **Check Constraints**
+  - [x] Status enum értékek validálása
+  - [x] Role enum értékek validálása
+  - [x] Type enum értékek validálása
 
-- [ ] **Unique Constraints**
-  - [ ] Email unique constraint
-  - [ ] User-Project unique constraint
-  - [ ] Branch name unique constraint
-  - [ ] GitHub sync unique constraint
+- [x] **Unique Constraints**
+  - [x] Email unique constraint
+  - [x] User-Project unique constraint
+  - [x] Branch name unique constraint
+  - [x] GitHub sync unique constraint
 
 ## Fázis 3: Functions és Triggers
 
