@@ -1,0 +1,205 @@
+"""GitHub service for repository and branch management."""
+from typing import Optional, List, Dict, Any
+from uuid import UUID
+from github import Github
+from github.GithubException import GithubException
+from src.config import settings
+
+
+class GitHubService:
+    """Service for GitHub operations."""
+
+    def __init__(self):
+        """Initialize GitHub client."""
+        self.client: Optional[Github] = None
+        if settings.GITHUB_TOKEN:
+            try:
+                self.client = Github(settings.GITHUB_TOKEN)
+            except Exception as e:
+                print(f"⚠️  GitHub client initialization failed: {e}")
+
+    def validate_repo_access(self, owner: str, repo: str) -> bool:
+        """Validate access to a GitHub repository."""
+        if not self.client:
+            return False
+
+        try:
+            repository = self.client.get_repo(f"{owner}/{repo}")
+            # Try to access repo info
+            _ = repository.name
+            return True
+        except GithubException:
+            return False
+        except Exception:
+            return False
+
+    def get_repo_info(self, owner: str, repo: str) -> Optional[Dict[str, Any]]:
+        """Get repository information."""
+        if not self.client:
+            return None
+
+        try:
+            repository = self.client.get_repo(f"{owner}/{repo}")
+            return {
+                "id": repository.id,
+                "name": repository.name,
+                "full_name": repository.full_name,
+                "owner": repository.owner.login,
+                "private": repository.private,
+                "default_branch": repository.default_branch,
+                "url": repository.html_url,
+            }
+        except GithubException as e:
+            print(f"⚠️  GitHub API error: {e}")
+            return None
+        except Exception as e:
+            print(f"⚠️  GitHub error: {e}")
+            return None
+
+    def list_branches(self, owner: str, repo: str) -> List[Dict[str, Any]]:
+        """List branches for a repository."""
+        if not self.client:
+            return []
+
+        try:
+            repository = self.client.get_repo(f"{owner}/{repo}")
+            branches = repository.get_branches()
+            return [
+                {
+                    "name": branch.name,
+                    "sha": branch.commit.sha,
+                    "protected": branch.protected,
+                }
+                for branch in branches
+            ]
+        except GithubException as e:
+            print(f"⚠️  GitHub API error: {e}")
+            return []
+        except Exception as e:
+            print(f"⚠️  GitHub error: {e}")
+            return []
+
+    def create_branch(
+        self,
+        owner: str,
+        repo: str,
+        branch_name: str,
+        from_branch: str = "main",
+    ) -> Optional[Dict[str, Any]]:
+        """Create a new branch."""
+        if not self.client:
+            return None
+
+        try:
+            repository = self.client.get_repo(f"{owner}/{repo}")
+            source_branch = repository.get_branch(from_branch)
+            ref = repository.create_git_ref(
+                ref=f"refs/heads/{branch_name}",
+                sha=source_branch.commit.sha,
+            )
+            return {
+                "name": branch_name,
+                "sha": ref.object.sha,
+                "ref": ref.ref,
+            }
+        except GithubException as e:
+            print(f"⚠️  GitHub API error: {e}")
+            return None
+        except Exception as e:
+            print(f"⚠️  GitHub error: {e}")
+            return None
+
+    def get_branch(self, owner: str, repo: str, branch_name: str) -> Optional[Dict[str, Any]]:
+        """Get branch information."""
+        if not self.client:
+            return None
+
+        try:
+            repository = self.client.get_repo(f"{owner}/{repo}")
+            branch = repository.get_branch(branch_name)
+            return {
+                "name": branch.name,
+                "sha": branch.commit.sha,
+                "protected": branch.protected,
+                "commit": {
+                    "sha": branch.commit.sha,
+                    "message": branch.commit.commit.message,
+                    "author": branch.commit.commit.author.name if branch.commit.commit.author else None,
+                },
+            }
+        except GithubException as e:
+            print(f"⚠️  GitHub API error: {e}")
+            return None
+        except Exception as e:
+            print(f"⚠️  GitHub error: {e}")
+            return None
+
+    def create_issue(
+        self,
+        owner: str,
+        repo: str,
+        title: str,
+        body: str,
+        labels: Optional[List[str]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Create a GitHub issue."""
+        if not self.client:
+            return None
+
+        try:
+            repository = self.client.get_repo(f"{owner}/{repo}")
+            issue = repository.create_issue(
+                title=title,
+                body=body,
+                labels=labels or [],
+            )
+            return {
+                "number": issue.number,
+                "title": issue.title,
+                "url": issue.html_url,
+                "state": issue.state,
+            }
+        except GithubException as e:
+            print(f"⚠️  GitHub API error: {e}")
+            return None
+        except Exception as e:
+            print(f"⚠️  GitHub error: {e}")
+            return None
+
+    def create_pull_request(
+        self,
+        owner: str,
+        repo: str,
+        title: str,
+        body: str,
+        head: str,
+        base: str = "main",
+    ) -> Optional[Dict[str, Any]]:
+        """Create a pull request."""
+        if not self.client:
+            return None
+
+        try:
+            repository = self.client.get_repo(f"{owner}/{repo}")
+            pr = repository.create_pull(
+                title=title,
+                body=body,
+                head=head,
+                base=base,
+            )
+            return {
+                "number": pr.number,
+                "title": pr.title,
+                "url": pr.html_url,
+                "state": pr.state,
+            }
+        except GithubException as e:
+            print(f"⚠️  GitHub API error: {e}")
+            return None
+        except Exception as e:
+            print(f"⚠️  GitHub error: {e}")
+            return None
+
+
+# Global instance
+github_service = GitHubService()

@@ -1,0 +1,177 @@
+# InTracker Development Rules
+
+## Environment Strategy
+
+- **MVP Phase:** All development in local Docker environment
+- **Post-MVP:** Deploy to Azure (staging → production)
+- **Never deploy to Azure during MVP development**
+
+## Docker Setup
+
+```yaml
+# docker-compose.yml
+services:
+  postgres: postgres:16 (port 5432)
+  redis: redis:7-alpine (port 6379)
+  backend: Node.js API (port 3000)
+  mcp-server: MCP Server (port 3001)
+```
+
+**Commands:**
+- Start: `docker-compose up -d`
+- Stop: `docker-compose down`
+- Reset: `docker-compose down -v && docker-compose up -d`
+- Logs: `docker-compose logs -f [service]`
+
+## Development Workflow
+
+### Component Order
+1. **Database** (todos-database.md)
+2. **Backend** (todos-backend.md)
+3. **MCP Server** (todos-mcp.md)
+
+### Daily Workflow
+1. Start Docker: `docker-compose up -d`
+2. Open relevant todo file (todos-database.md / todos-backend.md / todos-mcp.md)
+3. Work on next unchecked todo item
+4. Test locally in Docker
+5. Mark todo as done: `[x]`
+6. Commit with todo reference
+
+### Commit Message Format
+```
+{type}({component}): {description} [todos-xxx.md Fázis X.Y]
+
+- [x] Todo item 1
+- [x] Todo item 2
+```
+
+**Types:** `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
+
+## Todo Files
+
+- **todos-database.md** - Database schema, migrations, optimization
+- **todos-backend.md** - Backend API, auth, caching, real-time sync
+- **todos-mcp.md** - MCP Server, tools, resources, GitHub integration
+
+**Usage:**
+- Work through todos sequentially
+- Mark completed items: `[ ]` → `[x]`
+- Reference in commit messages
+- Update if requirements change
+
+## Coding Standards
+
+### General
+- TypeScript strict mode
+- ESLint + Prettier
+- No `any` types
+- Error handling everywhere
+- Document complex logic
+
+### Database
+- Prisma for type-safe queries
+- Migrations for all schema changes
+- Indexes on all foreign keys
+- Seed data for testing
+
+### Backend
+- RESTful API conventions
+- Zod validation for all inputs
+- JWT authentication (access + refresh tokens)
+- RBAC (owner/editor/viewer roles)
+- Structured error responses
+
+### MCP Server
+- Zod validation for tool inputs
+- Caching with Redis (TTL: 1-10 min)
+- Lazy loading (only requested resources)
+- Token optimization (structured data, minimal response size)
+- Auto cache invalidation
+
+## Testing
+
+### Local Testing (MVP)
+- **Database:** Prisma Studio, SQL queries
+- **Backend:** Postman/Insomnia collection
+- **MCP:** Test in Cursor, verify tools/resources work
+- **E2E:** Full workflow test (create project → feature → todos → session)
+
+### Test Checklist (after each feature)
+- [ ] Database: Data saves correctly?
+- [ ] Backend: API endpoint works?
+- [ ] Backend: Authentication works?
+- [ ] MCP: Tool works in Cursor?
+- [ ] MCP: Resource accessible?
+- [ ] E2E: Full workflow works?
+
+## MVP Definition of Done
+
+**Database MVP:**
+- [x] Core tables created (users, projects, features, todos)
+- [x] Migrations work
+- [x] Seed data works
+
+**Backend MVP:**
+- [x] API endpoints work (Projects, Features, Todos)
+- [x] Authentication works
+- [x] Postman collection tested
+
+**MCP Server MVP:**
+- [x] MCP Server connects to Cursor
+- [x] Basic tools work (project context, resume context)
+- [x] Feature and Todo tools work
+- [x] Session tools work
+- [x] Resources accessible
+- [x] E2E workflow tested
+
+## Git Workflow
+
+- **Branch:** `develop` for development, `main` for stable
+- **Feature branches:** `feature/database-setup`, `feature/backend-api`
+- **Never commit directly to main**
+- **PR template:** Include todo file references and test checklist
+
+## Documentation
+
+**Update when:**
+- New feature added → `architecture.md`
+- API changed → `architecture.md`, `user-guide.md`
+- MCP tool added → `architecture.md`, `user-guide.md`
+- Deployment changed → `azure-deployment-guide.md`
+- Todo completed → Mark `[x]` in todo file
+
+## Troubleshooting
+
+**Database connection error:**
+- Check `DATABASE_URL` env var
+- Test: `docker-compose exec backend npx prisma db pull`
+
+**Backend not starting:**
+- Check logs: `docker-compose logs backend`
+- Restart: `docker-compose restart backend`
+
+**MCP Server not connecting:**
+- Check logs: `docker-compose logs mcp-server`
+- Verify Cursor MCP config
+
+**Full reset:**
+```bash
+docker-compose down -v
+docker-compose up -d
+docker-compose exec backend npx prisma migrate dev
+docker-compose exec backend npx prisma db seed
+```
+
+## Key Rules Summary
+
+1. ✅ **MVP: Local Docker only** - No Azure until MVP complete
+2. ✅ **Follow todo files** - Work sequentially, mark completed
+3. ✅ **Component order** - Database → Backend → MCP Server
+4. ✅ **Test everything** - Local testing required before commit
+5. ✅ **Reference todos in commits** - `[todos-xxx.md Fázis X.Y]`
+6. ✅ **Update documentation** - Keep architecture.md and todo files in sync
+
+---
+
+**Start here:** Open `todos-database.md` → Fázis 1.1: Core Tables

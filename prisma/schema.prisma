@@ -1,0 +1,360 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Users and Authentication
+// ============================================
+
+model User {
+  id             String    @id @default(uuid())
+  email          String    @unique
+  name           String?
+  passwordHash   String    @map("password_hash")
+  githubUsername String?   @map("github_username")
+  avatarUrl      String?   @map("avatar_url")
+  isActive       Boolean   @default(true) @map("is_active")
+  lastLoginAt    DateTime? @map("last_login_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  userProjects     UserProject[]
+  createdTodos     Todo[]        @relation("TodoCreator")
+  assignedTodos    Todo[]        @relation("TodoAssignee")
+  createdFeatures  Feature[]     @relation("FeatureCreator")
+  assignedFeatures Feature[]     @relation("FeatureAssignee")
+  sessions         Session[]
+
+  @@index([email], map: "idx_users_email")
+  @@map("users")
+}
+
+// ============================================
+// Projects
+// ============================================
+
+model Project {
+  id                 String    @id @default(uuid())
+  name               String
+  description        String?
+  status             String // active, paused, blocked, completed, archived
+  tags               String[]
+  technologyTags     String[]  @map("technology_tags")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  lastSessionAt      DateTime? @map("last_session_at")
+  resumeContext      Json?     @map("resume_context")
+  cursorInstructions String?   @map("cursor_instructions")
+  githubRepoUrl      String?   @map("github_repo_url")
+  githubRepoId       String?   @map("github_repo_id")
+  metadata           Json?
+
+  // Relations
+  userProjects   UserProject[]
+  elements       ProjectElement[]
+  features       Feature[]
+  documents      Document[]
+  sessions       Session[]
+  ideas          Idea[]
+  githubBranches GitHubBranch[]
+  githubSyncs    GitHubSync[]
+
+  @@index([status], map: "idx_projects_status")
+  @@map("projects")
+}
+
+model UserProject {
+  userId    String   @map("user_id")
+  projectId String   @map("project_id")
+  role      String // owner, editor, viewer
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@id([userId, projectId])
+  @@index([userId], map: "idx_user_projects_user")
+  @@index([projectId], map: "idx_user_projects_project")
+  @@map("user_projects")
+}
+
+// ============================================
+// Project Elements
+// ============================================
+
+model ProjectElement {
+  id                String   @id @default(uuid())
+  projectId         String   @map("project_id")
+  parentId          String?  @map("parent_id")
+  type              String // module, feature, component, milestone, technical_block, decision_point
+  title             String
+  description       String?
+  status            String // todo, in_progress, blocked, done
+  position          Int?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  definitionOfDone  String?  @map("definition_of_done")
+  githubIssueNumber Int?     @map("github_issue_number")
+  githubIssueUrl    String?  @map("github_issue_url")
+  metadata          Json?
+
+  // Relations
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent          ProjectElement?     @relation("ElementHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children        ProjectElement[]    @relation("ElementHierarchy")
+  todos           Todo[]
+  documents       Document[]
+  featureElements FeatureElement[]
+  dependencies    ElementDependency[] @relation("ElementDependencies")
+  dependsOn       ElementDependency[] @relation("DependsOnElements")
+
+  @@index([projectId], map: "idx_project_elements_project")
+  @@index([parentId], map: "idx_project_elements_parent")
+  @@index([status], map: "idx_project_elements_status")
+  @@map("project_elements")
+}
+
+model ElementDependency {
+  id                 String   @id @default(uuid())
+  elementId          String   @map("element_id")
+  dependsOnElementId String   @map("depends_on_element_id")
+  dependencyType     String   @map("dependency_type") // blocks, requires, related
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  // Relations
+  element   ProjectElement @relation("ElementDependencies", fields: [elementId], references: [id], onDelete: Cascade)
+  dependsOn ProjectElement @relation("DependsOnElements", fields: [dependsOnElementId], references: [id], onDelete: Cascade)
+
+  @@unique([elementId, dependsOnElementId])
+  @@index([elementId], map: "idx_dependencies_element")
+  @@index([dependsOnElementId], map: "idx_dependencies_depends_on")
+  @@map("element_dependencies")
+}
+
+// ============================================
+// Features
+// ============================================
+
+model Feature {
+  id                 String   @id @default(uuid())
+  projectId          String   @map("project_id")
+  name               String
+  description        String?
+  status             String // todo, in_progress, blocked, done
+  progressPercentage Int      @default(0) @map("progress_percentage")
+  totalTodos         Int      @default(0) @map("total_todos")
+  completedTodos     Int      @default(0) @map("completed_todos")
+  assignedTo         String?  @map("assigned_to")
+  createdBy          String?  @map("created_by")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  metadata           Json?
+
+  // Relations
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  todos           Todo[]
+  featureElements FeatureElement[]
+  githubBranches  GitHubBranch[]
+  assignedUser    User?            @relation("FeatureAssignee", fields: [assignedTo], references: [id])
+  creator         User?            @relation("FeatureCreator", fields: [createdBy], references: [id])
+
+  @@index([projectId], map: "idx_features_project")
+  @@index([status], map: "idx_features_status")
+  @@index([assignedTo], map: "idx_features_assigned")
+  @@map("features")
+}
+
+model FeatureElement {
+  id        String   @id @default(uuid())
+  featureId String   @map("feature_id")
+  elementId String   @map("element_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  feature Feature        @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  element ProjectElement @relation(fields: [elementId], references: [id], onDelete: Cascade)
+
+  @@unique([featureId, elementId])
+  @@index([featureId], map: "idx_feature_elements_feature")
+  @@index([elementId], map: "idx_feature_elements_element")
+  @@map("feature_elements")
+}
+
+// ============================================
+// Todos
+// ============================================
+
+model Todo {
+  id                String    @id @default(uuid())
+  elementId         String    @map("element_id")
+  featureId         String?   @map("feature_id")
+  title             String
+  description       String?
+  status            String // todo, in_progress, blocked, done
+  position          Int?
+  estimatedEffort   Int?      @map("estimated_effort")
+  blockerReason     String?   @map("blocker_reason")
+  assignedTo        String?   @map("assigned_to")
+  createdBy         String?   @map("created_by")
+  version           Int       @default(1) // Optimistic locking
+  githubIssueNumber Int?      @map("github_issue_number")
+  githubPrNumber    Int?      @map("github_pr_number")
+  githubPrUrl       String?   @map("github_pr_url")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  completedAt       DateTime? @map("completed_at")
+  metadata          Json?
+
+  // Relations
+  element      ProjectElement @relation(fields: [elementId], references: [id], onDelete: Cascade)
+  feature      Feature?       @relation(fields: [featureId], references: [id], onDelete: SetNull)
+  assignedUser User?          @relation("TodoAssignee", fields: [assignedTo], references: [id])
+  creator      User?          @relation("TodoCreator", fields: [createdBy], references: [id])
+
+  @@index([elementId], map: "idx_todos_element")
+  @@index([featureId], map: "idx_todos_feature")
+  @@index([status], map: "idx_todos_status")
+  @@index([assignedTo], map: "idx_todos_assigned")
+  @@index([createdBy], map: "idx_todos_created_by")
+  @@map("todos")
+}
+
+// ============================================
+// Documents
+// ============================================
+
+model Document {
+  id        String   @id @default(uuid())
+  projectId String   @map("project_id")
+  elementId String?  @map("element_id")
+  type      String // architecture, adr, domain, constraints, runbook, ai_instructions
+  title     String
+  content   String // Markdown format
+  tags      String[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  version   Int      @default(1)
+  metadata  Json?
+
+  // Relations
+  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  element ProjectElement? @relation(fields: [elementId], references: [id], onDelete: SetNull)
+
+  @@index([projectId], map: "idx_documents_project")
+  @@index([elementId], map: "idx_documents_element")
+  @@index([type], map: "idx_documents_type")
+  @@map("documents")
+}
+
+// ============================================
+// Sessions
+// ============================================
+
+model Session {
+  id                String    @id @default(uuid())
+  projectId         String    @map("project_id")
+  userId            String?   @map("user_id")
+  title             String?
+  goal              String?
+  startedAt         DateTime  @default(now()) @map("started_at")
+  endedAt           DateTime? @map("ended_at")
+  summary           String?
+  featureIds        String[]  @map("feature_ids")
+  todosCompleted    String[]  @map("todos_completed")
+  featuresCompleted String[]  @map("features_completed")
+  elementsUpdated   String[]  @map("elements_updated")
+  notes             String?
+  metadata          Json?
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@index([projectId], map: "idx_sessions_project")
+  @@index([userId], map: "idx_sessions_user")
+  @@index([startedAt], map: "idx_sessions_started")
+  @@map("sessions")
+}
+
+// ============================================
+// Ideas
+// ============================================
+
+model Idea {
+  id                   String   @id @default(uuid())
+  title                String
+  description          String?
+  status               String // draft, active, archived
+  tags                 String[]
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  convertedToProjectId String?  @map("converted_to_project_id")
+  metadata             Json?
+
+  // Relations
+  convertedToProject Project? @relation(fields: [convertedToProjectId], references: [id])
+
+  @@index([status], map: "idx_ideas_status")
+  @@map("ideas")
+}
+
+// ============================================
+// GitHub Integration
+// ============================================
+
+model GitHubBranch {
+  id                String    @id @default(uuid())
+  projectId         String    @map("project_id")
+  featureId         String?   @map("feature_id")
+  branchName        String    @map("branch_name")
+  baseBranch        String    @default("main") @map("base_branch")
+  status            String // active, merged, deleted
+  aheadCount        Int       @default(0) @map("ahead_count")
+  behindCount       Int       @default(0) @map("behind_count")
+  hasConflicts      Boolean   @default(false) @map("has_conflicts")
+  lastCommitSha     String?   @map("last_commit_sha")
+  lastCommitMessage String?   @map("last_commit_message")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  mergedAt          DateTime? @map("merged_at")
+
+  // Relations
+  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  feature Feature? @relation(fields: [featureId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, branchName])
+  @@index([projectId], map: "idx_branches_project")
+  @@index([featureId], map: "idx_branches_feature")
+  @@index([status], map: "idx_branches_status")
+  @@map("github_branches")
+}
+
+model GitHubSync {
+  id            String   @id @default(uuid())
+  projectId     String   @map("project_id")
+  entityType    String   @map("entity_type") // element, todo, feature, branch
+  entityId      String   @map("entity_id")
+  githubType    String   @map("github_type") // issue, pr, branch, commit
+  githubId      Int?     @map("github_id")
+  githubUrl     String?  @map("github_url")
+  lastSyncedAt  DateTime @default(now()) @map("last_synced_at")
+  syncDirection String   @map("sync_direction") // tracker_to_github, github_to_tracker, bidirectional
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([entityId, githubType, githubId])
+  @@index([projectId], map: "idx_github_sync_project")
+  @@index([entityType, entityId], map: "idx_github_sync_entity")
+  @@map("github_sync")
+}
