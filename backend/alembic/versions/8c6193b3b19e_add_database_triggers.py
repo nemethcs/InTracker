@@ -33,9 +33,10 @@ def upgrade() -> None:
     """)
     
     # Create triggers for updated_at on all tables that have it
+    # Note: sessions table does not have updated_at column
     tables_with_updated_at = [
         'users', 'projects', 'project_elements', 'features', 'todos',
-        'documents', 'sessions', 'ideas', 'github_branches', 'github_sync'
+        'documents', 'ideas', 'github_branches', 'github_sync'
     ]
     
     for table in tables_with_updated_at:
@@ -180,7 +181,7 @@ def downgrade() -> None:
     
     tables_with_updated_at = [
         'users', 'projects', 'project_elements', 'features', 'todos',
-        'documents', 'sessions', 'ideas', 'github_branches', 'github_sync'
+        'documents', 'ideas', 'github_branches', 'github_sync'
     ]
     
     for table in tables_with_updated_at:
