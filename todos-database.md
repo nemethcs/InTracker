@@ -257,21 +257,21 @@
 
 ## Fázis 4: Views és Materialized Views
 
-- [ ] **User Projects View**
-  - [ ] View: user_projects_with_roles
-  - [ ] User + Project + Role összekapcsolás
+- [x] **User Projects View**
+  - [x] View: user_projects_with_roles
+  - [x] User + Project + Role összekapcsolás
 
-- [ ] **Project Statistics View**
-  - [ ] View: project_statistics
-  - [ ] Todo count, feature count, completion rate
+- [x] **Project Statistics View**
+  - [x] View: project_statistics
+  - [x] Todo count, feature count, completion rate
 
-- [ ] **User Activity View**
-  - [ ] View: user_activity_summary
-  - [ ] Last session, active todos, assigned features
+- [x] **User Activity View**
+  - [x] View: user_activity_summary
+  - [x] Last session, active todos, assigned features
 
-- [ ] **Team Dashboard View**
-  - [ ] Materialized View: team_dashboard_data
-  - [ ] Refresh strategy (cron job)
+- [x] **Team Dashboard View**
+  - [x] Materialized View: team_dashboard_data
+  - [ ] Refresh strategy (cron job) - TODO: implement refresh job
 
 ## Fázis 5: Indexek Optimalizálás
 
