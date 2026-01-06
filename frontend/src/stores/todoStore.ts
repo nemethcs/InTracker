@@ -1,0 +1,92 @@
+import { create } from 'zustand'
+import { todoService, type Todo, type TodoCreate, type TodoUpdate } from '@/services/todoService'
+
+interface TodoState {
+  todos: Todo[]
+  isLoading: boolean
+  error: string | null
+  fetchTodos: (featureId?: string, elementId?: string) => Promise<void>
+  fetchTodo: (id: string) => Promise<Todo>
+  createTodo: (data: TodoCreate) => Promise<Todo>
+  updateTodo: (id: string, data: TodoUpdate) => Promise<void>
+  deleteTodo: (id: string) => Promise<void>
+}
+
+export const useTodoStore = create<TodoState>((set) => ({
+  todos: [],
+  isLoading: false,
+  error: null,
+
+  fetchTodos: async (featureId?: string, elementId?: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      const todos = await todoService.listTodos(featureId, elementId)
+      set({ todos, isLoading: false })
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to fetch todos', isLoading: false })
+    }
+  },
+
+  fetchTodo: async (id: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      const todo = await todoService.getTodo(id)
+      set(state => {
+        const index = state.todos.findIndex(t => t.id === id)
+        if (index >= 0) {
+          const todos = [...state.todos]
+          todos[index] = todo
+          return { todos, isLoading: false }
+        }
+        return { todos: [...state.todos, todo], isLoading: false }
+      })
+      return todo
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to fetch todo', isLoading: false })
+      throw error
+    }
+  },
+
+  createTodo: async (data: TodoCreate) => {
+    set({ isLoading: true, error: null })
+    try {
+      const todo = await todoService.createTodo(data)
+      set(state => ({ 
+        todos: [...state.todos, todo], 
+        isLoading: false 
+      }))
+      return todo
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to create todo', isLoading: false })
+      throw error
+    }
+  },
+
+  updateTodo: async (id: string, data: TodoUpdate) => {
+    set({ isLoading: true, error: null })
+    try {
+      const todo = await todoService.updateTodo(id, data)
+      set(state => ({
+        todos: state.todos.map(t => t.id === id ? todo : t),
+        isLoading: false
+      }))
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to update todo', isLoading: false })
+      throw error
+    }
+  },
+
+  deleteTodo: async (id: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      await todoService.deleteTodo(id)
+      set(state => ({
+        todos: state.todos.filter(t => t.id !== id),
+        isLoading: false
+      }))
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to delete todo', isLoading: false })
+      throw error
+    }
+  },
+}))
