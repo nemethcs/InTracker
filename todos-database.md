@@ -239,21 +239,21 @@
 
 ## Fázis 3: Functions és Triggers
 
-- [ ] **Auto-update timestamps trigger**
-  - [ ] updated_at automatikus frissítés
-  - [ ] Minden táblán implementálás
+- [x] **Auto-update timestamps trigger**
+  - [x] updated_at automatikus frissítés
+  - [x] Minden táblán implementálás
 
-- [ ] **Feature progress calculation function**
-  - [ ] Function: calculate_feature_progress(feature_id)
-  - [ ] Trigger: On todo status change → update feature progress
-  - [ ] Trigger: On todo create/delete → update feature total_todos
+- [x] **Feature progress calculation function**
+  - [x] Function: calculate_feature_progress(feature_id)
+  - [x] Trigger: On todo status change → update feature progress
+  - [x] Trigger: On todo create/delete → update feature total_todos
 
-- [ ] **Project last_session_at update trigger**
-  - [ ] On session end → update project.last_session_at
+- [x] **Project last_session_at update trigger**
+  - [x] On session end → update project.last_session_at
 
-- [ ] **Version increment trigger (Optimistic locking)**
-  - [ ] On todo update → version++
-  - [ ] On feature update → version++
+- [x] **Version increment trigger (Optimistic locking)**
+  - [x] On todo update → version++
+  - [ ] On feature update → version++ (TODO: add feature version field)
 
 ## Fázis 4: Views és Materialized Views
 
