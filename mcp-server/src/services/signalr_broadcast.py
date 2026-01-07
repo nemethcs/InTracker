@@ -1,8 +1,26 @@
 """SignalR broadcast service for MCP server."""
 import httpx
+import os
 from typing import Optional
 from uuid import UUID
 from src.config import settings
+
+
+# Determine backend URL based on environment
+# In Docker, use service name; locally or from host, use localhost
+def get_backend_url() -> str:
+    """Get backend API URL based on environment."""
+    # Check if BACKEND_API_URL is set in config
+    if settings.BACKEND_API_URL:
+        return settings.BACKEND_API_URL
+    
+    # Check if we're in Docker (backend service available)
+    # Docker containers can reach each other by service name
+    if os.path.exists("/.dockerenv"):
+        return "http://backend:3000"
+    else:
+        # Local development - use localhost
+        return "http://localhost:3000"
 
 
 async def broadcast_todo_update(

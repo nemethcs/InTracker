@@ -48,9 +48,6 @@ app.include_router(idea_controller.router)
 app.include_router(signalr_controller.router)
 app.include_router(mcp_controller.router)
 
-# Register MCP ASGI routes
-mcp_controller.register_mcp_routes(app)
-
 
 @app.get("/health")
 async def health_check():

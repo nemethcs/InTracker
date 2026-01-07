@@ -102,8 +102,7 @@ async def handle_create_todo(
             # If no user_id, still broadcast but with a system user ID
             # Frontend will handle this as a system update
             import asyncio
-            from uuid import UUID
-            # Use a placeholder UUID for system updates
+            # Use a placeholder UUID for system updates (UUID already imported at top of file)
             system_user_id = UUID("00000000-0000-0000-0000-000000000000")
             asyncio.create_task(
                 broadcast_todo_update(
@@ -240,7 +239,7 @@ async def handle_update_todo_status(
             else:
                 # If no user_id, use system user ID for MCP updates
                 import asyncio
-                from uuid import UUID
+                # Use a placeholder UUID for system updates (UUID already imported at top of file)
                 system_user_id = UUID("00000000-0000-0000-0000-000000000000")
                 asyncio.create_task(
                     broadcast_todo_update(
