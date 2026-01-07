@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 from src.database.base import SessionLocal
 from src.mcp.services.cache import cache_service
 from src.services.signalr_hub import broadcast_todo_update, broadcast_feature_update
-from src.database.models import Todo, ProjectElement, Feature
-from sqlalchemy import func, or_, and_
+from src.services.todo_service import TodoService
+from src.services.feature_service import FeatureService
+from src.database.models import ProjectElement
 
 
 def get_create_todo_tool() -> MCPTool:
@@ -39,41 +40,30 @@ async def handle_create_todo(
     """Handle create todo tool call."""
     db = SessionLocal()
     try:
-        # Verify element exists
-        element = db.query(ProjectElement).filter(ProjectElement.id == UUID(element_id)).first()
-        if not element:
-            return {"error": "Element not found"}
-
-        todo = Todo(
+        # Use TodoService to create todo
+        feature_uuid = UUID(feature_id) if feature_id else None
+        todo = TodoService.create_todo(
+            db=db,
             element_id=UUID(element_id),
-            feature_id=UUID(feature_id) if feature_id else None,
             title=title,
             description=description,
             status="new",
+            feature_id=feature_uuid,
             priority=priority or "medium",
-            version=1,
         )
-        db.add(todo)
-        db.commit()
-        db.refresh(todo)
 
-        # Update feature progress if linked
+        # Get element for project_id and broadcast
+        element = db.query(ProjectElement).filter(ProjectElement.id == UUID(element_id)).first()
+        if not element:
+            return {"error": "Element not found after todo creation"}
+
+        # Get feature progress if linked
         feature_progress = None
         if feature_id:
-            feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()
+            from src.services.feature_service import FeatureService
+            feature = FeatureService.get_feature_by_id(db, feature_uuid)
             if feature:
-                total = db.query(func.count(Todo.id)).filter(Todo.feature_id == UUID(feature_id)).scalar()
-                completed = (
-                    db.query(func.count(Todo.id))
-                    .filter(Todo.feature_id == UUID(feature_id), Todo.status == "done")
-                    .scalar()
-                )
-                percentage = int((completed / total * 100)) if total > 0 else 0
-                feature.total_todos = total
-                feature.completed_todos = completed
-                feature.progress_percentage = percentage
-                db.commit()
-                feature_progress = percentage
+                feature_progress = feature.progress_percentage
 
         # Invalidate cache
         cache_service.clear_pattern(f"project:{element.project_id}:*")
@@ -98,7 +88,7 @@ async def handle_create_todo(
                     }
                 )
             )
-        elif element:
+        else:
             # If no user_id, still broadcast but with a system user ID
             # Frontend will handle this as a system update
             import asyncio
@@ -136,6 +126,8 @@ async def handle_create_todo(
             "element_id": str(todo.element_id),
             "feature_id": str(todo.feature_id) if todo.feature_id else None,
         }
+    except ValueError as e:
+        return {"error": str(e)}
     finally:
         db.close()
 
@@ -169,69 +161,51 @@ async def handle_update_todo_status(
     """Handle update todo status tool call."""
     db = SessionLocal()
     try:
-        todo = db.query(Todo).filter(Todo.id == UUID(todo_id)).first()
-        if not todo:
+        # Use TodoService to update todo status
+        updated_todo = TodoService.update_todo_status(
+            db=db,
+            todo_id=UUID(todo_id),
+            status=status,
+            expected_version=expected_version,
+        )
+
+        if not updated_todo:
+            # Check if it was a version conflict
+            todo = TodoService.get_todo_by_id(db, UUID(todo_id))
+            if todo and expected_version is not None and todo.version != expected_version:
+                return {
+                    "error": "Conflict",
+                    "message": "Todo was modified by another user. Please refresh and try again.",
+                    "current_version": todo.version,
+                }
             return {"error": "Todo not found"}
 
-        # Optimistic locking check
-        if expected_version is not None and todo.version != expected_version:
-            return {
-                "error": "Conflict",
-                "message": "Todo was modified by another user. Please refresh and try again.",
-                "current_version": todo.version,
-            }
-
-        old_status = todo.status
-        todo.status = status
-        todo.version += 1
-
-        # Update completed_at
-        from datetime import datetime
-        if status == "done" and old_status != "done":
-            todo.completed_at = datetime.utcnow()
-        elif status != "done" and old_status == "done":
-            todo.completed_at = None
-
-        db.commit()
-        db.refresh(todo)
-
         # Get element for project_id and user_id for broadcast
-        element = db.query(ProjectElement).filter(ProjectElement.id == todo.element_id).first()
+        element = db.query(ProjectElement).filter(ProjectElement.id == updated_todo.element_id).first()
         
-        # Update feature progress if linked
+        # Get feature progress if linked
         feature_progress = None
-        if todo.feature_id:
-            feature = db.query(Feature).filter(Feature.id == todo.feature_id).first()
+        if updated_todo.feature_id:
+            feature = FeatureService.get_feature_by_id(db, updated_todo.feature_id)
             if feature:
-                total = db.query(func.count(Todo.id)).filter(Todo.feature_id == todo.feature_id).scalar()
-                completed = (
-                    db.query(func.count(Todo.id))
-                    .filter(Todo.feature_id == todo.feature_id, Todo.status == "done")
-                    .scalar()
-                )
-                percentage = int((completed / total * 100)) if total > 0 else 0
-                feature.total_todos = total
-                feature.completed_todos = completed
-                feature.progress_percentage = percentage
-                db.commit()
-                feature_progress = percentage
+                feature_progress = feature.progress_percentage
 
         # Invalidate cache
         if element:
             cache_service.clear_pattern(f"project:{element.project_id}:*")
-        if todo.feature_id:
-            cache_service.delete(f"feature:{todo.feature_id}")
+        if updated_todo.feature_id:
+            cache_service.delete(f"feature:{updated_todo.feature_id}")
 
         # Broadcast SignalR update (fire and forget)
         if element:
             # Get user_id from todo (created_by or assigned_to)
-            user_id = todo.assigned_to or todo.created_by
+            user_id = updated_todo.assigned_to or updated_todo.created_by
             if user_id:
                 import asyncio
                 asyncio.create_task(
                     broadcast_todo_update(
                         str(element.project_id),
-                        str(todo.id),
+                        str(updated_todo.id),
                         user_id,
                         {"status": status}
                     )
@@ -244,27 +218,37 @@ async def handle_update_todo_status(
                 asyncio.create_task(
                     broadcast_todo_update(
                         str(element.project_id),
-                        str(todo.id),
+                        str(updated_todo.id),
                         system_user_id,
                         {"status": status}
                     )
                 )
             
             # Broadcast feature progress update if feature exists
-            if todo.feature_id and feature_progress is not None:
+            if updated_todo.feature_id and feature_progress is not None:
+                import asyncio
                 asyncio.create_task(
                     broadcast_feature_update(
                         str(element.project_id),
-                        str(todo.feature_id),
+                        str(updated_todo.feature_id),
                         feature_progress
                     )
                 )
 
         return {
-            "id": str(todo.id),
-            "status": todo.status,
-            "version": todo.version,
+            "id": str(updated_todo.id),
+            "status": updated_todo.status,
+            "version": updated_todo.version,
         }
+    except ValueError as e:
+        if "modified by another user" in str(e):
+            todo = TodoService.get_todo_by_id(db, UUID(todo_id))
+            return {
+                "error": "Conflict",
+                "message": str(e),
+                "current_version": todo.version if todo else None,
+            }
+        return {"error": str(e)}
     finally:
         db.close()
 
@@ -318,34 +302,30 @@ async def handle_list_todos(
 
     db = SessionLocal()
     try:
-        query = db.query(Todo).join(ProjectElement).filter(
-            ProjectElement.project_id == UUID(project_id),
+        # Use TodoService to get todos by project
+        todos, total = TodoService.get_todos_by_project(
+            db=db,
+            project_id=UUID(project_id),
+            status=status,
+            skip=0,
+            limit=1000,  # Large limit for MCP tools
         )
 
-        if status:
-            query = query.filter(Todo.status == status)
+        # Filter by feature_id if provided
         if feature_id:
-            query = query.filter(Todo.feature_id == UUID(feature_id))
+            todos = [t for t in todos if t.feature_id == UUID(feature_id)]
 
         # If user_id is provided, exclude todos that are in_progress and assigned to other users
         if user_id:
-            from sqlalchemy import or_, and_
-            query = query.filter(
-                or_(
-                    Todo.status == "new",  # New todos are always available
-                    Todo.status == "tested",  # Tested todos are always available
-                    Todo.status == "done",  # Done todos are always available
-                    and_(
-                        Todo.status == "in_progress",
-                        or_(
-                            Todo.assigned_to.is_(None),  # Unassigned in_progress todos
-                            Todo.assigned_to == UUID(user_id),  # Assigned to this user
-                        )
-                    )
-                )
-            )
-
-        todos = query.order_by(Todo.position, Todo.created_at).all()
+            user_uuid = UUID(user_id)
+            filtered_todos = []
+            for t in todos:
+                if t.status in ["new", "tested", "done"]:
+                    filtered_todos.append(t)
+                elif t.status == "in_progress":
+                    if t.assigned_to is None or t.assigned_to == user_uuid:
+                        filtered_todos.append(t)
+            todos = filtered_todos
 
         result = {
             "project_id": project_id,
@@ -389,16 +369,25 @@ async def handle_assign_todo(todo_id: str, user_id: Optional[str] = None) -> dic
     """Handle assign todo tool call."""
     db = SessionLocal()
     try:
-        todo = db.query(Todo).filter(Todo.id == UUID(todo_id)).first()
-        if not todo:
-            return {"error": "Todo not found"}
-
         # TODO: Implement load balancing if user_id is None
         # For now, just assign if user_id provided
         if user_id:
-            todo.assigned_to = UUID(user_id)
-            todo.version += 1
-            db.commit()
+            # Use TodoService to update assigned_to
+            updated_todo = TodoService.update_todo(
+                db=db,
+                todo_id=UUID(todo_id),
+                assigned_to=UUID(user_id),
+            )
+            
+            if not updated_todo:
+                return {"error": "Todo not found"}
+            
+            todo = updated_todo
+        else:
+            # Get todo to return current assignment
+            todo = TodoService.get_todo_by_id(db, UUID(todo_id))
+            if not todo:
+                return {"error": "Todo not found"}
 
         # Invalidate cache
         element = db.query(ProjectElement).filter(ProjectElement.id == todo.element_id).first()
@@ -409,6 +398,8 @@ async def handle_assign_todo(todo_id: str, user_id: Optional[str] = None) -> dic
             "id": str(todo.id),
             "assigned_to": str(todo.assigned_to) if todo.assigned_to else None,
         }
+    except ValueError as e:
+        return {"error": str(e)}
     finally:
         db.close()
 
