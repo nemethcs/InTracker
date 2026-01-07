@@ -263,8 +263,19 @@ export function FeatureDetail() {
                           }
                         }}
                         onStatusChange={async (todo, newStatus) => {
-                          await updateTodoStatus(todo.id, newStatus, todo.version)
-                          refetchTodos()
+                          try {
+                            await updateTodoStatus(todo.id, newStatus, todo.version)
+                            refetchTodos()
+                          } catch (error: any) {
+                            if (error.isConflict) {
+                              // Show conflict warning
+                              alert(`Conflict: ${error.message}\n\nPlease refresh the page to get the latest version.`)
+                              // Refresh todos to get latest data
+                              refetchTodos()
+                            } else {
+                              alert(`Failed to update todo: ${error.message}`)
+                            }
+                          }
                         }}
                       />
                     ))}

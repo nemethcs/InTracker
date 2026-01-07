@@ -60,8 +60,19 @@ export const todoService = {
   },
 
   async updateTodo(id: string, data: TodoUpdate): Promise<Todo> {
-    const response = await api.put(`/todos/${id}`, data)
-    return response.data
+    try {
+      const response = await api.put(`/todos/${id}`, data)
+      return response.data
+    } catch (error: any) {
+      // Handle conflict (409) - optimistic locking failure
+      if (error.response?.status === 409) {
+        const conflictError = new Error(error.response?.data?.detail || 'Todo was modified by another user. Please refresh and try again.')
+        ;(conflictError as any).isConflict = true
+        ;(conflictError as any).currentVersion = error.response?.data?.current_version
+        throw conflictError
+      }
+      throw error
+    }
   },
 
   async deleteTodo(id: string): Promise<void> {

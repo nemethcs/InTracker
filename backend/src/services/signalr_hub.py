@@ -33,16 +33,41 @@ class ConnectionManager:
     
     def disconnect(self, connection_id: str):
         """Remove connection and clean up groups."""
+        # Get user_id and projects before cleanup
+        user_id = self.connection_users.get(connection_id)
+        project_ids = list(self.connection_projects.get(connection_id, []))
+        
         if connection_id in self.active_connections:
             del self.active_connections[connection_id]
         if connection_id in self.connection_users:
             del self.connection_users[connection_id]
         if connection_id in self.connection_projects:
             # Remove from all project groups
-            for project_id in self.connection_projects[connection_id]:
+            for project_id in project_ids:
                 if project_id in self.project_groups:
                     self.project_groups[project_id].discard(connection_id)
             del self.connection_projects[connection_id]
+        
+        # Broadcast user left events for all projects they were in
+        if user_id:
+            for project_id in project_ids:
+                asyncio.create_task(self.broadcast_to_project(project_id, {
+                    "type": "userLeft",
+                    "userId": str(user_id),
+                    "projectId": project_id
+                }))
+    
+    def get_active_users_for_project(self, project_id: str) -> Set[UUID]:
+        """Get set of active user IDs for a project."""
+        if project_id not in self.project_groups:
+            return set()
+        
+        user_ids = set()
+        for connection_id in self.project_groups[project_id]:
+            if connection_id in self.connection_users:
+                user_ids.add(self.connection_users[connection_id])
+        
+        return user_ids
     
     async def join_project(self, connection_id: str, project_id: str):
         """Add connection to project group."""
@@ -52,15 +77,36 @@ class ConnectionManager:
         if project_id not in self.project_groups:
             self.project_groups[project_id] = set()
         
+        was_new_join = connection_id not in self.project_groups[project_id]
         self.project_groups[project_id].add(connection_id)
         self.connection_projects[connection_id].add(project_id)
+        
+        # Broadcast user joined event if this is a new join
+        if was_new_join and connection_id in self.connection_users:
+            user_id = self.connection_users[connection_id]
+            await self.broadcast_to_project(project_id, {
+                "type": "userJoined",
+                "userId": str(user_id),
+                "projectId": project_id
+            }, exclude_connection=connection_id)
     
     async def leave_project(self, connection_id: str, project_id: str):
         """Remove connection from project group."""
+        was_member = project_id in self.project_groups and connection_id in self.project_groups[project_id]
+        
         if project_id in self.project_groups:
             self.project_groups[project_id].discard(connection_id)
         if connection_id in self.connection_projects:
             self.connection_projects[connection_id].discard(project_id)
+        
+        # Broadcast user left event if they were a member
+        if was_member and connection_id in self.connection_users:
+            user_id = self.connection_users[connection_id]
+            await self.broadcast_to_project(project_id, {
+                "type": "userLeft",
+                "userId": str(user_id),
+                "projectId": project_id
+            })
     
     async def send_to_connection(self, connection_id: str, message: dict):
         """Send message to specific connection."""

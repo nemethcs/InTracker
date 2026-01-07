@@ -18,6 +18,7 @@ import { ProjectEditor } from '@/components/projects/ProjectEditor'
 import { ElementTree } from '@/components/elements/ElementTree'
 import { ElementDetailDialog } from '@/components/elements/ElementDetailDialog'
 import { TodoCard } from '@/components/todos/TodoCard'
+import { ActiveUsers } from '@/components/collaboration/ActiveUsers'
 import { Plus, Edit, FileText, CheckSquare } from 'lucide-react'
 
 export function ProjectDetail() {
@@ -238,6 +239,9 @@ export function ProjectDetail() {
           </CardContent>
         </Card>
       )}
+
+      {/* Active Users Section */}
+      {id && <ActiveUsers projectId={id} />}
 
       {/* Element Tree Section */}
       <div>

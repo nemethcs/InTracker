@@ -5,6 +5,8 @@ export interface SignalREvents {
   featureUpdated: (data: { featureId: string; projectId: string; progress: number }) => void
   userActivity: (data: { userId: string; projectId: string; action: string; featureId?: string }) => void
   projectUpdated: (data: { projectId: string; changes: any }) => void
+  userJoined: (data: { userId: string; projectId: string }) => void
+  userLeft: (data: { userId: string; projectId: string }) => void
 }
 
 class SignalRService {
@@ -136,6 +138,15 @@ class SignalRService {
     // Project updates
     this.connection.on('projectUpdated', (data) => {
       this.emit('projectUpdated', data)
+    })
+
+    // User joined/left
+    this.connection.on('userJoined', (data) => {
+      this.emit('userJoined', data)
+    })
+
+    this.connection.on('userLeft', (data) => {
+      this.emit('userLeft', data)
     })
   }
 
