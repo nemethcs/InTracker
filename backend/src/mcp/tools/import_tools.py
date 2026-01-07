@@ -8,8 +8,11 @@ from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
 from src.database.base import SessionLocal
 from src.mcp.services.cache import cache_service
-from src.database.models import Project, ProjectElement, Todo, Feature, FeatureElement
-from sqlalchemy import func
+from src.services.project_service import ProjectService
+from src.services.element_service import ElementService
+from src.services.todo_service import TodoService
+from src.services.feature_service import FeatureService
+from src.services.github_service import GitHubService
 
 
 def get_parse_file_structure_tool() -> MCPTool:
@@ -67,15 +70,14 @@ async def handle_parse_file_structure(
     
     db = SessionLocal()
     try:
-        # Verify project exists
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to verify project exists
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project:
             return {"error": "Project not found"}
         
-        # Check if project already has elements
-        existing_elements = db.query(ProjectElement).filter(
-            ProjectElement.project_id == UUID(project_id)
-        ).count()
+        # Check if project already has elements using ElementService
+        existing_elements_list = ElementService.get_project_elements_tree(db, UUID(project_id))
+        existing_elements = len(existing_elements_list)
         
         if existing_elements > 0:
             return {
@@ -139,18 +141,17 @@ async def handle_parse_file_structure(
                 except:
                     pass
             
-            element = ProjectElement(
+            # Use ElementService to create element
+            element = ElementService.create_element(
+                db=db,
                 project_id=UUID(project_id),
-                parent_id=parent_element_id,
                 type=element_type,
                 title=element_title,
                 description=description,
                 status="new",
+                parent_id=parent_element_id,
                 position=None,
             )
-            db.add(element)
-            db.commit()
-            db.refresh(element)
             
             element_map[str(dir_path)] = element.id
             elements_created.append({
@@ -295,14 +296,17 @@ async def handle_import_github_issues(
         elements_created = []
         
         # Get or create root element for issues without specific element
-        root_elements = db.query(ProjectElement).filter(
-            ProjectElement.project_id == UUID(project_id),
-            ProjectElement.parent_id.is_(None),
-            ProjectElement.type == "module",
-        ).first()
+        root_elements_list = ElementService.get_project_elements_tree(
+            db=db,
+            project_id=UUID(project_id),
+            parent_id=None,
+        )
+        root_elements = next((e for e in root_elements_list if e.type == "module"), None)
         
         if not root_elements and create_elements:
-            root_elements = ProjectElement(
+            # Use ElementService to create root element
+            root_elements = ElementService.create_element(
+                db=db,
                 project_id=UUID(project_id),
                 type="module",
                 title="GitHub Issues",
@@ -310,9 +314,6 @@ async def handle_import_github_issues(
                 status="new",
                 parent_id=None,
             )
-            db.add(root_elements)
-            db.commit()
-            db.refresh(root_elements)
             elements_created.append({
                 "id": str(root_elements.id),
                 "title": "GitHub Issues",
@@ -322,19 +323,21 @@ async def handle_import_github_issues(
             # Determine element (try to match by title or create new)
             element_id = root_elements.id if root_elements else None
             
-            # Create todo from issue
-            todo = Todo(
+            # Use TodoService to create todo from issue
+            todo = TodoService.create_todo(
+                db=db,
                 element_id=element_id,
-                feature_id=None,
                 title=issue.title,
                 description=issue.body or f"GitHub Issue #{issue.number}",
                 status="new" if issue.state == "open" else "done",
                 priority="high" if any(label.name.lower() in ["bug", "critical", "urgent"] for label in issue.labels) else "medium",
-                github_issue_number=issue.number,
-                github_issue_url=issue.html_url,
-                version=1,
+                feature_id=None,
             )
-            db.add(todo)
+            # Update GitHub fields directly (TodoService doesn't handle these)
+            from src.database.models import Todo
+            todo = db.query(Todo).filter(Todo.id == todo.id).first()
+            todo.github_issue_number = issue.number
+            todo.github_issue_url = issue.html_url
             db.commit()
             db.refresh(todo)
             
@@ -448,18 +451,14 @@ async def handle_import_github_milestones(
         features_created = []
         
         for milestone in milestones:
-            # Create feature from milestone
-            feature = Feature(
+            # Use FeatureService to create feature from milestone
+            feature = FeatureService.create_feature(
+                db=db,
                 project_id=UUID(project_id),
                 name=milestone.title,
                 description=milestone.description or f"GitHub Milestone: {milestone.title}",
                 status="new" if milestone.state == "open" else "done",
-                total_todos=0,
-                completed_todos=0,
-                progress_percentage=0,
             )
-            db.add(feature)
-            db.flush()
             
             # Get issues for this milestone and create todos
             todos_count = 0
@@ -469,37 +468,35 @@ async def handle_import_github_milestones(
                     if issue.pull_request:
                         continue
                     
-                    # Find or create element for this todo
-                    root_elements = db.query(ProjectElement).filter(
-                        ProjectElement.project_id == UUID(project_id),
-                        ProjectElement.parent_id.is_(None),
-                    ).first()
+                    # Find or create element for this todo using ElementService
+                    root_elements_list = ElementService.get_project_elements_tree(
+                        db=db,
+                        project_id=UUID(project_id),
+                        parent_id=None,
+                    )
+                    root_elements = root_elements_list[0] if root_elements_list else None
                     
                     if root_elements:
-                        todo = Todo(
+                        # Use TodoService to create todo
+                        todo = TodoService.create_todo(
+                            db=db,
                             element_id=root_elements.id,
                             feature_id=feature.id,
                             title=issue.title,
                             description=issue.body or f"GitHub Issue #{issue.number}",
                             status="new" if issue.state == "open" else "done",
                             priority="high" if any(label.name.lower() in ["bug", "critical", "urgent"] for label in issue.labels) else "medium",
-                            github_issue_number=issue.number,
-                            github_issue_url=issue.html_url,
-                            version=1,
                         )
-                        db.add(todo)
+                        # Update GitHub fields directly (TodoService doesn't handle these)
+                        from src.database.models import Todo
+                        todo = db.query(Todo).filter(Todo.id == todo.id).first()
+                        todo.github_issue_number = issue.number
+                        todo.github_issue_url = issue.html_url
                         db.commit()
-                        db.refresh(todo)
                         todos_count += 1
                         
-                        # Update feature progress
-                        total = db.query(func.count(Todo.id)).filter(Todo.feature_id == feature.id).scalar()
-                        completed = db.query(func.count(Todo.id)).filter(Todo.feature_id == feature.id, Todo.status == "done").scalar()
-                        percentage = int((completed / total * 100)) if total > 0 else 0
-                        feature.total_todos = total
-                        feature.completed_todos = completed
-                        feature.progress_percentage = percentage
-                        db.commit()
+                        # Use FeatureService to update feature progress
+                        FeatureService.calculate_feature_progress(db, feature.id)
             except Exception as e:
                 print(f"Warning: Failed to import issues for milestone {milestone.title}: {e}")
             
@@ -563,8 +560,8 @@ async def handle_analyze_codebase(
     
     db = SessionLocal()
     try:
-        # Verify project exists
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to verify project exists
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project:
             return {"error": "Project not found"}
         
