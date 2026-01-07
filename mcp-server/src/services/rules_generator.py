@@ -86,17 +86,192 @@ class RulesGenerator:
    - After implementation: `mcp_update_todo_status(todoId, "tested")` (only if tested!)
    - After merge to dev: `mcp_update_todo_status(todoId, "done")` (only after tested AND merged!)
 
-5. **GitHub Maintenance (MANDATORY):**
+5. **Git Workflow (MANDATORY - See detailed Git Workflow section below):**
+   - Before work: Check branch, create feature branch if needed, pull latest
+   - During work: Make changes, test, fix errors
+   - Before commit: Check status, review changes, stage files
+   - Commit: Use format `{type}({scope}): {description} [feature:{featureId}]`
+   - After commit: Push to remote, update todo to `tested` (if tested)
+   - After merge: Update todo to `done` (only after tested AND merged!)
+
+6. **GitHub Maintenance (MANDATORY):**
    - Keep GitHub up-to-date with local changes
    - Link todos to GitHub issues: `mcp_link_element_to_issue(elementId, issueNumber)`
    - Link PRs to todos: `mcp_link_todo_to_pr(todoId, prNumber)`
    - Create feature branches: `mcp_create_branch_for_feature(featureId)`
    - Link branches to features: `mcp_link_branch_to_feature(featureId, branchName)`
 
-6. **Commit with Todo Reference:**
-   - Format: `feat(component): description [feature:featureId]`
-   - Include completed todos in commit message
+6. **Git Workflow (MANDATORY - Follow this order!):**
+   - **Before starting work:**
+     - Check current branch: `git branch --show-current`
+     - If working on a feature, ensure you're on the feature branch: `git checkout feature/{feature-name}`
+     - If no feature branch exists, create it: `mcp_create_branch_for_feature(featureId)`
+     - Pull latest changes: `git pull origin {branch-name}`
+   
+   - **During work:**
+     - Make code changes
+     - Test your changes
+     - Check for errors: `read_lints` tool
+     - Fix any issues
+   
+   - **Before committing:**
+     - Check git status: `git status`
+     - Review changes: `git diff`
+     - Stage all changes: `git add -A`
+     - Verify staged changes: `git status`
+   
+   - **Commit (MANDATORY format):**
+     - Format: `{type}({scope}): {description} [feature:{featureId}]`
+     - Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
+     - Scope: Feature slug or module name
+     - Include completed todos in commit message body:
+       ```
+       {type}({scope}): {description} [feature:{featureId}]
+       
+       - [x] Todo item 1
+       - [x] Todo item 2
+       ```
+     - Example: `git commit -m "feat(real-time): Implement SignalR updates [feature:a0441bbc-078b-447c-8c73-c3dd96de8789]"`
+   
+   - **After committing:**
+     - Push to remote: `git push origin {branch-name}`
+     - Update todo status to `tested`: `mcp_update_todo_status(todoId, "tested")` (only if tested!)
+     - Link todo to PR if PR exists: `mcp_link_todo_to_pr(todoId, prNumber)`
+   
+   - **After merge to dev:**
+     - Update todo status to `done`: `mcp_update_todo_status(todoId, "done")` (only after tested AND merged!)
+     - Switch back to dev: `git checkout develop`
+     - Pull latest: `git pull origin develop`
+   
+   **CRITICAL Git Rules:**
+   - **NEVER commit without testing first!**
+   - **NEVER commit to main/master directly!** Always use feature branches
+   - **ALWAYS check git status before committing** to avoid committing wrong files
+   - **ALWAYS use the commit message format** with feature ID
+   - **ALWAYS push after committing** to keep remote in sync
+   - **ALWAYS update todo status** after committing (tested) and after merge (done)
+   - **NEVER mark todo as `done`** until it's tested AND merged to dev branch!
 """
+        ))
+        
+        # Git Workflow section (always included if GitHub repo connected)
+        self.sections.append(RulesSection(
+            name="git_workflow",
+            content="""### Git Workflow (MANDATORY)
+
+**CRITICAL: Follow this exact order for every change!**
+
+#### 1. Before Starting Work
+
+```bash
+# Check current branch
+git branch --show-current
+
+# If working on a feature, ensure you're on the feature branch
+git checkout feature/{feature-name}
+
+# If no feature branch exists, create it via MCP:
+# mcp_create_branch_for_feature(featureId)
+
+# Pull latest changes
+git pull origin {branch-name}
+```
+
+#### 2. During Work
+
+- Make code changes
+- Test your changes
+- Check for errors: `read_lints` tool
+- Fix any issues
+- Update todo status: `mcp_update_todo_status(todoId, "in_progress")`
+
+#### 3. Before Committing
+
+```bash
+# Check git status
+git status
+
+# Review changes
+git diff
+
+# Stage all changes
+git add -A
+
+# Verify staged changes
+git status
+```
+
+#### 4. Commit (MANDATORY Format)
+
+**Format:**
+```
+{type}({scope}): {description} [feature:{featureId}]
+
+- [x] Todo item 1
+- [x] Todo item 2
+```
+
+**Types:**
+- `feat`: New feature
+- `fix`: Bug fix
+- `refactor`: Code refactoring
+- `docs`: Documentation
+- `test`: Tests
+- `chore`: Maintenance tasks
+
+**Examples:**
+```bash
+git commit -m "feat(real-time): Implement SignalR updates [feature:a0441bbc-078b-447c-8c73-c3dd96de8789]
+
+- [x] Integrate SignalR client
+- [x] Implement real-time updates"
+```
+
+#### 5. After Committing
+
+```bash
+# Push to remote
+git push origin {branch-name}
+
+# Update todo status to tested (only if tested!)
+mcp_update_todo_status(todoId, "tested")
+
+# Link todo to PR if PR exists
+mcp_link_todo_to_pr(todoId, prNumber)
+```
+
+#### 6. After Merge to Dev
+
+```bash
+# Switch back to dev
+git checkout develop
+
+# Pull latest
+git pull origin develop
+
+# Update todo status to done (only after tested AND merged!)
+mcp_update_todo_status(todoId, "done")
+```
+
+#### Git Rules (CRITICAL)
+
+**ALWAYS:**
+- ✅ Check git status before committing
+- ✅ Use feature branches (never commit to main/master directly)
+- ✅ Use the commit message format with feature ID
+- ✅ Push after committing
+- ✅ Update todo status after committing (tested) and after merge (done)
+- ✅ Test before committing
+
+**NEVER:**
+- ❌ Commit without testing first
+- ❌ Commit to main/master directly
+- ❌ Commit without checking git status
+- ❌ Mark todo as `done` until it's tested AND merged to dev branch
+- ❌ Skip pushing after committing
+- ❌ Commit with wrong message format
+"""
+            , conditions={"has_github_repo": True}
         ))
         
         # Docker section (if docker in technology_tags)
