@@ -236,6 +236,7 @@ async def update_todo(
             priority=todo_data.priority,
             blocker_reason=todo_data.blocker_reason,
             assigned_to=todo_data.assigned_to,
+            feature_id=todo_data.feature_id,
             expected_version=expected_version or todo.version,
         )
 
