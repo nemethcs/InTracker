@@ -30,6 +30,9 @@ class Settings(BaseSettings):
 
     # CORS
     CORS_ORIGIN: str = "*"
+    
+    # MCP Server API Key (for SignalR broadcast from MCP)
+    MCP_API_KEY: str = "test"
 
     class Config:
         env_file = ".env"

@@ -1,6 +1,6 @@
 """SignalR WebSocket hub controller."""
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, HTTPException, Depends
-from typing import Optional, List
+from typing import Optional
 from uuid import UUID
 from src.services.signalr_hub import handle_websocket, connection_manager
 from src.api.middleware.auth import get_current_user
@@ -81,3 +81,5 @@ async def get_active_users(
         ],
         "count": len(users)
     }
+
+

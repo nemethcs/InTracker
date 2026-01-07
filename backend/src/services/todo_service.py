@@ -154,6 +154,7 @@ class TodoService:
         priority: Optional[str] = None,
         blocker_reason: Optional[str] = None,
         assigned_to: Optional[UUID] = None,
+        feature_id: Optional[UUID] = None,
         expected_version: Optional[int] = None,
     ) -> Optional[Todo]:
         """Update todo with optimistic locking."""
@@ -185,6 +186,21 @@ class TodoService:
             todo.blocker_reason = blocker_reason
         if assigned_to is not None:
             todo.assigned_to = assigned_to
+        
+        # Store old feature_id before update
+        old_feature_id = todo.feature_id
+        
+        if feature_id is not None:
+            # Validate feature if provided
+            if feature_id:
+                feature = db.query(Feature).filter(Feature.id == feature_id).first()
+                if not feature:
+                    raise ValueError("Feature not found")
+                # Verify feature belongs to same project as element
+                element = db.query(ProjectElement).filter(ProjectElement.id == todo.element_id).first()
+                if element and feature.project_id != element.project_id:
+                    raise ValueError("Feature and element must belong to the same project")
+            todo.feature_id = feature_id
 
         # Increment version for optimistic locking
         todo.version += 1
@@ -199,8 +215,17 @@ class TodoService:
         # Update parent element statuses recursively
         element_service.update_parent_statuses(db=db, element_id=todo.element_id)
 
-        # Update feature progress if linked
-        if todo.feature_id:
+        # Update feature progress if feature_id changed
+        if feature_id is not None and old_feature_id != todo.feature_id:
+            from src.services.feature_service import feature_service
+            # Update old feature progress if unlinked
+            if old_feature_id:
+                feature_service.calculate_feature_progress(db=db, feature_id=old_feature_id)
+            # Update new feature progress if linked
+            if feature_id:
+                feature_service.calculate_feature_progress(db=db, feature_id=feature_id)
+        elif todo.feature_id:
+            # Update feature progress if linked and status changed
             from src.services.feature_service import feature_service
             feature_service.calculate_feature_progress(db=db, feature_id=todo.feature_id)
 

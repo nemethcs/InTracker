@@ -2,9 +2,9 @@
 from typing import Optional
 from uuid import UUID
 from mcp.types import Resource
-from src.database.base import get_db_session
-from src.database.models import Project
-from src.services.rules_generator import rules_generator
+from src.database.base import SessionLocal
+from src.services.project_service import ProjectService
+from src.mcp.services.rules_generator import rules_generator
 
 
 def get_project_resources(project_id: Optional[str] = None) -> list[Resource]:
@@ -31,7 +31,10 @@ def get_project_resources(project_id: Optional[str] = None) -> list[Resource]:
         )
     else:
         # List all projects
-        db = get_db_session()
+        # For listing all projects, we need to query directly as ProjectService doesn't have a list_all method
+        # This is acceptable for resources as it's a simple read operation
+        from src.database.models import Project
+        db = SessionLocal()
         try:
             projects = db.query(Project).all()
             for project in projects:
@@ -68,9 +71,10 @@ async def read_project_resource(uri: str) -> str:
     uri_parts = uri.replace("intracker://project/", "").split("/")
     project_id = uri_parts[0]
     
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project:
             raise ValueError(f"Project not found: {project_id}")
         
@@ -93,9 +97,10 @@ async def read_cursor_rules_resource(project_id: str) -> str:
     import os
     from pathlib import Path
     
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project:
             raise ValueError(f"Project not found: {project_id}")
 

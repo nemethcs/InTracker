@@ -41,9 +41,13 @@ services:
     environment:
       DATABASE_URL: postgresql://intracker:intracker_dev@postgres:5432/intracker
       REDIS_URL: redis://redis:6379
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
       JWT_SECRET: ${JWT_SECRET:-dev-secret-key-min-32-chars-long-for-testing}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-min-32-chars-long-for-testing}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      MCP_API_KEY: ${MCP_API_KEY:-test}
       NODE_ENV: development
       PORT: 3000
       CORS_ORIGIN: "*"
@@ -55,34 +59,6 @@ services:
     volumes:
       - ./backend:/app
     command: uvicorn src.main:app --host 0.0.0.0 --port 3000 --reload
-
-  mcp-server:
-    build:
-      context: ./mcp-server
-      dockerfile: Dockerfile
-    container_name: intracker-mcp-server
-    environment:
-      DATABASE_URL: postgresql://intracker:intracker_dev@postgres:5432/intracker
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_DB: 0
-      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
-      MCP_API_KEY: ${MCP_API_KEY:-test}
-      MCP_HTTP_PORT: 3001
-      MCP_HTTP_HOST: 0.0.0.0
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./mcp-server:/app
-      - ./backend/src:/backend/src:ro
-      - .:/workspace:ro
-    ports:
-      - "3001:3001"
-    stdin_open: true
-    tty: true
 
   frontend:
     build:

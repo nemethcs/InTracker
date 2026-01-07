@@ -1,14 +1,13 @@
-"""HTTP transport wrapper for MCP Server (for Azure deployment)."""
-import json
+"""MCP Server HTTP/SSE transport controller for FastAPI."""
 from typing import Optional
-from starlette.applications import Starlette
-from starlette.routing import Route
-from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from fastapi import APIRouter, Request, HTTPException, Header
+from fastapi.responses import JSONResponse
 from starlette.types import Receive, Send, Scope
 from mcp.server.sse import SseServerTransport
 from src.config import settings
-from src.server import server as mcp_server
+from src.mcp.server import server as mcp_server
+
+router = APIRouter(prefix="/mcp", tags=["mcp"])
 
 # Create SSE transport
 sse_transport = SseServerTransport("/mcp/messages/")
@@ -21,11 +20,12 @@ def verify_api_key(api_key: Optional[str]) -> None:
         return
     
     if not api_key or api_key != settings.MCP_API_KEY:
-        raise ValueError("Invalid or missing API key")
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
-async def health_check_endpoint(request: Request):
-    """Health check endpoint."""
+@router.get("/health")
+async def mcp_health_check():
+    """MCP server health check endpoint."""
     return JSONResponse(content={"status": "ok", "service": "intracker-mcp-server"})
 
 
@@ -33,6 +33,7 @@ class MCPSSEASGIApp:
     """ASGI app wrapper for MCP SSE endpoint."""
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         if scope["type"] != "http" or scope["method"] != "GET":
+            from starlette.responses import Response
             response = Response(status_code=405)
             await response(scope, receive, send)
             return
@@ -47,10 +48,10 @@ class MCPSSEASGIApp:
         
         try:
             verify_api_key(api_key)
-        except ValueError:
+        except HTTPException as e:
             response = JSONResponse(
-                content={"detail": "Invalid or missing API key"},
-                status_code=401
+                content={"detail": e.detail},
+                status_code=e.status_code
             )
             await response(scope, receive, send)
             return
@@ -73,6 +74,7 @@ class MCPMessagesASGIApp:
     """ASGI app wrapper for MCP messages endpoint."""
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         if scope["type"] != "http" or scope["method"] != "POST":
+            from starlette.responses import Response
             response = Response(status_code=405)
             await response(scope, receive, send)
             return
@@ -87,10 +89,10 @@ class MCPMessagesASGIApp:
         
         try:
             verify_api_key(api_key)
-        except ValueError:
+        except HTTPException as e:
             response = JSONResponse(
-                content={"detail": "Invalid or missing API key"},
-                status_code=401
+                content={"detail": e.detail},
+                status_code=e.status_code
             )
             await response(scope, receive, send)
             return
@@ -99,20 +101,21 @@ class MCPMessagesASGIApp:
         await sse_transport.handle_post_message(scope, receive, send)
 
 
-# Create Starlette app with routes
-app = Starlette(
-    routes=[
-        Route("/health", health_check_endpoint),
-        Route("/mcp/sse", MCPSSEASGIApp()),
-        Route("/mcp/messages/{path:path}", MCPMessagesASGIApp(), methods=["POST"]),
-    ]
-)
+@router.get("/sse")
+async def mcp_sse_endpoint(request: Request):
+    """
+    MCP Server SSE (Server-Sent Events) endpoint for Cursor integration.
+    Supports both local development and Azure deployment.
+    """
+    app = MCPSSEASGIApp()
+    await app(request.scope, request.receive, request._send)
 
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=int(settings.MCP_HTTP_PORT) if hasattr(settings, 'MCP_HTTP_PORT') else 3001,
-    )
+@router.post("/messages/{path:path}")
+async def mcp_messages_endpoint(path: str, request: Request):
+    """
+    MCP Server messages endpoint for POST requests.
+    Used by Cursor to send messages to the MCP server.
+    """
+    app = MCPMessagesASGIApp()
+    await app(request.scope, request.receive, request._send)

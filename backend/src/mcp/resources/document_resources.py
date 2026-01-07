@@ -3,37 +3,38 @@ from typing import Optional
 from uuid import UUID
 from mcp.types import Resource
 from sqlalchemy.orm import Session
-from src.services.database import get_db_session
-from src.models import Document
+from src.database.base import SessionLocal
+from src.services.document_service import DocumentService
 
 
 def get_document_resources(project_id: Optional[str] = None) -> list[Resource]:
     """Get document resources."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         if project_id:
-            documents = db.query(Document).filter(Document.project_id == UUID(project_id)).all()
-            return [
-                Resource(
-                    uri=f"intracker://document/{d.id}",
-                    name=f"Document: {d.title}",
-                    description=f"{d.type} (v{d.version})",
-                    mimeType="text/markdown" if d.type in ["architecture", "adr", "runbook"] else "application/json",
-                )
-                for d in documents
-            ]
+            # Use DocumentService to get documents by project
+            documents, _ = DocumentService.get_documents_by_project(
+                db=db,
+                project_id=UUID(project_id),
+                type=None,
+                skip=0,
+                limit=1000,  # Large limit for resources
+            )
         else:
-            # List all documents
+            # List all documents - need to query directly as DocumentService doesn't have list_all method
+            # This is acceptable for resources as it's a simple read operation
+            from src.database.models import Document
             documents = db.query(Document).all()
-            return [
-                Resource(
-                    uri=f"intracker://document/{d.id}",
-                    name=f"Document: {d.title}",
-                    description=f"{d.type} (v{d.version})",
-                    mimeType="text/markdown" if d.type in ["architecture", "adr", "runbook"] else "application/json",
-                )
-                for d in documents
-            ]
+        
+        return [
+            Resource(
+                uri=f"intracker://document/{d.id}",
+                name=f"Document: {d.title}",
+                description=f"{d.type} (v{d.version})",
+                mimeType="text/markdown" if d.type in ["architecture", "adr", "runbook"] else "application/json",
+            )
+            for d in documents
+        ]
     finally:
         db.close()
 
@@ -48,9 +49,10 @@ async def read_document_resource(uri: str) -> str:
         raise ValueError(f"Invalid document resource URI: {uri_str}")
 
     document_id = uri_str.replace("intracker://document/", "")
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        document = db.query(Document).filter(Document.id == UUID(document_id)).first()
+        # Use DocumentService to get document
+        document = DocumentService.get_document_by_id(db, UUID(document_id))
         if not document:
             raise ValueError(f"Document not found: {document_id}")
 

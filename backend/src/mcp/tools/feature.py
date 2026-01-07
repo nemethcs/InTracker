@@ -3,10 +3,11 @@ from typing import Optional, List
 from uuid import UUID
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
-from src.services.database import get_db_session
-from src.services.cache import cache_service
-from src.models import Feature, ProjectElement, FeatureElement, Todo
-from sqlalchemy import func
+from src.database.base import SessionLocal
+from src.mcp.services.cache import cache_service
+from src.services.signalr_hub import broadcast_feature_update
+from src.services.feature_service import FeatureService
+from src.services.todo_service import TodoService
 
 
 def get_create_feature_tool() -> MCPTool:
@@ -38,36 +39,18 @@ async def handle_create_feature(
     element_ids: Optional[List[str]] = None,
 ) -> dict:
     """Handle create feature tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        feature = Feature(
+        # Use FeatureService to create feature
+        element_uuid_list = [UUID(eid) for eid in element_ids] if element_ids else None
+        feature = FeatureService.create_feature(
+            db=db,
             project_id=UUID(project_id),
             name=name,
             description=description,
-            status="new",  # Changed from "todo" to "new" to match status enum
-            total_todos=0,
-            completed_todos=0,
-            progress_percentage=0,
+            status="new",
+            element_ids=element_uuid_list,
         )
-        db.add(feature)
-        db.flush()
-
-        # Link elements if provided
-        if element_ids:
-            for element_id in element_ids:
-                element = db.query(ProjectElement).filter(
-                    ProjectElement.id == UUID(element_id),
-                    ProjectElement.project_id == UUID(project_id),
-                ).first()
-                if element:
-                    feature_element = FeatureElement(
-                        feature_id=feature.id,
-                        element_id=element.id,
-                    )
-                    db.add(feature_element)
-
-        db.commit()
-        db.refresh(feature)
 
         # Invalidate cache
         cache_service.clear_pattern(f"project:{project_id}:*")
@@ -107,22 +90,18 @@ async def handle_get_feature(feature_id: str) -> dict:
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()
+        # Use FeatureService to get feature
+        feature = FeatureService.get_feature_by_id(db, UUID(feature_id))
         if not feature:
             return {"error": "Feature not found"}
 
-        # Get todos
-        todos = db.query(Todo).filter(Todo.feature_id == UUID(feature_id)).all()
+        # Use FeatureService to get todos
+        todos = FeatureService.get_feature_todos(db, UUID(feature_id))
 
-        # Get elements
-        elements = (
-            db.query(ProjectElement)
-            .join(FeatureElement)
-            .filter(FeatureElement.feature_id == UUID(feature_id))
-            .all()
-        )
+        # Use FeatureService to get elements
+        elements = FeatureService.get_feature_elements(db, UUID(feature_id))
 
         result = {
             "id": str(feature.id),
@@ -189,13 +168,14 @@ async def handle_list_features(
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        query = db.query(Feature).filter(Feature.project_id == UUID(project_id))
-        if status:
-            query = query.filter(Feature.status == status)
-
-        features = query.all()
+        # Use FeatureService to get features by project
+        features, _ = FeatureService.get_features_by_project(
+            db=db,
+            project_id=UUID(project_id),
+            status=status,
+        )
 
         result = {
             "project_id": project_id,
@@ -242,33 +222,37 @@ def get_update_feature_status_tool() -> MCPTool:
 
 async def handle_update_feature_status(feature_id: str, status: str) -> dict:
     """Handle update feature status tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()
+        # Use FeatureService to update feature status
+        feature = FeatureService.update_feature(
+            db=db,
+            feature_id=UUID(feature_id),
+            status=status,
+        )
+        
         if not feature:
             return {"error": "Feature not found"}
 
-        feature.status = status
-
-        # Recalculate progress
-        total = db.query(func.count(Todo.id)).filter(Todo.feature_id == UUID(feature_id)).scalar()
-        completed = (
-            db.query(func.count(Todo.id))
-            .filter(Todo.feature_id == UUID(feature_id), Todo.status == "done")
-            .scalar()
-        )
-        percentage = int((completed / total * 100)) if total > 0 else 0
-
-        feature.total_todos = total
-        feature.completed_todos = completed
-        feature.progress_percentage = percentage
-
-        db.commit()
+        # Use FeatureService to recalculate progress (this also auto-updates status based on todos)
+        FeatureService.calculate_feature_progress(db, UUID(feature_id))
+        
+        # Refresh to get updated progress
         db.refresh(feature)
 
         # Invalidate cache
         cache_service.delete(f"feature:{feature_id}")
         cache_service.clear_pattern(f"project:{feature.project_id}:*")
+        
+        # Broadcast SignalR update (fire and forget)
+        import asyncio
+        asyncio.create_task(
+            broadcast_feature_update(
+                str(feature.project_id),
+                str(feature_id),
+                percentage
+            )
+        )
 
         return {
             "id": str(feature.id),
@@ -302,9 +286,10 @@ async def handle_get_feature_todos(feature_id: str) -> dict:
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        todos = db.query(Todo).filter(Todo.feature_id == UUID(feature_id)).all()
+        # Use FeatureService to get feature todos
+        todos = FeatureService.get_feature_todos(db, UUID(feature_id))
 
         result = {
             "feature_id": feature_id,
@@ -350,14 +335,10 @@ async def handle_get_feature_elements(feature_id: str) -> dict:
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        elements = (
-            db.query(ProjectElement)
-            .join(FeatureElement)
-            .filter(FeatureElement.feature_id == UUID(feature_id))
-            .all()
-        )
+        # Use FeatureService to get feature elements
+        elements = FeatureService.get_feature_elements(db, UUID(feature_id))
 
         result = {
             "feature_id": feature_id,
@@ -397,26 +378,17 @@ def get_link_element_to_feature_tool() -> MCPTool:
 
 async def handle_link_element_to_feature(feature_id: str, element_id: str) -> dict:
     """Handle link element to feature tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        # Check if link already exists
-        existing = (
-            db.query(FeatureElement)
-            .filter(
-                FeatureElement.feature_id == UUID(feature_id),
-                FeatureElement.element_id == UUID(element_id),
-            )
-            .first()
-        )
-        if existing:
-            return {"error": "Element already linked to feature"}
-
-        feature_element = FeatureElement(
+        # Use FeatureService to link element to feature
+        success = FeatureService.link_element_to_feature(
+            db=db,
             feature_id=UUID(feature_id),
             element_id=UUID(element_id),
         )
-        db.add(feature_element)
-        db.commit()
+        
+        if not success:
+            return {"error": "Element already linked to feature"}
 
         # Invalidate cache
         cache_service.delete(f"feature:{feature_id}")

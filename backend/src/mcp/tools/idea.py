@@ -3,9 +3,11 @@ from typing import Optional, List
 from uuid import UUID
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
-from src.services.database import get_db_session
-from src.services.cache import cache_service
-from src.models import Idea, Project, UserProject, User
+from src.database.base import SessionLocal
+from src.mcp.services.cache import cache_service
+from src.services.idea_service import IdeaService
+from src.services.project_service import ProjectService
+from src.database.models import User
 
 
 def get_create_idea_tool() -> MCPTool:
@@ -41,17 +43,16 @@ async def handle_create_idea(
     tags: Optional[List[str]] = None,
 ) -> dict:
     """Handle create idea tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        idea = Idea(
+        # Use IdeaService to create idea
+        idea = IdeaService.create_idea(
+            db=db,
             title=title,
             description=description,
             status=status,
-            tags=tags or [],
+            tags=tags,
         )
-        db.add(idea)
-        db.commit()
-        db.refresh(idea)
 
         # Invalidate cache
         cache_service.clear_pattern("ideas:*")
@@ -97,14 +98,15 @@ async def handle_list_ideas(status: Optional[str] = None) -> dict:
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        query = db.query(Idea)
-
-        if status:
-            query = query.filter(Idea.status == status)
-
-        ideas = query.order_by(Idea.created_at.desc()).all()
+        # Use IdeaService to get ideas
+        ideas, _ = IdeaService.get_ideas(
+            db=db,
+            status=status,
+            skip=0,
+            limit=1000,  # Large limit for MCP tools
+        )
 
         result = {
             "ideas": [
@@ -153,9 +155,10 @@ async def handle_get_idea(idea_id: str) -> dict:
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        idea = db.query(Idea).filter(Idea.id == UUID(idea_id)).first()
+        # Use IdeaService to get idea
+        idea = IdeaService.get_idea_by_id(db, UUID(idea_id))
         if not idea:
             return {"error": "Idea not found"}
 
@@ -170,9 +173,9 @@ async def handle_get_idea(idea_id: str) -> dict:
             "updated_at": idea.updated_at.isoformat(),
         }
 
-        # Get converted project if exists
+        # Get converted project if exists using ProjectService
         if idea.converted_to_project_id:
-            project = db.query(Project).filter(Project.id == idea.converted_to_project_id).first()
+            project = ProjectService.get_project_by_id(db, idea.converted_to_project_id)
             if project:
                 result["converted_project"] = {
                     "id": str(project.id),
@@ -222,23 +225,20 @@ async def handle_update_idea(
     tags: Optional[List[str]] = None,
 ) -> dict:
     """Handle update idea tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        idea = db.query(Idea).filter(Idea.id == UUID(idea_id)).first()
+        # Use IdeaService to update idea
+        idea = IdeaService.update_idea(
+            db=db,
+            idea_id=UUID(idea_id),
+            title=title,
+            description=description,
+            status=status,
+            tags=tags,
+        )
+        
         if not idea:
             return {"error": "Idea not found"}
-
-        if title is not None:
-            idea.title = title
-        if description is not None:
-            idea.description = description
-        if status is not None:
-            idea.status = status
-        if tags is not None:
-            idea.tags = tags
-
-        db.commit()
-        db.refresh(idea)
 
         # Invalidate cache
         cache_service.delete(f"idea:{idea_id}")
@@ -297,56 +297,43 @@ async def handle_convert_idea_to_project(
     technology_tags: Optional[List[str]] = None,
 ) -> dict:
     """Handle convert idea to project tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        idea = db.query(Idea).filter(Idea.id == UUID(idea_id)).first()
-        if not idea:
-            return {"error": "Idea not found"}
-
-        if idea.converted_to_project_id:
-            # Already converted, return existing project
-            project = db.query(Project).filter(Project.id == idea.converted_to_project_id).first()
-            if project:
-                return {
-                    "id": str(project.id),
-                    "name": project.name,
-                    "description": project.description,
-                    "status": project.status,
-                    "message": "Idea was already converted to this project",
-                }
-            return {"error": "Idea was converted but project not found"}
-
         # Get first available user (for MCP context, we need a user)
         # In a real scenario, this would come from the MCP context/authentication
         user = db.query(User).first()
         if not user:
             return {"error": "No user available for project creation"}
 
-        # Create project from idea directly
-        project = Project(
-            name=project_name or idea.title,
-            description=project_description or idea.description,
-            status=project_status,
-            tags=project_tags or idea.tags,
-            technology_tags=technology_tags or [],
-        )
-        db.add(project)
-        db.flush()
-
-        # Assign owner role
-        user_project = UserProject(
+        # Use IdeaService to convert idea to project
+        project = IdeaService.convert_idea_to_project(
+            db=db,
+            idea_id=UUID(idea_id),
             user_id=user.id,
-            project_id=project.id,
-            role="owner",
+            project_name=project_name,
+            project_description=project_description,
+            project_status=project_status,
+            project_tags=project_tags,
+            technology_tags=technology_tags,
         )
-        db.add(user_project)
-        db.commit()
-        db.refresh(project)
-
-        # Link idea to project
-        idea.converted_to_project_id = project.id
-        db.commit()
-        db.refresh(idea)
+        
+        if not project:
+            # Check if idea exists
+            idea = IdeaService.get_idea_by_id(db, UUID(idea_id))
+            if not idea:
+                return {"error": "Idea not found"}
+            # Idea exists but conversion failed - might be already converted
+            if idea.converted_to_project_id:
+                existing_project = ProjectService.get_project_by_id(db, idea.converted_to_project_id)
+                if existing_project:
+                    return {
+                        "id": str(existing_project.id),
+                        "name": existing_project.name,
+                        "description": existing_project.description,
+                        "status": existing_project.status,
+                        "message": "Idea was already converted to this project",
+                    }
+            return {"error": "Failed to convert idea to project"}
 
         # Invalidate cache
         cache_service.delete(f"idea:{idea_id}")

@@ -61,7 +61,7 @@ InTracker/
 │   │   └── main.py      # FastAPI app
 │   ├── alembic/         # Database migrations
 │   └── requirements.txt
-├── mcp-server/          # Python MCP Server (később)
+├── backend/src/mcp/    # MCP Server (integrated into backend)
 ├── docker-compose.yml   # Docker környezet
 └── docs/                # Dokumentáció
 ```

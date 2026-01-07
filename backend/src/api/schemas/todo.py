@@ -31,6 +31,7 @@ class TodoUpdate(BaseModel):
     priority: Optional[str] = Field(None, pattern="^(low|medium|high|critical)$")
     blocker_reason: Optional[str] = None
     assigned_to: Optional[UUID] = None
+    feature_id: Optional[UUID] = None
 
 
 class TodoResponse(TodoBase):

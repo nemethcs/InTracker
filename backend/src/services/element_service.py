@@ -234,7 +234,7 @@ class ElementService:
         elif done > 0 or in_progress > 0:
             new_status = "in_progress"
         else:
-            new_status = "todo"
+            new_status = "new"
 
         # Update if different
         if element.status != new_status:

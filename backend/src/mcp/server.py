@@ -4,7 +4,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool, Resource, TextContent
 from src.config import settings
-from src.tools import (
+from src.mcp.tools import (
     project,
     feature,
     todo,
@@ -12,6 +12,7 @@ from src.tools import (
     document,
     github,
     idea,
+    import_tools,
 )
 
 # Create MCP server
@@ -46,6 +47,7 @@ async def list_tools() -> list[Tool]:
         todo.get_update_todo_status_tool(),
         todo.get_list_todos_tool(),
         todo.get_assign_todo_tool(),
+        todo.get_link_todo_to_feature_tool(),
         # Session tools
         session.get_start_session_tool(),
         session.get_update_session_tool(),
@@ -77,6 +79,11 @@ async def list_tools() -> list[Tool]:
         idea.get_get_idea_tool(),
         idea.get_update_idea_tool(),
         idea.get_convert_idea_to_project_tool(),
+        # Import tools
+        import_tools.get_parse_file_structure_tool(),
+        import_tools.get_import_github_issues_tool(),
+        import_tools.get_import_github_milestones_tool(),
+        import_tools.get_analyze_codebase_tool(),
     ]
 
 
@@ -230,6 +237,14 @@ async def call_tool(name: str, arguments: dict):
             result = await todo.handle_assign_todo(
                 arguments["todoId"],
                 arguments.get("userId"),
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+
+        elif name == "mcp_link_todo_to_feature":
+            result = await todo.handle_link_todo_to_feature(
+                arguments["todoId"],
+                arguments.get("featureId"),
+                arguments.get("expectedVersion"),
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 
@@ -439,6 +454,39 @@ async def call_tool(name: str, arguments: dict):
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 
+        # Import tools
+        elif name == "mcp_parse_file_structure":
+            result = await import_tools.handle_parse_file_structure(
+                arguments["projectId"],
+                arguments.get("projectPath"),
+                arguments.get("maxDepth", 3),
+                arguments.get("ignorePatterns"),
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+
+        elif name == "mcp_import_github_issues":
+            result = await import_tools.handle_import_github_issues(
+                arguments["projectId"],
+                arguments.get("labels"),
+                arguments.get("state", "open"),
+                arguments.get("createElements", True),
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+
+        elif name == "mcp_import_github_milestones":
+            result = await import_tools.handle_import_github_milestones(
+                arguments["projectId"],
+                arguments.get("state", "open"),
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+
+        elif name == "mcp_analyze_codebase":
+            result = await import_tools.handle_analyze_codebase(
+                arguments["projectId"],
+                arguments.get("projectPath"),
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
@@ -449,7 +497,7 @@ async def call_tool(name: str, arguments: dict):
 @server.list_resources()
 async def list_resources() -> list[Resource]:
     """List all available resources."""
-    from src.resources import project_resources, feature_resources, document_resources
+    from src.mcp.resources import project_resources, feature_resources, document_resources
     
     resources = []
     
@@ -468,7 +516,7 @@ async def list_resources() -> list[Resource]:
 @server.read_resource()
 async def read_resource(uri: str) -> str:
     """Read a resource."""
-    from src.resources import project_resources, feature_resources, document_resources
+    from src.mcp.resources import project_resources, feature_resources, document_resources
     
     # Convert URI to string (MCP SDK may pass AnyUrl object)
     uri_str = str(uri)

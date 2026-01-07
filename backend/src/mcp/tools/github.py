@@ -3,27 +3,28 @@ from typing import Optional, List
 from uuid import UUID
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
-from src.services.database import get_db_session
-from src.models import Project, GitHubBranch, ProjectElement, Todo, Feature
-from src.services.cache import cache_service
+from src.database.base import SessionLocal
+from src.database.models import GitHubBranch
+from src.mcp.services.cache import cache_service
+from src.services.github_service import GitHubService
+from src.services.project_service import ProjectService
+from src.services.feature_service import FeatureService
+from src.services.element_service import ElementService
+from src.services.todo_service import TodoService
 from github import Github
 from github.GithubException import GithubException
-from src.config import settings
 
 
-# GitHub client instance
-_github_client: Optional[Github] = None
+# GitHub service instance
+_github_service: Optional[GitHubService] = None
 
 
-def get_github_client() -> Optional[Github]:
-    """Get GitHub client instance."""
-    global _github_client
-    if _github_client is None and settings.GITHUB_TOKEN:
-        try:
-            _github_client = Github(settings.GITHUB_TOKEN)
-        except Exception as e:
-            print(f"⚠️  GitHub client initialization failed: {e}")
-    return _github_client
+def get_github_service() -> Optional[GitHubService]:
+    """Get GitHub service instance."""
+    global _github_service
+    if _github_service is None:
+        _github_service = GitHubService()
+    return _github_service
 
 
 def get_get_branches_tool() -> MCPTool:
@@ -44,7 +45,7 @@ def get_get_branches_tool() -> MCPTool:
 
 async def handle_get_branches(project_id: str, feature_id: Optional[str] = None) -> dict:
     """Handle get branches tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         query = db.query(GitHubBranch).filter(GitHubBranch.project_id == UUID(project_id))
         if feature_id:
@@ -88,36 +89,37 @@ def get_connect_github_repo_tool() -> MCPTool:
 
 async def handle_connect_github_repo(project_id: str, owner: str, repo: str) -> dict:
     """Handle connect GitHub repo tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project:
             return {"error": "Project not found"}
 
-        # Validate repo access
-        client = get_github_client()
-        if not client:
+        # Use GitHubService to validate and get repo info
+        github_service = get_github_service()
+        if not github_service or not github_service.client:
             return {"error": "GitHub token not configured"}
 
-        try:
-            repository = client.get_repo(f"{owner}/{repo}")
-            repo_info = {
-                "id": repository.id,
-                "name": repository.name,
-                "full_name": repository.full_name,
-                "owner": repository.owner.login,
-                "private": repository.private,
-                "default_branch": repository.default_branch,
-                "url": repository.html_url,
-            }
-        except GithubException as e:
-            return {"error": f"Cannot access GitHub repository: {e}"}
+        if not github_service.validate_repo_access(owner, repo):
+            return {"error": "Cannot access GitHub repository"}
 
-        # Update project
-        project.github_repo_url = repo_info["url"]
-        project.github_repo_id = str(repo_info["id"])
-        db.commit()
-        db.refresh(project)
+        repo_info = github_service.get_repo_info(owner, repo)
+        if not repo_info:
+            return {"error": "Failed to get repository information"}
+
+        # Use ProjectService to update project
+        updated_project = ProjectService.update_project(
+            db=db,
+            project_id=UUID(project_id),
+            github_repo_url=repo_info["url"],
+            github_repo_id=str(repo_info["id"]),
+        )
+        
+        if not updated_project:
+            return {"error": "Failed to update project"}
+        
+        project = updated_project
 
         # Invalidate cache
         cache_service.delete(f"project:{project_id}:*")
@@ -149,9 +151,10 @@ def get_get_repo_info_tool() -> MCPTool:
 
 async def handle_get_repo_info(project_id: str) -> dict:
     """Handle get repo info tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project or not project.github_repo_url:
             return {"error": "Project does not have a connected GitHub repository"}
 
@@ -162,27 +165,19 @@ async def handle_get_repo_info(project_id: str) -> dict:
 
         owner, repo = repo_parts
 
-        # Get repo info from GitHub
-        client = get_github_client()
-        if not client:
+        # Use GitHubService to get repo info
+        github_service = get_github_service()
+        if not github_service or not github_service.client:
             return {"error": "GitHub token not configured"}
 
-        try:
-            repository = client.get_repo(f"{owner}/{repo}")
-            return {
-                "project_id": project_id,
-                "repo_info": {
-                    "id": repository.id,
-                    "name": repository.name,
-                    "full_name": repository.full_name,
-                    "owner": repository.owner.login,
-                    "private": repository.private,
-                    "default_branch": repository.default_branch,
-                    "url": repository.html_url,
-                },
-            }
-        except GithubException as e:
-            return {"error": f"Failed to fetch repository information: {e}"}
+        repo_info = github_service.get_repo_info(owner, repo)
+        if not repo_info:
+            return {"error": "Failed to fetch repository information"}
+
+        return {
+            "project_id": project_id,
+            "repo_info": repo_info,
+        }
     finally:
         db.close()
 
@@ -205,14 +200,15 @@ def get_link_element_to_issue_tool() -> MCPTool:
 
 async def handle_link_element_to_issue(element_id: str, issue_number: int) -> dict:
     """Handle link element to issue tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        element = db.query(ProjectElement).filter(ProjectElement.id == UUID(element_id)).first()
+        # Use ElementService to get element
+        element = ElementService.get_element_by_id(db, UUID(element_id))
         if not element:
             return {"error": "Element not found"}
 
-        # Get project to get repo info
-        project = db.query(Project).filter(Project.id == element.project_id).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, element.project_id)
         if not project or not project.github_repo_url:
             return {"error": "Project does not have a connected GitHub repository"}
 
@@ -224,18 +220,20 @@ async def handle_link_element_to_issue(element_id: str, issue_number: int) -> di
         owner, repo = repo_parts
 
         # Get issue from GitHub to validate
-        client = get_github_client()
-        if not client:
+        github_service = get_github_service()
+        if not github_service or not github_service.client:
             return {"error": "GitHub token not configured"}
 
         try:
-            repository = client.get_repo(f"{owner}/{repo}")
+            repository = github_service.client.get_repo(f"{owner}/{repo}")
             issue = repository.get_issue(issue_number)
             issue_url = issue.html_url
         except GithubException as e:
             return {"error": f"GitHub issue not found: {e}"}
 
-        # Update element
+        # Update element directly (ElementService doesn't have update method for GitHub fields)
+        from src.database.models import ProjectElement
+        element = db.query(ProjectElement).filter(ProjectElement.id == UUID(element_id)).first()
         element.github_issue_number = issue_number
         element.github_issue_url = issue_url
         db.commit()
@@ -271,9 +269,10 @@ def get_get_github_issue_tool() -> MCPTool:
 
 async def handle_get_github_issue(project_id: str, issue_number: int) -> dict:
     """Handle get GitHub issue tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project or not project.github_repo_url:
             return {"error": "Project does not have a connected GitHub repository"}
 
@@ -285,12 +284,12 @@ async def handle_get_github_issue(project_id: str, issue_number: int) -> dict:
         owner, repo = repo_parts
 
         # Get issue from GitHub
-        client = get_github_client()
-        if not client:
+        github_service = get_github_service()
+        if not github_service or not github_service.client:
             return {"error": "GitHub token not configured"}
 
         try:
-            repository = client.get_repo(f"{owner}/{repo}")
+            repository = github_service.client.get_repo(f"{owner}/{repo}")
             issue = repository.get_issue(issue_number)
             return {
                 "project_id": project_id,
@@ -339,9 +338,10 @@ async def handle_create_github_issue(
     element_id: Optional[str] = None,
 ) -> dict:
     """Handle create GitHub issue tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project or not project.github_repo_url:
             return {"error": "Project does not have a connected GitHub repository"}
 
@@ -353,12 +353,12 @@ async def handle_create_github_issue(
         owner, repo = repo_parts
 
         # Create issue on GitHub
-        client = get_github_client()
-        if not client:
+        github_service = get_github_service()
+        if not github_service or not github_service.client:
             return {"error": "GitHub token not configured"}
 
         try:
-            repository = client.get_repo(f"{owner}/{repo}")
+            repository = github_service.client.get_repo(f"{owner}/{repo}")
             issue = repository.create_issue(
                 title=title,
                 body=body or "",
@@ -367,8 +367,11 @@ async def handle_create_github_issue(
 
             # Link to element if provided
             if element_id:
-                element = db.query(ProjectElement).filter(ProjectElement.id == UUID(element_id)).first()
+                element = ElementService.get_element_by_id(db, UUID(element_id))
                 if element and element.project_id == project.id:
+                    # Update element directly (ElementService doesn't have update method for GitHub fields)
+                    from src.database.models import ProjectElement
+                    element = db.query(ProjectElement).filter(ProjectElement.id == UUID(element_id)).first()
                     element.github_issue_number = issue.number
                     element.github_issue_url = issue.html_url
                     db.commit()
@@ -410,18 +413,20 @@ def get_link_todo_to_pr_tool() -> MCPTool:
 
 async def handle_link_todo_to_pr(todo_id: str, pr_number: int) -> dict:
     """Handle link todo to PR tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        todo = db.query(Todo).filter(Todo.id == UUID(todo_id)).first()
+        # Use TodoService to get todo
+        todo = TodoService.get_todo_by_id(db, UUID(todo_id))
         if not todo:
             return {"error": "Todo not found"}
 
-        # Get project to get repo info
-        element = db.query(ProjectElement).filter(ProjectElement.id == todo.element_id).first()
+        # Use ElementService to get element
+        element = ElementService.get_element_by_id(db, todo.element_id)
         if not element:
             return {"error": "Element not found"}
 
-        project = db.query(Project).filter(Project.id == element.project_id).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, element.project_id)
         if not project or not project.github_repo_url:
             return {"error": "Project does not have a connected GitHub repository"}
 
@@ -433,18 +438,20 @@ async def handle_link_todo_to_pr(todo_id: str, pr_number: int) -> dict:
         owner, repo = repo_parts
 
         # Get PR from GitHub to validate
-        client = get_github_client()
-        if not client:
+        github_service = get_github_service()
+        if not github_service or not github_service.client:
             return {"error": "GitHub token not configured"}
 
         try:
-            repository = client.get_repo(f"{owner}/{repo}")
+            repository = github_service.client.get_repo(f"{owner}/{repo}")
             pr = repository.get_pull(pr_number)
             pr_url = pr.html_url
         except GithubException as e:
             return {"error": f"GitHub PR not found: {e}"}
 
-        # Update todo
+        # Update todo directly (TodoService doesn't have update method for GitHub fields)
+        from src.database.models import Todo
+        todo = db.query(Todo).filter(Todo.id == UUID(todo_id)).first()
         todo.github_pr_number = pr_number
         todo.github_pr_url = pr_url
         db.commit()
@@ -480,9 +487,10 @@ def get_get_github_pr_tool() -> MCPTool:
 
 async def handle_get_github_pr(project_id: str, pr_number: int) -> dict:
     """Handle get GitHub PR tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project or not project.github_repo_url:
             return {"error": "Project does not have a connected GitHub repository"}
 
@@ -494,12 +502,12 @@ async def handle_get_github_pr(project_id: str, pr_number: int) -> dict:
         owner, repo = repo_parts
 
         # Get PR from GitHub
-        client = get_github_client()
-        if not client:
+        github_service = get_github_service()
+        if not github_service or not github_service.client:
             return {"error": "GitHub token not configured"}
 
         try:
-            repository = client.get_repo(f"{owner}/{repo}")
+            repository = github_service.client.get_repo(f"{owner}/{repo}")
             pr = repository.get_pull(pr_number)
             return {
                 "project_id": project_id,
@@ -559,9 +567,10 @@ async def handle_create_github_pr(
     todo_id: Optional[str] = None,
 ) -> dict:
     """Handle create GitHub PR tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project or not project.github_repo_url:
             return {"error": "Project does not have a connected GitHub repository"}
 
@@ -573,12 +582,12 @@ async def handle_create_github_pr(
         owner, repo = repo_parts
 
         # Create PR on GitHub
-        client = get_github_client()
-        if not client:
+        github_service = get_github_service()
+        if not github_service or not github_service.client:
             return {"error": "GitHub token not configured"}
 
         try:
-            repository = client.get_repo(f"{owner}/{repo}")
+            repository = github_service.client.get_repo(f"{owner}/{repo}")
             pr = repository.create_pull(
                 title=title,
                 body=body or "",
@@ -588,10 +597,13 @@ async def handle_create_github_pr(
 
             # Link to todo if provided
             if todo_id:
-                todo = db.query(Todo).filter(Todo.id == UUID(todo_id)).first()
+                todo = TodoService.get_todo_by_id(db, UUID(todo_id))
                 if todo:
-                    element = db.query(ProjectElement).filter(ProjectElement.id == todo.element_id).first()
+                    element = ElementService.get_element_by_id(db, todo.element_id)
                     if element and element.project_id == project.id:
+                        # Update todo directly (TodoService doesn't have update method for GitHub fields)
+                        from src.database.models import Todo
+                        todo = db.query(Todo).filter(Todo.id == UUID(todo_id)).first()
                         todo.github_pr_number = pr.number
                         todo.github_pr_url = pr.html_url
                         db.commit()
@@ -633,13 +645,15 @@ def get_create_branch_for_feature_tool() -> MCPTool:
 
 async def handle_create_branch_for_feature(feature_id: str, base_branch: str = "main") -> dict:
     """Handle create branch for feature tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()
+        # Use FeatureService to get feature
+        feature = FeatureService.get_feature_by_id(db, UUID(feature_id))
         if not feature:
             return {"error": "Feature not found"}
 
-        project = db.query(Project).filter(Project.id == feature.project_id).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, feature.project_id)
         if not project or not project.github_repo_url:
             return {"error": "Project does not have a connected GitHub repository"}
 
@@ -653,20 +667,15 @@ async def handle_create_branch_for_feature(feature_id: str, base_branch: str = "
         # Generate branch name from feature name
         branch_name = f"feature/{feature.name.lower().replace(' ', '-').replace('_', '-')[:50]}"
 
-        # Get GitHub client
-        client = get_github_client()
-        if not client:
+        # Use GitHubService to create branch
+        github_service = get_github_service()
+        if not github_service or not github_service.client:
             return {"error": "GitHub token not configured"}
 
         try:
-            repository = client.get_repo(f"{owner}/{repo}")
-            
-            # Get base branch SHA
-            base_ref = repository.get_git_ref(f"heads/{base_branch}")
-            base_sha = base_ref.object.sha
-
-            # Create new branch
-            repository.create_git_ref(f"refs/heads/{branch_name}", base_sha)
+            branch_result = github_service.create_branch(owner, repo, branch_name, base_branch)
+            if not branch_result:
+                return {"error": "Failed to create GitHub branch"}
 
             # Create GitHubBranch record
             github_branch = GitHubBranch(
@@ -718,9 +727,10 @@ async def handle_get_active_branch(project_id: str) -> dict:
     import subprocess
     import os
     
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project or not project.github_repo_url:
             return {"error": "Project does not have a connected GitHub repository"}
 
@@ -736,7 +746,7 @@ async def handle_get_active_branch(project_id: str) -> dict:
                 current_branch = result.stdout.strip()
                 
                 # Check if branch is linked to a feature
-                from src.models import GitHubBranch
+                from src.database.models import GitHubBranch
                 github_branch = db.query(GitHubBranch).filter(
                     GitHubBranch.project_id == UUID(project_id),
                     GitHubBranch.branch_name == current_branch,
@@ -776,7 +786,7 @@ def get_link_branch_to_feature_tool() -> MCPTool:
 
 async def handle_link_branch_to_feature(feature_id: str, branch_name: str) -> dict:
     """Handle link branch to feature tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()
         if not feature:
@@ -850,7 +860,7 @@ def get_get_feature_branches_tool() -> MCPTool:
 
 async def handle_get_feature_branches(feature_id: str) -> dict:
     """Handle get feature branches tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()
         if not feature:
@@ -898,9 +908,10 @@ def get_get_branch_status_tool() -> MCPTool:
 
 async def handle_get_branch_status(project_id: str, branch_name: str) -> dict:
     """Handle get branch status tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project or not project.github_repo_url:
             return {"error": "Project does not have a connected GitHub repository"}
 
@@ -974,7 +985,7 @@ def get_get_commits_for_feature_tool() -> MCPTool:
 
 async def handle_get_commits_for_feature(feature_id: str) -> dict:
     """Handle get commits for feature tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()
         if not feature:
