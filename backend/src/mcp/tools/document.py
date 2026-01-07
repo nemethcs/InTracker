@@ -5,7 +5,10 @@ from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
 from src.database.base import SessionLocal
 from src.mcp.services.cache import cache_service
-from src.database.models import Document, Project, ProjectElement, Todo
+from src.services.document_service import DocumentService
+from src.services.project_service import ProjectService
+from src.services.todo_service import TodoService
+from src.services.element_service import ElementService
 
 
 def get_get_document_tool() -> MCPTool:
@@ -33,7 +36,8 @@ async def handle_get_document(document_id: str) -> dict:
 
     db = SessionLocal()
     try:
-        document = db.query(Document).filter(Document.id == UUID(document_id)).first()
+        # Use DocumentService to get document
+        document = DocumentService.get_document_by_id(db, UUID(document_id))
         if not document:
             return {"error": "Document not found"}
 
@@ -83,11 +87,14 @@ async def handle_list_documents(project_id: str, doc_type: Optional[str] = None)
 
     db = SessionLocal()
     try:
-        query = db.query(Document).filter(Document.project_id == UUID(project_id))
-        if doc_type:
-            query = query.filter(Document.type == doc_type)
-
-        documents = query.order_by(Document.updated_at.desc()).all()
+        # Use DocumentService to get documents by project
+        documents, _ = DocumentService.get_documents_by_project(
+            db=db,
+            project_id=UUID(project_id),
+            type=doc_type,
+            skip=0,
+            limit=1000,  # Large limit for MCP tools
+        )
 
         result = {
             "project_id": project_id,
@@ -146,48 +153,41 @@ async def handle_create_document(
     """Handle create document tool call."""
     db = SessionLocal()
     try:
-        # Verify project exists
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to verify project exists
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project:
             return {"error": "Project not found"}
 
         # If todo_id is provided, get the element from the todo
+        final_element_id = None
         if todo_id:
-            todo = db.query(Todo).filter(Todo.id == UUID(todo_id)).first()
+            # Use TodoService to get todo
+            todo = TodoService.get_todo_by_id(db, UUID(todo_id))
             if not todo:
                 return {"error": "Todo not found"}
             # Use todo's element_id
-            element_id = str(todo.element_id)
-            # Verify element belongs to project
-            element = db.query(ProjectElement).filter(
-                ProjectElement.id == todo.element_id,
-                ProjectElement.project_id == UUID(project_id)
-            ).first()
-            if not element:
+            final_element_id = todo.element_id
+            # Verify element belongs to project using ElementService
+            element = ElementService.get_element_by_id(db, final_element_id)
+            if not element or element.project_id != UUID(project_id):
                 return {"error": "Todo's element does not belong to this project"}
-
-        # Verify element if provided
-        if element_id:
-            element = db.query(ProjectElement).filter(
-                ProjectElement.id == UUID(element_id),
-                ProjectElement.project_id == UUID(project_id)
-            ).first()
-            if not element:
+        elif element_id:
+            final_element_id = UUID(element_id)
+            # Verify element if provided using ElementService
+            element = ElementService.get_element_by_id(db, final_element_id)
+            if not element or element.project_id != UUID(project_id):
                 return {"error": "Element not found or does not belong to this project"}
 
-        # Create document
-        document = Document(
+        # Use DocumentService to create document
+        document = DocumentService.create_document(
+            db=db,
             project_id=UUID(project_id),
-            element_id=UUID(element_id) if element_id else None,
             type=type,
             title=title,
             content=content,
-            tags=tags or [],
-            version=1,
+            element_id=final_element_id,
+            tags=tags,
         )
-        db.add(document)
-        db.commit()
-        db.refresh(document)
 
         # Invalidate cache
         cache_service.delete(f"project:{project_id}:documents")
