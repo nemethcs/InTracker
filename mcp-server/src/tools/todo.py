@@ -5,6 +5,7 @@ from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
 from src.services.database import get_db_session
 from src.services.cache import cache_service
+from src.services.signalr_broadcast import broadcast_todo_update, broadcast_feature_update
 from src.models import Todo, ProjectElement, Feature
 from sqlalchemy import func, or_, and_
 
@@ -57,6 +58,7 @@ async def handle_create_todo(
         db.refresh(todo)
 
         # Update feature progress if linked
+        feature_progress = None
         if feature_id:
             feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()
             if feature:
@@ -71,11 +73,61 @@ async def handle_create_todo(
                 feature.completed_todos = completed
                 feature.progress_percentage = percentage
                 db.commit()
+                feature_progress = percentage
 
         # Invalidate cache
         cache_service.clear_pattern(f"project:{element.project_id}:*")
         if feature_id:
             cache_service.delete(f"feature:{feature_id}")
+
+        # Broadcast SignalR update (fire and forget)
+        # For MCP-created todos, we don't have a user_id, so use a placeholder
+        # The frontend will handle this gracefully
+        user_id = todo.assigned_to or todo.created_by
+        if user_id:
+            import asyncio
+            asyncio.create_task(
+                broadcast_todo_update(
+                    str(element.project_id),
+                    str(todo.id),
+                    user_id,
+                    {
+                        "title": todo.title,
+                        "status": todo.status,
+                        "action": "created"
+                    }
+                )
+            )
+        elif element:
+            # If no user_id, still broadcast but with a system user ID
+            # Frontend will handle this as a system update
+            import asyncio
+            from uuid import UUID
+            # Use a placeholder UUID for system updates
+            system_user_id = UUID("00000000-0000-0000-0000-000000000000")
+            asyncio.create_task(
+                broadcast_todo_update(
+                    str(element.project_id),
+                    str(todo.id),
+                    system_user_id,
+                    {
+                        "title": todo.title,
+                        "status": todo.status,
+                        "action": "created"
+                    }
+                )
+            )
+        
+        # Broadcast feature progress update if feature exists
+        if feature_id and feature_progress is not None:
+            import asyncio
+            asyncio.create_task(
+                broadcast_feature_update(
+                    str(element.project_id),
+                    feature_id,
+                    feature_progress
+                )
+            )
 
         return {
             "id": str(todo.id),
@@ -144,7 +196,11 @@ async def handle_update_todo_status(
         db.commit()
         db.refresh(todo)
 
+        # Get element for project_id and user_id for broadcast
+        element = db.query(ProjectElement).filter(ProjectElement.id == todo.element_id).first()
+        
         # Update feature progress if linked
+        feature_progress = None
         if todo.feature_id:
             feature = db.query(Feature).filter(Feature.id == todo.feature_id).first()
             if feature:
@@ -159,13 +215,51 @@ async def handle_update_todo_status(
                 feature.completed_todos = completed
                 feature.progress_percentage = percentage
                 db.commit()
+                feature_progress = percentage
 
         # Invalidate cache
-        element = db.query(ProjectElement).filter(ProjectElement.id == todo.element_id).first()
         if element:
             cache_service.clear_pattern(f"project:{element.project_id}:*")
         if todo.feature_id:
             cache_service.delete(f"feature:{todo.feature_id}")
+
+        # Broadcast SignalR update (fire and forget)
+        if element:
+            # Get user_id from todo (created_by or assigned_to)
+            user_id = todo.assigned_to or todo.created_by
+            if user_id:
+                import asyncio
+                asyncio.create_task(
+                    broadcast_todo_update(
+                        str(element.project_id),
+                        str(todo.id),
+                        user_id,
+                        {"status": status}
+                    )
+                )
+            else:
+                # If no user_id, use system user ID for MCP updates
+                import asyncio
+                from uuid import UUID
+                system_user_id = UUID("00000000-0000-0000-0000-000000000000")
+                asyncio.create_task(
+                    broadcast_todo_update(
+                        str(element.project_id),
+                        str(todo.id),
+                        system_user_id,
+                        {"status": status}
+                    )
+                )
+            
+            # Broadcast feature progress update if feature exists
+            if todo.feature_id and feature_progress is not None:
+                asyncio.create_task(
+                    broadcast_feature_update(
+                        str(element.project_id),
+                        str(todo.feature_id),
+                        feature_progress
+                    )
+                )
 
         return {
             "id": str(todo.id),

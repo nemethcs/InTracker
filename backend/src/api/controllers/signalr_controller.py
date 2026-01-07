@@ -1,5 +1,5 @@
 """SignalR WebSocket hub controller."""
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, HTTPException, Depends
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, HTTPException, Depends, Body
 from typing import Optional, List
 from uuid import UUID
 from src.services.signalr_hub import handle_websocket, connection_manager
@@ -81,3 +81,85 @@ async def get_active_users(
         ],
         "count": len(users)
     }
+
+
+@router.post("/hub/broadcast/todo-update")
+async def broadcast_todo_update_endpoint(
+    project_id: str = Query(...),
+    todo_id: str = Query(...),
+    user_id: str = Query(...),
+    api_key: str = Query(..., alias="api_key"),
+    changes: dict = Body(default={}),
+):
+    """
+    Broadcast todo update via SignalR.
+    Used by MCP server to trigger real-time updates.
+    Requires API key for authentication.
+    """
+    from src.config import settings
+    
+    # Simple API key authentication for MCP server
+    if api_key != settings.MCP_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    
+    from src.services.signalr_hub import broadcast_todo_update
+    from uuid import UUID
+    
+    try:
+        await broadcast_todo_update(project_id, todo_id, UUID(user_id), changes or {})
+        return {"success": True, "message": "Todo update broadcasted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to broadcast: {str(e)}")
+
+
+@router.post("/hub/broadcast/feature-update")
+async def broadcast_feature_update_endpoint(
+    project_id: str = Query(...),
+    feature_id: str = Query(...),
+    progress: int = Query(...),
+    api_key: str = Query(..., alias="api_key"),
+):
+    """
+    Broadcast feature progress update via SignalR.
+    Used by MCP server to trigger real-time updates.
+    Requires API key for authentication.
+    """
+    from src.config import settings
+    
+    # Simple API key authentication for MCP server
+    if api_key != settings.MCP_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    
+    from src.services.signalr_hub import broadcast_feature_update
+    
+    try:
+        await broadcast_feature_update(project_id, feature_id, progress)
+        return {"success": True, "message": "Feature update broadcasted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to broadcast: {str(e)}")
+
+
+@router.post("/hub/broadcast/project-update")
+async def broadcast_project_update_endpoint(
+    project_id: str = Query(...),
+    api_key: str = Query(..., alias="api_key"),
+    changes: dict = Body(default={}),
+):
+    """
+    Broadcast project update via SignalR.
+    Used by MCP server to trigger real-time updates.
+    Requires API key for authentication.
+    """
+    from src.config import settings
+    
+    # Simple API key authentication for MCP server
+    if api_key != settings.MCP_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    
+    from src.services.signalr_hub import broadcast_project_update
+    
+    try:
+        await broadcast_project_update(project_id, changes or {})
+        return {"success": True, "message": "Project update broadcasted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to broadcast: {str(e)}")

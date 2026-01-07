@@ -5,6 +5,7 @@ from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
 from src.services.database import get_db_session
 from src.services.cache import cache_service
+from src.services.signalr_broadcast import broadcast_feature_update
 from src.models import Feature, ProjectElement, FeatureElement, Todo
 from sqlalchemy import func
 
@@ -269,6 +270,16 @@ async def handle_update_feature_status(feature_id: str, status: str) -> dict:
         # Invalidate cache
         cache_service.delete(f"feature:{feature_id}")
         cache_service.clear_pattern(f"project:{feature.project_id}:*")
+        
+        # Broadcast SignalR update (fire and forget)
+        import asyncio
+        asyncio.create_task(
+            broadcast_feature_update(
+                str(feature.project_id),
+                str(feature_id),
+                percentage
+            )
+        )
 
         return {
             "id": str(feature.id),

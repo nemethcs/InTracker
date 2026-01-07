@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     MCP_API_KEY: Optional[str] = None
     MCP_HTTP_PORT: int = 3001
     MCP_HTTP_HOST: str = "0.0.0.0"
+    
+    # Backend API (for SignalR broadcast)
+    # Will be determined dynamically based on environment
+    BACKEND_API_URL: Optional[str] = None
 
     class Config:
         env_file = ".env"
