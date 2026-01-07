@@ -66,14 +66,43 @@ class RulesGenerator:
    - If no project exists, create: `mcp_create_project`
    - Save project ID for session
 
-2. **Resume Context & Cursor Rules (first time only):**
+2. **Project Setup (NEW/EXISTING PROJECTS - first time only):**
+   - **For NEW projects (no existing codebase):**
+     - Project structure will be created manually as you work
+     - Create elements and todos as needed: `mcp_create_todo(elementId, title, description)`
+   
+   - **For EXISTING projects (already has codebase):**
+     - **Option A: Auto-parse file structure (RECOMMENDED):**
+       - Use `mcp_parse_file_structure(projectId, projectPath?, maxDepth?, ignorePatterns?)`
+       - Automatically creates hierarchical project elements from directory structure
+       - Creates modules/components based on folders (max depth: 3 by default)
+       - Ignores common patterns (node_modules, .git, __pycache__, etc.)
+       - Only works if project has NO existing elements
+     
+     - **Option B: Import from GitHub (if GitHub repo connected):**
+       - Connect GitHub repo first: `mcp_connect_github_repo(projectId, owner, repo)`
+       - Import GitHub issues as todos: `mcp_import_github_issues(projectId, labels?, state?, createElements?)`
+       - Import GitHub milestones as features: `mcp_import_github_milestones(projectId, state?)`
+       - Issues become todos, milestones become features
+     
+     - **Option C: Analyze and get suggestions:**
+       - Use `mcp_analyze_codebase(projectId, projectPath?)` to analyze codebase
+       - Get suggestions for modules, components, tech stack detection
+       - Then manually create elements or use `mcp_parse_file_structure`
+   
+   - **After setup:**
+     - Project structure is ready with elements
+     - Todos are imported or ready to be created
+     - Continue with normal workflow
+
+3. **Resume Context & Cursor Rules (first time only):**
    - Get resume context: `mcp_get_resume_context(projectId)`
      - Shows: Last session, next todos, active elements, blockers, constraints
    - Load cursor rules: `mcp_load_cursor_rules(projectId)`
      - Only needed first time or when rules change
      - Rules are saved to `.cursor/rules/intracker-project-rules.mdc`
 
-3. **Work on Next Todo:**
+4. **Work on Next Todo:**
    - Get next todos from resume context
    - Update status: `mcp_update_todo_status(todoId, "in_progress")`
    - Implement changes
@@ -82,24 +111,9 @@ class RulesGenerator:
    - Restart affected service if needed
    - Test functionality
 
-4. **Update Todo Status:**
+5. **Update Todo Status:**
    - After implementation: `mcp_update_todo_status(todoId, "tested")` (only if tested!)
    - After merge to dev: `mcp_update_todo_status(todoId, "done")` (only after tested AND merged!)
-
-5. **Git Workflow (MANDATORY - See detailed Git Workflow section below):**
-   - Before work: Check branch, create feature branch if needed, pull latest
-   - During work: Make changes, test, fix errors
-   - Before commit: Check status, review changes, stage files
-   - Commit: Use format `{type}({scope}): {description} [feature:{featureId}]`
-   - After commit: Push to remote, update todo to `tested` (if tested)
-   - After merge: Update todo to `done` (only after tested AND merged!)
-
-6. **GitHub Maintenance (MANDATORY):**
-   - Keep GitHub up-to-date with local changes
-   - Link todos to GitHub issues: `mcp_link_element_to_issue(elementId, issueNumber)`
-   - Link PRs to todos: `mcp_link_todo_to_pr(todoId, prNumber)`
-   - Create feature branches: `mcp_create_branch_for_feature(featureId)`
-   - Link branches to features: `mcp_link_branch_to_feature(featureId, branchName)`
 
 6. **Git Workflow (MANDATORY - Follow this order!):**
    - **Before starting work:**

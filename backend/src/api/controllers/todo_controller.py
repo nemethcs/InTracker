@@ -8,7 +8,8 @@ from src.database.models import ProjectElement
 from src.api.middleware.auth import get_current_user
 from src.services.todo_service import todo_service
 from src.services.project_service import project_service
-from src.services.signalr_hub import broadcast_todo_update
+from src.services.feature_service import feature_service
+from src.services.signalr_hub import broadcast_todo_update, broadcast_feature_update
 from src.api.schemas.todo import (
     TodoCreate,
     TodoUpdate,
@@ -55,6 +56,16 @@ async def create_todo(
                     "action": "created"
                 }
             )
+            
+            # Update feature progress if todo is linked to a feature
+            if todo.feature_id:
+                progress = feature_service.calculate_feature_progress(db=db, feature_id=todo.feature_id)
+                background_tasks.add_task(
+                    broadcast_feature_update,
+                    str(element.project_id),
+                    str(todo.feature_id),
+                    progress["percentage"]
+                )
         
         return todo
     except ValueError as e:
@@ -253,6 +264,16 @@ async def update_todo(
                 UUID(current_user["user_id"]),
                 changes
             )
+            
+            # Update feature progress if todo is linked to a feature and status changed
+            if updated_todo.feature_id and todo_data.status is not None:
+                progress = feature_service.calculate_feature_progress(db=db, feature_id=updated_todo.feature_id)
+                background_tasks.add_task(
+                    broadcast_feature_update,
+                    str(element.project_id),
+                    str(updated_todo.feature_id),
+                    progress["percentage"]
+                )
 
         return updated_todo
     except ValueError as e:
@@ -360,6 +381,16 @@ async def update_todo_status(
                 UUID(current_user["user_id"]),
                 {"status": status}
             )
+            
+            # Update feature progress if todo is linked to a feature
+            if updated_todo.feature_id:
+                progress = feature_service.calculate_feature_progress(db=db, feature_id=updated_todo.feature_id)
+                background_tasks.add_task(
+                    broadcast_feature_update,
+                    str(element.project_id),
+                    str(updated_todo.feature_id),
+                    progress["percentage"]
+                )
 
         return updated_todo
     except ValueError as e:

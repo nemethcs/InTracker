@@ -41,12 +41,15 @@ export const todoService = {
     }
     
     // Otherwise, use the general todos endpoint
+    // Request all todos by setting page_size to 1000 (backend max is 100, but we'll use 100)
     const params: Record<string, string> = {}
     if (projectId) params.project_id = projectId
     if (elementId) params.element_id = elementId
+    params.page_size = '100' // Request up to 100 todos (backend max)
+    params.page = '1'
     const response = await api.get('/todos', { params })
-    // Backend returns { todos: [...], total: ... }
-    return response.data.todos || response.data || []
+    // Backend returns { todos: [...], total: ..., page: ..., page_size: ... }
+    return response.data.todos || []
   },
 
   async getTodo(id: string): Promise<Todo> {

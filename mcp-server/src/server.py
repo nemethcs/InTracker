@@ -12,6 +12,7 @@ from src.tools import (
     document,
     github,
     idea,
+    import_tools,
 )
 
 # Create MCP server
@@ -77,6 +78,11 @@ async def list_tools() -> list[Tool]:
         idea.get_get_idea_tool(),
         idea.get_update_idea_tool(),
         idea.get_convert_idea_to_project_tool(),
+        # Import tools
+        import_tools.get_parse_file_structure_tool(),
+        import_tools.get_import_github_issues_tool(),
+        import_tools.get_import_github_milestones_tool(),
+        import_tools.get_analyze_codebase_tool(),
     ]
 
 
@@ -436,6 +442,39 @@ async def call_tool(name: str, arguments: dict):
                 arguments.get("projectStatus", "active"),
                 arguments.get("projectTags"),
                 arguments.get("technologyTags"),
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+
+        # Import tools
+        elif name == "mcp_parse_file_structure":
+            result = await import_tools.handle_parse_file_structure(
+                arguments["projectId"],
+                arguments.get("projectPath"),
+                arguments.get("maxDepth", 3),
+                arguments.get("ignorePatterns"),
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+
+        elif name == "mcp_import_github_issues":
+            result = await import_tools.handle_import_github_issues(
+                arguments["projectId"],
+                arguments.get("labels"),
+                arguments.get("state", "open"),
+                arguments.get("createElements", True),
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+
+        elif name == "mcp_import_github_milestones":
+            result = await import_tools.handle_import_github_milestones(
+                arguments["projectId"],
+                arguments.get("state", "open"),
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+
+        elif name == "mcp_analyze_codebase":
+            result = await import_tools.handle_analyze_codebase(
+                arguments["projectId"],
+                arguments.get("projectPath"),
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 

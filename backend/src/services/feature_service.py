@@ -120,7 +120,7 @@ class FeatureService:
 
     @staticmethod
     def calculate_feature_progress(db: Session, feature_id: UUID) -> dict:
-        """Calculate feature progress based on todos."""
+        """Calculate feature progress based on todos and auto-update feature status."""
         feature = db.query(Feature).filter(Feature.id == feature_id).first()
         if not feature:
             return {"total": 0, "completed": 0, "percentage": 0}
@@ -135,10 +135,43 @@ class FeatureService:
 
         percentage = int((completed / total * 100)) if total > 0 else 0
 
-        # Update feature
+        # Update feature progress
         feature.total_todos = total
         feature.completed_todos = completed
         feature.progress_percentage = percentage
+        
+        # Auto-update feature status based on progress
+        # If all todos are done (100%), set feature status to "done"
+        # If some todos are done OR in progress OR tested, set to "in_progress"
+        # Otherwise keep current status or set to "new"
+        if total > 0:
+            in_progress_count = (
+                db.query(func.count(Todo.id))
+                .filter(Todo.feature_id == feature_id, Todo.status == "in_progress")
+                .scalar()
+            )
+            tested_count = (
+                db.query(func.count(Todo.id))
+                .filter(Todo.feature_id == feature_id, Todo.status == "tested")
+                .scalar()
+            )
+            new_count = (
+                db.query(func.count(Todo.id))
+                .filter(Todo.feature_id == feature_id, Todo.status == "new")
+                .scalar()
+            )
+            
+            if completed == total:
+                # All todos are done - feature is done
+                if feature.status != "done":
+                    feature.status = "done"
+            elif completed > 0 or in_progress_count > 0 or tested_count > 0:
+                # Some todos are done, in progress, or tested - feature is in progress
+                # (even if there are also "new" todos, if there's any progress, it's in_progress)
+                if feature.status not in ["in_progress", "tested", "done"]:
+                    feature.status = "in_progress"
+            # If all todos are "new", keep feature status as "new" (or current status)
+        
         db.commit()
 
         return {"total": total, "completed": completed, "percentage": percentage}

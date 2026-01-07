@@ -1,12 +1,13 @@
 """Feature controller."""
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from src.database.base import get_db
 from src.api.middleware.auth import get_current_user
 from src.services.feature_service import feature_service
 from src.services.project_service import project_service
+from src.services.signalr_hub import broadcast_feature_update
 from src.api.schemas.feature import (
     FeatureCreate,
     FeatureUpdate,
@@ -109,6 +110,7 @@ async def get_feature(
 async def update_feature(
     feature_id: UUID,
     feature_data: FeatureUpdate,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -140,6 +142,15 @@ async def update_feature(
         status=feature_data.status,
         assigned_to=feature_data.assigned_to,
     )
+    
+    # Broadcast feature update via SignalR
+    if updated_feature:
+        background_tasks.add_task(
+            broadcast_feature_update,
+            str(updated_feature.project_id),
+            str(updated_feature.id),
+            updated_feature.progress_percentage
+        )
 
     return updated_feature
 
@@ -288,6 +299,7 @@ async def link_element_to_feature(
 @router.post("/{feature_id}/calculate-progress")
 async def calculate_feature_progress(
     feature_id: UUID,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -311,4 +323,13 @@ async def calculate_feature_progress(
         )
 
     progress = feature_service.calculate_feature_progress(db=db, feature_id=feature_id)
+    
+    # Broadcast feature progress update via SignalR
+    background_tasks.add_task(
+        broadcast_feature_update,
+        str(feature.project_id),
+        str(feature_id),
+        progress["percentage"]
+    )
+    
     return progress
