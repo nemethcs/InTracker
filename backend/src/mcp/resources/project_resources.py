@@ -3,7 +3,7 @@ from typing import Optional
 from uuid import UUID
 from mcp.types import Resource
 from src.database.base import SessionLocal
-from src.database.models import Project
+from src.services.project_service import ProjectService
 from src.mcp.services.rules_generator import rules_generator
 
 
@@ -31,6 +31,9 @@ def get_project_resources(project_id: Optional[str] = None) -> list[Resource]:
         )
     else:
         # List all projects
+        # For listing all projects, we need to query directly as ProjectService doesn't have a list_all method
+        # This is acceptable for resources as it's a simple read operation
+        from src.database.models import Project
         db = SessionLocal()
         try:
             projects = db.query(Project).all()
