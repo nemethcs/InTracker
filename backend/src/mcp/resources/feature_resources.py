@@ -4,7 +4,7 @@ from uuid import UUID
 from mcp.types import Resource
 from sqlalchemy.orm import Session
 from src.database.base import SessionLocal
-from src.database.models import Feature, Project
+from src.services.feature_service import FeatureService
 
 
 def get_feature_resources(project_id: Optional[str] = None) -> list[Resource]:
@@ -12,28 +12,27 @@ def get_feature_resources(project_id: Optional[str] = None) -> list[Resource]:
     db = SessionLocal()
     try:
         if project_id:
-            features = db.query(Feature).filter(Feature.project_id == UUID(project_id)).all()
-            return [
-                Resource(
-                    uri=f"intracker://feature/{f.id}",
-                    name=f"Feature: {f.name}",
-                    description=f"{f.description or ''} ({f.progress_percentage}% complete)",
-                    mimeType="application/json",
-                )
-                for f in features
-            ]
+            # Use FeatureService to get features by project
+            features, _ = FeatureService.get_features_by_project(
+                db=db,
+                project_id=UUID(project_id),
+                status=None,
+            )
         else:
-            # List all features
+            # List all features - need to query directly as FeatureService doesn't have list_all method
+            # This is acceptable for resources as it's a simple read operation
+            from src.database.models import Feature
             features = db.query(Feature).all()
-            return [
-                Resource(
-                    uri=f"intracker://feature/{f.id}",
-                    name=f"Feature: {f.name}",
-                    description=f"{f.description or ''} ({f.progress_percentage}% complete)",
-                    mimeType="application/json",
-                )
-                for f in features
-            ]
+        
+        return [
+            Resource(
+                uri=f"intracker://feature/{f.id}",
+                name=f"Feature: {f.name}",
+                description=f"{f.description or ''} ({f.progress_percentage}% complete)",
+                mimeType="application/json",
+            )
+            for f in features
+        ]
     finally:
         db.close()
 
@@ -50,13 +49,13 @@ async def read_feature_resource(uri: str) -> str:
     feature_id = uri_str.replace("intracker://feature/", "")
     db = SessionLocal()
     try:
-        feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()
+        # Use FeatureService to get feature
+        feature = FeatureService.get_feature_by_id(db, UUID(feature_id))
         if not feature:
             raise ValueError(f"Feature not found: {feature_id}")
 
-        # Get todos
-        from src.database.models import Todo
-        todos = db.query(Todo).filter(Todo.feature_id == UUID(feature_id)).all()
+        # Use FeatureService to get todos
+        todos = FeatureService.get_feature_todos(db, UUID(feature_id))
 
         import json
         return json.dumps({
