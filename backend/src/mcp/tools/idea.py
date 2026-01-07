@@ -3,7 +3,7 @@ from typing import Optional, List
 from uuid import UUID
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
-from src.database.base import get_db_session
+from src.database.base import SessionLocal
 from src.mcp.services.cache import cache_service
 from src.database.models import Idea, Project, UserProject, User
 
@@ -41,7 +41,7 @@ async def handle_create_idea(
     tags: Optional[List[str]] = None,
 ) -> dict:
     """Handle create idea tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         idea = Idea(
             title=title,
@@ -97,7 +97,7 @@ async def handle_list_ideas(status: Optional[str] = None) -> dict:
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
         query = db.query(Idea)
 
@@ -153,7 +153,7 @@ async def handle_get_idea(idea_id: str) -> dict:
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
         idea = db.query(Idea).filter(Idea.id == UUID(idea_id)).first()
         if not idea:
@@ -222,7 +222,7 @@ async def handle_update_idea(
     tags: Optional[List[str]] = None,
 ) -> dict:
     """Handle update idea tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         idea = db.query(Idea).filter(Idea.id == UUID(idea_id)).first()
         if not idea:
@@ -297,7 +297,7 @@ async def handle_convert_idea_to_project(
     technology_tags: Optional[List[str]] = None,
 ) -> dict:
     """Handle convert idea to project tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         idea = db.query(Idea).filter(Idea.id == UUID(idea_id)).first()
         if not idea:

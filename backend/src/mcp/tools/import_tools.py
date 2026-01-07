@@ -6,7 +6,7 @@ import os
 import json
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
-from src.database.base import get_db_session
+from src.database.base import SessionLocal
 from src.mcp.services.cache import cache_service
 from src.database.models import Project, ProjectElement, Todo, Feature, FeatureElement
 from sqlalchemy import func
@@ -65,7 +65,7 @@ async def handle_parse_file_structure(
     ]
     ignore_patterns = ignore_patterns or default_ignore
     
-    db = get_db_session()
+    db = SessionLocal()
     try:
         # Verify project exists
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
@@ -236,7 +236,7 @@ async def handle_import_github_issues(
     from github import Github
     from github.GithubException import GithubException
     
-    db = get_db_session()
+    db = SessionLocal()
     try:
         # Verify project exists and has GitHub repo
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
@@ -400,7 +400,7 @@ async def handle_import_github_milestones(
     from github import Github
     from github.GithubException import GithubException
     
-    db = get_db_session()
+    db = SessionLocal()
     try:
         # Verify project exists and has GitHub repo
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
@@ -561,7 +561,7 @@ async def handle_analyze_codebase(
     
     path_obj = Path(project_path).resolve()
     
-    db = get_db_session()
+    db = SessionLocal()
     try:
         # Verify project exists
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()

@@ -3,7 +3,7 @@ from typing import Optional, List
 from uuid import UUID
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
-from src.database.base import get_db_session
+from src.database.base import SessionLocal
 from src.mcp.services.cache import cache_service
 from src.database.models import Document, Project, ProjectElement, Todo
 
@@ -31,7 +31,7 @@ async def handle_get_document(document_id: str) -> dict:
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
         document = db.query(Document).filter(Document.id == UUID(document_id)).first()
         if not document:
@@ -81,7 +81,7 @@ async def handle_list_documents(project_id: str, doc_type: Optional[str] = None)
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
         query = db.query(Document).filter(Document.project_id == UUID(project_id))
         if doc_type:
@@ -144,7 +144,7 @@ async def handle_create_document(
     tags: Optional[List[str]] = None,
 ) -> dict:
     """Handle create document tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         # Verify project exists
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()

@@ -6,7 +6,7 @@ import os
 import json as json_lib
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
-from src.database.base import get_db_session
+from src.database.base import SessionLocal
 from src.mcp.services.cache import cache_service
 from src.database.models import Project, ProjectElement, Feature, Todo, Session as SessionModel, User, UserProject
 from sqlalchemy import func, and_, or_
@@ -40,7 +40,7 @@ async def handle_get_project_context(project_id: str) -> dict:
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
         if not project:
@@ -154,7 +154,7 @@ async def handle_get_resume_context(project_id: str, user_id: Optional[str] = No
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
         if not project:
@@ -313,7 +313,7 @@ async def handle_get_project_structure(project_id: str) -> dict:
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
         elements = db.query(ProjectElement).filter(
             ProjectElement.project_id == UUID(project_id)
@@ -386,7 +386,7 @@ async def handle_get_active_todos(
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
         query = db.query(Todo).join(ProjectElement).filter(
             ProjectElement.project_id == UUID(project_id),
@@ -490,7 +490,7 @@ async def handle_create_project(
     github_repo_url: Optional[str] = None,
 ) -> dict:
     """Handle create project tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         # Get first available user (for MCP context, we need a user)
         # In a real scenario, this would come from the MCP context/authentication
@@ -567,7 +567,7 @@ async def handle_list_projects(status: Optional[str] = None) -> dict:
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
         query = db.query(Project)
 
@@ -653,7 +653,7 @@ async def handle_update_project(
     github_repo_url: Optional[str] = None,
 ) -> dict:
     """Handle update project tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
         if not project:
@@ -719,7 +719,7 @@ async def handle_identify_project_by_path(path: Optional[str] = None) -> dict:
     
     path_obj = Path(path).resolve()
     
-    db = get_db_session()
+    db = SessionLocal()
     try:
         # Strategy 1: Check for .intracker/config.json
         intracker_config = path_obj / ".intracker" / "config.json"

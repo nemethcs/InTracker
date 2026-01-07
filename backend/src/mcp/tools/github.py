@@ -3,7 +3,7 @@ from typing import Optional, List
 from uuid import UUID
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
-from src.database.base import get_db_session
+from src.database.base import SessionLocal
 from src.database.models import Project, GitHubBranch, ProjectElement, Todo, Feature
 from src.mcp.services.cache import cache_service
 from github import Github
@@ -44,7 +44,7 @@ def get_get_branches_tool() -> MCPTool:
 
 async def handle_get_branches(project_id: str, feature_id: Optional[str] = None) -> dict:
     """Handle get branches tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         query = db.query(GitHubBranch).filter(GitHubBranch.project_id == UUID(project_id))
         if feature_id:
@@ -88,7 +88,7 @@ def get_connect_github_repo_tool() -> MCPTool:
 
 async def handle_connect_github_repo(project_id: str, owner: str, repo: str) -> dict:
     """Handle connect GitHub repo tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
         if not project:
@@ -149,7 +149,7 @@ def get_get_repo_info_tool() -> MCPTool:
 
 async def handle_get_repo_info(project_id: str) -> dict:
     """Handle get repo info tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
         if not project or not project.github_repo_url:
@@ -205,7 +205,7 @@ def get_link_element_to_issue_tool() -> MCPTool:
 
 async def handle_link_element_to_issue(element_id: str, issue_number: int) -> dict:
     """Handle link element to issue tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         element = db.query(ProjectElement).filter(ProjectElement.id == UUID(element_id)).first()
         if not element:
@@ -271,7 +271,7 @@ def get_get_github_issue_tool() -> MCPTool:
 
 async def handle_get_github_issue(project_id: str, issue_number: int) -> dict:
     """Handle get GitHub issue tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
         if not project or not project.github_repo_url:
@@ -339,7 +339,7 @@ async def handle_create_github_issue(
     element_id: Optional[str] = None,
 ) -> dict:
     """Handle create GitHub issue tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
         if not project or not project.github_repo_url:
@@ -410,7 +410,7 @@ def get_link_todo_to_pr_tool() -> MCPTool:
 
 async def handle_link_todo_to_pr(todo_id: str, pr_number: int) -> dict:
     """Handle link todo to PR tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         todo = db.query(Todo).filter(Todo.id == UUID(todo_id)).first()
         if not todo:
@@ -480,7 +480,7 @@ def get_get_github_pr_tool() -> MCPTool:
 
 async def handle_get_github_pr(project_id: str, pr_number: int) -> dict:
     """Handle get GitHub PR tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
         if not project or not project.github_repo_url:
@@ -559,7 +559,7 @@ async def handle_create_github_pr(
     todo_id: Optional[str] = None,
 ) -> dict:
     """Handle create GitHub PR tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
         if not project or not project.github_repo_url:
@@ -633,7 +633,7 @@ def get_create_branch_for_feature_tool() -> MCPTool:
 
 async def handle_create_branch_for_feature(feature_id: str, base_branch: str = "main") -> dict:
     """Handle create branch for feature tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()
         if not feature:
@@ -718,7 +718,7 @@ async def handle_get_active_branch(project_id: str) -> dict:
     import subprocess
     import os
     
-    db = get_db_session()
+    db = SessionLocal()
     try:
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
         if not project or not project.github_repo_url:
@@ -776,7 +776,7 @@ def get_link_branch_to_feature_tool() -> MCPTool:
 
 async def handle_link_branch_to_feature(feature_id: str, branch_name: str) -> dict:
     """Handle link branch to feature tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()
         if not feature:
@@ -850,7 +850,7 @@ def get_get_feature_branches_tool() -> MCPTool:
 
 async def handle_get_feature_branches(feature_id: str) -> dict:
     """Handle get feature branches tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()
         if not feature:
@@ -898,7 +898,7 @@ def get_get_branch_status_tool() -> MCPTool:
 
 async def handle_get_branch_status(project_id: str, branch_name: str) -> dict:
     """Handle get branch status tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
         if not project or not project.github_repo_url:
@@ -974,7 +974,7 @@ def get_get_commits_for_feature_tool() -> MCPTool:
 
 async def handle_get_commits_for_feature(feature_id: str) -> dict:
     """Handle get commits for feature tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()
         if not feature:

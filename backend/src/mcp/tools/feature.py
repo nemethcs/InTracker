@@ -3,7 +3,7 @@ from typing import Optional, List
 from uuid import UUID
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
-from src.database.base import get_db_session
+from src.database.base import SessionLocal
 from src.mcp.services.cache import cache_service
 from src.services.signalr_hub import broadcast_feature_update
 from src.database.models import Feature, ProjectElement, FeatureElement, Todo
@@ -39,7 +39,7 @@ async def handle_create_feature(
     element_ids: Optional[List[str]] = None,
 ) -> dict:
     """Handle create feature tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         feature = Feature(
             project_id=UUID(project_id),
@@ -108,7 +108,7 @@ async def handle_get_feature(feature_id: str) -> dict:
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
         feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()
         if not feature:
@@ -190,7 +190,7 @@ async def handle_list_features(
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
         query = db.query(Feature).filter(Feature.project_id == UUID(project_id))
         if status:
@@ -243,7 +243,7 @@ def get_update_feature_status_tool() -> MCPTool:
 
 async def handle_update_feature_status(feature_id: str, status: str) -> dict:
     """Handle update feature status tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()
         if not feature:
@@ -313,7 +313,7 @@ async def handle_get_feature_todos(feature_id: str) -> dict:
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
         todos = db.query(Todo).filter(Todo.feature_id == UUID(feature_id)).all()
 
@@ -361,7 +361,7 @@ async def handle_get_feature_elements(feature_id: str) -> dict:
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
         elements = (
             db.query(ProjectElement)
@@ -408,7 +408,7 @@ def get_link_element_to_feature_tool() -> MCPTool:
 
 async def handle_link_element_to_feature(feature_id: str, element_id: str) -> dict:
     """Handle link element to feature tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         # Check if link already exists
         existing = (

@@ -3,13 +3,13 @@ from typing import Optional
 from uuid import UUID
 from mcp.types import Resource
 from sqlalchemy.orm import Session
-from src.database.base import get_db_session
+from src.database.base import SessionLocal
 from src.database.models import Feature, Project
 
 
 def get_feature_resources(project_id: Optional[str] = None) -> list[Resource]:
     """Get feature resources."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         if project_id:
             features = db.query(Feature).filter(Feature.project_id == UUID(project_id)).all()
@@ -48,7 +48,7 @@ async def read_feature_resource(uri: str) -> str:
         raise ValueError(f"Invalid feature resource URI: {uri_str}")
 
     feature_id = uri_str.replace("intracker://feature/", "")
-    db = get_db_session()
+    db = SessionLocal()
     try:
         feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()
         if not feature:

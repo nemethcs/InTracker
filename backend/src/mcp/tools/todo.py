@@ -3,7 +3,7 @@ from typing import Optional
 from uuid import UUID
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
-from src.database.base import get_db_session
+from src.database.base import SessionLocal
 from src.mcp.services.cache import cache_service
 from src.services.signalr_hub import broadcast_todo_update, broadcast_feature_update
 from src.database.models import Todo, ProjectElement, Feature
@@ -37,7 +37,7 @@ async def handle_create_todo(
     priority: Optional[str] = "medium",
 ) -> dict:
     """Handle create todo tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         # Verify element exists
         element = db.query(ProjectElement).filter(ProjectElement.id == UUID(element_id)).first()
@@ -167,7 +167,7 @@ async def handle_update_todo_status(
     expected_version: Optional[int] = None,
 ) -> dict:
     """Handle update todo status tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         todo = db.query(Todo).filter(Todo.id == UUID(todo_id)).first()
         if not todo:
@@ -316,7 +316,7 @@ async def handle_list_todos(
     if cached:
         return cached
 
-    db = get_db_session()
+    db = SessionLocal()
     try:
         query = db.query(Todo).join(ProjectElement).filter(
             ProjectElement.project_id == UUID(project_id),
@@ -387,7 +387,7 @@ def get_assign_todo_tool() -> MCPTool:
 
 async def handle_assign_todo(todo_id: str, user_id: Optional[str] = None) -> dict:
     """Handle assign todo tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         todo = db.query(Todo).filter(Todo.id == UUID(todo_id)).first()
         if not todo:

@@ -3,7 +3,7 @@ from typing import Optional, List
 from uuid import UUID
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
-from src.database.base import get_db_session
+from src.database.base import SessionLocal
 from src.mcp.services.cache import cache_service
 from src.database.models import Session as SessionModel, Project, Todo, Feature
 from datetime import datetime
@@ -36,7 +36,7 @@ async def handle_start_session(
     feature_ids: Optional[List[str]] = None,
 ) -> dict:
     """Handle start session tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         session = SessionModel(
             project_id=UUID(project_id),
@@ -96,7 +96,7 @@ async def handle_update_session(
     notes: Optional[str] = None,
 ) -> dict:
     """Handle update session tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         session = db.query(SessionModel).filter(SessionModel.id == UUID(session_id)).first()
         if not session:
@@ -143,7 +143,7 @@ def get_end_session_tool() -> MCPTool:
 
 async def handle_end_session(session_id: str, summary: Optional[str] = None) -> dict:
     """Handle end session tool call."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         session = db.query(SessionModel).filter(SessionModel.id == UUID(session_id)).first()
         if not session:

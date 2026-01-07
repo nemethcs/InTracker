@@ -2,7 +2,7 @@
 from typing import Optional
 from uuid import UUID
 from mcp.types import Resource
-from src.database.base import get_db_session
+from src.database.base import SessionLocal
 from src.database.models import Project
 from src.mcp.services.rules_generator import rules_generator
 
@@ -31,7 +31,7 @@ def get_project_resources(project_id: Optional[str] = None) -> list[Resource]:
         )
     else:
         # List all projects
-        db = get_db_session()
+        db = SessionLocal()
         try:
             projects = db.query(Project).all()
             for project in projects:
@@ -68,7 +68,7 @@ async def read_project_resource(uri: str) -> str:
     uri_parts = uri.replace("intracker://project/", "").split("/")
     project_id = uri_parts[0]
     
-    db = get_db_session()
+    db = SessionLocal()
     try:
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
         if not project:
@@ -93,7 +93,7 @@ async def read_cursor_rules_resource(project_id: str) -> str:
     import os
     from pathlib import Path
     
-    db = get_db_session()
+    db = SessionLocal()
     try:
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
         if not project:

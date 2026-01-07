@@ -3,13 +3,13 @@ from typing import Optional
 from uuid import UUID
 from mcp.types import Resource
 from sqlalchemy.orm import Session
-from src.database.base import get_db_session
+from src.database.base import SessionLocal
 from src.database.models import Document
 
 
 def get_document_resources(project_id: Optional[str] = None) -> list[Resource]:
     """Get document resources."""
-    db = get_db_session()
+    db = SessionLocal()
     try:
         if project_id:
             documents = db.query(Document).filter(Document.project_id == UUID(project_id)).all()
@@ -48,7 +48,7 @@ async def read_document_resource(uri: str) -> str:
         raise ValueError(f"Invalid document resource URI: {uri_str}")
 
     document_id = uri_str.replace("intracker://document/", "")
-    db = get_db_session()
+    db = SessionLocal()
     try:
         document = db.query(Document).filter(Document.id == UUID(document_id)).first()
         if not document:
