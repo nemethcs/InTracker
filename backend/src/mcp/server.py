@@ -47,6 +47,7 @@ async def list_tools() -> list[Tool]:
         todo.get_update_todo_status_tool(),
         todo.get_list_todos_tool(),
         todo.get_assign_todo_tool(),
+        todo.get_link_todo_to_feature_tool(),
         # Session tools
         session.get_start_session_tool(),
         session.get_update_session_tool(),
@@ -236,6 +237,14 @@ async def call_tool(name: str, arguments: dict):
             result = await todo.handle_assign_todo(
                 arguments["todoId"],
                 arguments.get("userId"),
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+
+        elif name == "mcp_link_todo_to_feature":
+            result = await todo.handle_link_todo_to_feature(
+                arguments["todoId"],
+                arguments.get("featureId"),
+                arguments.get("expectedVersion"),
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 

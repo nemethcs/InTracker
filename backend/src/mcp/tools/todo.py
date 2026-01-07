@@ -411,3 +411,61 @@ async def handle_assign_todo(todo_id: str, user_id: Optional[str] = None) -> dic
         }
     finally:
         db.close()
+
+
+def get_link_todo_to_feature_tool() -> MCPTool:
+    """Get link todo to feature tool definition."""
+    return MCPTool(
+        name="mcp_link_todo_to_feature",
+        description="Link or unlink a todo to/from a feature. If featureId is provided, links the todo to that feature. If featureId is null, unlinks the todo from its current feature.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "todoId": {"type": "string", "description": "Todo UUID"},
+                "featureId": {
+                    "type": "string",
+                    "description": "Feature UUID to link to, or null to unlink",
+                },
+                "expectedVersion": {"type": "integer", "description": "Expected version for optimistic locking"},
+            },
+            "required": ["todoId"],
+        },
+    )
+
+
+async def handle_link_todo_to_feature(
+    todo_id: str,
+    feature_id: Optional[str] = None,
+    expected_version: Optional[int] = None,
+) -> dict:
+    """Handle link todo to feature tool call."""
+    from src.services.todo_service import TodoService
+    
+    db = SessionLocal()
+    try:
+        todo = TodoService.get_todo_by_id(db, UUID(todo_id))
+        if not todo:
+            return {"error": "Todo not found"}
+
+        # Use TodoService to update feature_id
+        # If expected_version is not provided, use current version
+        feature_uuid = UUID(feature_id) if feature_id else None
+        updated_todo = TodoService.update_todo(
+            db=db,
+            todo_id=UUID(todo_id),
+            feature_id=feature_uuid,
+            expected_version=expected_version if expected_version is not None else todo.version,
+        )
+
+        if not updated_todo:
+            return {"error": "Todo not found or version conflict"}
+
+        return {
+            "id": str(updated_todo.id),
+            "feature_id": str(updated_todo.feature_id) if updated_todo.feature_id else None,
+            "version": updated_todo.version,
+        }
+    except ValueError as e:
+        return {"error": str(e)}
+    finally:
+        db.close()
