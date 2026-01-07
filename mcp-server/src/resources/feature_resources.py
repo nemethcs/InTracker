@@ -40,11 +40,14 @@ def get_feature_resources(project_id: Optional[str] = None) -> list[Resource]:
 
 async def read_feature_resource(uri: str) -> str:
     """Read feature resource."""
+    # Convert URI to string (MCP SDK may pass AnyUrl object)
+    uri_str = str(uri)
+    
     # Parse URI: intracker://feature/{feature_id}
-    if not uri.startswith("intracker://feature/"):
-        raise ValueError(f"Invalid feature resource URI: {uri}")
+    if not uri_str.startswith("intracker://feature/"):
+        raise ValueError(f"Invalid feature resource URI: {uri_str}")
 
-    feature_id = uri.replace("intracker://feature/", "")
+    feature_id = uri_str.replace("intracker://feature/", "")
     db = get_db_session()
     try:
         feature = db.query(Feature).filter(Feature.id == UUID(feature_id)).first()

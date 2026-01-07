@@ -9,6 +9,7 @@ interface TodoState {
   fetchTodo: (id: string) => Promise<Todo>
   createTodo: (data: TodoCreate) => Promise<Todo>
   updateTodo: (id: string, data: TodoUpdate) => Promise<void>
+  updateTodoStatus: (id: string, status: Todo['status'], version: number) => Promise<void>
   deleteTodo: (id: string) => Promise<void>
 }
 
@@ -72,6 +73,20 @@ export const useTodoStore = create<TodoState>((set) => ({
       }))
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to update todo', isLoading: false })
+      throw error
+    }
+  },
+
+  updateTodoStatus: async (id: string, status: Todo['status'], version: number) => {
+    set({ isLoading: true, error: null })
+    try {
+      const todo = await todoService.updateTodo(id, { status, expected_version: version })
+      set(state => ({
+        todos: state.todos.map(t => t.id === id ? todo : t),
+        isLoading: false
+      }))
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to update todo status', isLoading: false })
       throw error
     }
   },

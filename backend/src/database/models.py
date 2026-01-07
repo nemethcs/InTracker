@@ -102,7 +102,7 @@ class ProjectElement(Base):
     type = Column(String, nullable=False)  # module, feature, component, milestone, technical_block, decision_point
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    status = Column(String, nullable=False, index=True)  # todo, in_progress, blocked, done
+    status = Column(String, nullable=False, index=True)  # new, in_progress, tested, done
     position = Column(Integer, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
@@ -170,7 +170,7 @@ class Feature(Base):
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    status = Column(String, nullable=False, index=True)  # todo, in_progress, blocked, done
+    status = Column(String, nullable=False, index=True)  # new, in_progress, tested, done
     progress_percentage = Column(Integer, default=0, nullable=False)
     total_todos = Column(Integer, default=0, nullable=False)
     completed_todos = Column(Integer, default=0, nullable=False)
@@ -230,7 +230,7 @@ class Todo(Base):
     description = Column(Text, nullable=True)
     status = Column(String, nullable=False, index=True)  # todo, in_progress, blocked, done
     position = Column(Integer, nullable=True)
-    estimated_effort = Column(Integer, nullable=True)
+    priority = Column(String, nullable=True, server_default='medium')  # low, medium, high, critical
     blocker_reason = Column(Text, nullable=True)
     assigned_to = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)

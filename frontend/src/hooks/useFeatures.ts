@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useFeatureStore } from '@/stores/featureStore'
 
 export function useFeatures(projectId?: string) {
@@ -9,9 +9,17 @@ export function useFeatures(projectId?: string) {
     fetchFeatures,
   } = useFeatureStore()
 
+  const lastProjectId = useRef<string | undefined>(undefined)
+
   useEffect(() => {
-    fetchFeatures(projectId)
-  }, [projectId, fetchFeatures])
+    // Only fetch if projectId changed
+    if (projectId !== lastProjectId.current) {
+      lastProjectId.current = projectId
+      if (projectId) {
+        fetchFeatures(projectId)
+      }
+    }
+  }, [projectId]) // Remove fetchFeatures from dependencies
 
   return {
     features,

@@ -6,8 +6,8 @@ export interface Todo {
   feature_id?: string
   title: string
   description?: string
-  status: 'todo' | 'in_progress' | 'blocked' | 'done'
-  estimated_effort?: number
+  status: 'new' | 'in_progress' | 'tested' | 'done'
+  priority?: 'low' | 'medium' | 'high' | 'critical'
   assigned_to?: string
   version: number
   created_at: string
@@ -19,25 +19,34 @@ export interface TodoCreate {
   title: string
   description?: string
   feature_id?: string
-  estimated_effort?: number
+  priority?: 'low' | 'medium' | 'high' | 'critical'
 }
 
 export interface TodoUpdate {
   title?: string
   description?: string
   status?: Todo['status']
-  estimated_effort?: number
+  priority?: 'low' | 'medium' | 'high' | 'critical'
   assigned_to?: string
   expected_version?: number
 }
 
 export const todoService = {
-  async listTodos(featureId?: string, elementId?: string): Promise<Todo[]> {
+  async listTodos(featureId?: string, elementId?: string, projectId?: string): Promise<Todo[]> {
+    // If featureId is provided, use the feature-specific endpoint
+    if (featureId) {
+      const response = await api.get(`/features/${featureId}/todos`)
+      // Backend returns { todos: [...], count: ... }
+      return response.data.todos || []
+    }
+    
+    // Otherwise, use the general todos endpoint
     const params: Record<string, string> = {}
-    if (featureId) params.feature_id = featureId
+    if (projectId) params.project_id = projectId
     if (elementId) params.element_id = elementId
     const response = await api.get('/todos', { params })
-    return response.data
+    // Backend returns { todos: [...], total: ... }
+    return response.data.todos || response.data || []
   },
 
   async getTodo(id: string): Promise<Todo> {

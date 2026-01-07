@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useProjectStore } from '@/stores/projectStore'
 
 export function useProject(projectId?: string) {
@@ -12,13 +12,19 @@ export function useProject(projectId?: string) {
     setCurrentProject,
   } = useProjectStore()
 
+  const lastProjectId = useRef<string | undefined>(undefined)
+
   useEffect(() => {
-    if (projectId) {
-      fetchProject(projectId)
-    } else {
-      fetchProjects()
+    // Only fetch if projectId changed
+    if (projectId !== lastProjectId.current) {
+      lastProjectId.current = projectId
+      if (projectId) {
+        fetchProject(projectId)
+      } else {
+        fetchProjects()
+      }
     }
-  }, [projectId, fetchProject, fetchProjects])
+  }, [projectId]) // Remove fetchProject and fetchProjects from dependencies
 
   return {
     projects,

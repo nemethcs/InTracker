@@ -2,7 +2,7 @@
 from typing import Optional, List
 from uuid import UUID
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 from src.database.models import ProjectElement, ElementDependency, Todo
 
 
@@ -16,7 +16,7 @@ class ElementService:
         type: str,
         title: str,
         description: Optional[str] = None,
-        status: str = "todo",
+        status: str = "new",
         parent_id: Optional[UUID] = None,
         position: Optional[int] = None,
         definition_of_done: Optional[str] = None,
@@ -77,11 +77,39 @@ class ElementService:
         project_id: UUID,
         parent_id: Optional[UUID] = None,
     ) -> List[dict]:
-        """Build hierarchical element tree."""
+        """Build hierarchical element tree with statistics."""
+        from src.database.models import Todo, FeatureElement
+        from sqlalchemy import func
+
         elements = ElementService.get_project_elements_tree(db, project_id, parent_id)
         result = []
 
         for element in elements:
+            # Count todos for this element
+            todos_count = db.query(func.count(Todo.id)).filter(
+                Todo.element_id == element.id
+            ).scalar() or 0
+            
+            todos_done_count = db.query(func.count(Todo.id)).filter(
+                Todo.element_id == element.id,
+                Todo.status == "done"
+            ).scalar() or 0
+
+            # Count features linked to this element
+            features_count = db.query(func.count(FeatureElement.feature_id)).filter(
+                FeatureElement.element_id == element.id
+            ).scalar() or 0
+
+            # Get linked feature names
+            from src.database.models import Feature
+            linked_features = (
+                db.query(Feature)
+                .join(FeatureElement)
+                .filter(FeatureElement.element_id == element.id)
+                .all()
+            )
+            linked_feature_names = [f.name for f in linked_features]
+
             element_dict = {
                 "id": str(element.id),
                 "project_id": str(element.project_id),
@@ -93,6 +121,10 @@ class ElementService:
                 "position": element.position,
                 "created_at": element.created_at.isoformat(),
                 "updated_at": element.updated_at.isoformat(),
+                "todos_count": todos_count,
+                "todos_done_count": todos_done_count,
+                "features_count": features_count,
+                "linked_features": linked_feature_names,
                 "children": ElementService.build_element_tree(db, project_id, element.id),
             }
             result.append(element_dict)
@@ -169,6 +201,91 @@ class ElementService:
         db.commit()
         db.refresh(element)
         return element
+
+    @staticmethod
+    def update_element_status_by_todos(db: Session, element_id: UUID) -> Optional[ProjectElement]:
+        """Update element status based on todo completion."""
+        element = db.query(ProjectElement).filter(ProjectElement.id == element_id).first()
+        if not element:
+            return None
+
+        # Count todos
+        total = db.query(func.count(Todo.id)).filter(
+            Todo.element_id == element_id
+        ).scalar() or 0
+
+        if total == 0:
+            # No todos - keep current status
+            return element
+
+        done = db.query(func.count(Todo.id)).filter(
+            Todo.element_id == element_id,
+            Todo.status == "done"
+        ).scalar() or 0
+
+        in_progress = db.query(func.count(Todo.id)).filter(
+            Todo.element_id == element_id,
+            Todo.status == "in_progress"
+        ).scalar() or 0
+
+        # Determine new status
+        if done == total:
+            new_status = "done"
+        elif done > 0 or in_progress > 0:
+            new_status = "in_progress"
+        else:
+            new_status = "todo"
+
+        # Update if different
+        if element.status != new_status:
+            element.status = new_status
+            db.commit()
+            db.refresh(element)
+
+        return element
+
+    @staticmethod
+    def update_parent_statuses(db: Session, element_id: UUID) -> None:
+        """Recursively update parent element statuses based on children."""
+        element = db.query(ProjectElement).filter(ProjectElement.id == element_id).first()
+        if not element or not element.parent_id:
+            return
+
+        # Get parent
+        parent = db.query(ProjectElement).filter(ProjectElement.id == element.parent_id).first()
+        if not parent:
+            return
+
+        # Get all children
+        children = db.query(ProjectElement).filter(
+            ProjectElement.parent_id == parent.id
+        ).all()
+
+        if not children:
+            return
+
+        # Count children by status
+        done_count = sum(1 for c in children if c.status == "done")
+        tested_count = sum(1 for c in children if c.status == "tested")
+        in_progress_count = sum(1 for c in children if c.status == "in_progress")
+        total = len(children)
+
+        # Determine parent status
+        if done_count == total:
+            new_status = "done"
+        elif tested_count > 0 or done_count > 0 or in_progress_count > 0:
+            new_status = "in_progress"
+        else:
+            new_status = "new"
+
+        # Update if different
+        if parent.status != new_status:
+            parent.status = new_status
+            db.commit()
+            db.refresh(parent)
+
+            # Recursively update parent's parent
+            ElementService.update_parent_statuses(db, parent.id)
 
     @staticmethod
     def delete_element(db: Session, element_id: UUID) -> bool:

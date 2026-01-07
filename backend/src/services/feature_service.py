@@ -15,7 +15,7 @@ class FeatureService:
         project_id: UUID,
         name: str,
         description: Optional[str] = None,
-        status: str = "todo",
+        status: str = "new",
         created_by: Optional[UUID] = None,
         assigned_to: Optional[UUID] = None,
         element_ids: Optional[List[UUID]] = None,

@@ -8,6 +8,7 @@ from . import (
     session_controller,
     document_controller,
     github_controller,
+    idea_controller,
 )
 
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     "session_controller",
     "document_controller",
     "github_controller",
+    "idea_controller",
 ]

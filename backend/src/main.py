@@ -12,6 +12,7 @@ from src.api.controllers import (
     session_controller,
     document_controller,
     github_controller,
+    idea_controller,
 )
 
 # Create FastAPI app
@@ -41,6 +42,7 @@ app.include_router(element_controller.router)
 app.include_router(session_controller.router)
 app.include_router(document_controller.router)
 app.include_router(github_controller.router)
+app.include_router(idea_controller.router)
 
 
 @app.get("/health")
@@ -126,6 +128,14 @@ async def api_info():
                 "get_branch": "GET /github/branches/{id}",
                 "feature_branches": "GET /github/features/{feature_id}/branches",
                 "webhook": "POST /github/webhook",
+            },
+            "ideas": {
+                "list": "GET /ideas",
+                "create": "POST /ideas",
+                "get": "GET /ideas/{id}",
+                "update": "PUT /ideas/{id}",
+                "delete": "DELETE /ideas/{id}",
+                "convert": "POST /ideas/{id}/convert",
             },
         },
     }

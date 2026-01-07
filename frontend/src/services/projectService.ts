@@ -42,7 +42,8 @@ export interface ProjectUpdate {
 export const projectService = {
   async listProjects(): Promise<Project[]> {
     const response = await api.get('/projects')
-    return response.data
+    // Backend returns { projects: [...], total, page, page_size }
+    return response.data.projects || response.data || []
   },
 
   async getProject(id: string): Promise<Project> {

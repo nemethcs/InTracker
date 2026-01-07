@@ -1,0 +1,233 @@
+import { useState, useEffect } from 'react'
+import { useIdeas } from '@/hooks/useIdeas'
+import { useIdeaStore } from '@/stores/ideaStore'
+import { useProjectStore } from '@/stores/projectStore'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { IdeaCard } from '@/components/ideas/IdeaCard'
+import { IdeaEditor } from '@/components/ideas/IdeaEditor'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Lightbulb, Plus, Sparkles } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import type { Idea, IdeaConvertRequest } from '@/services/ideaService'
+
+export function Ideas() {
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
+  const { ideas, isLoading, error, refetch } = useIdeas(statusFilter)
+  const { createIdea, updateIdea, deleteIdea, convertIdeaToProject } = useIdeaStore()
+  const { createProject } = useProjectStore()
+  const [ideaEditorOpen, setIdeaEditorOpen] = useState(false)
+  const [editingIdea, setEditingIdea] = useState<Idea | null>(null)
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false)
+  const [ideaToConvert, setIdeaToConvert] = useState<Idea | null>(null)
+  const [projectName, setProjectName] = useState('')
+  const [projectDescription, setProjectDescription] = useState('')
+  const [isConverting, setIsConverting] = useState(false)
+  const navigate = useNavigate()
+
+
+  const handleSaveIdea = async (data: any) => {
+    if (editingIdea) {
+      await updateIdea(editingIdea.id, data)
+    } else {
+      await createIdea(data)
+    }
+    refetch()
+  }
+
+  const handleDeleteIdea = async (idea: Idea) => {
+    if (confirm(`Are you sure you want to delete "${idea.title}"?`)) {
+      await deleteIdea(idea.id)
+      refetch()
+    }
+  }
+
+  const handleConvertClick = (idea: Idea) => {
+    setIdeaToConvert(idea)
+    setProjectName(idea.title)
+    setProjectDescription(idea.description || '')
+    setConvertDialogOpen(true)
+  }
+
+  const handleConvert = async () => {
+    if (!ideaToConvert) return
+
+    setIsConverting(true)
+    try {
+      const convertData: IdeaConvertRequest = {
+        project_name: projectName || ideaToConvert.title,
+        project_description: projectDescription || ideaToConvert.description,
+        project_status: 'active',
+        project_tags: ideaToConvert.tags,
+        technology_tags: [],
+      }
+      const project = await convertIdeaToProject(ideaToConvert.id, convertData)
+      setConvertDialogOpen(false)
+      navigate(`/projects/${project.id}`)
+    } catch (error) {
+      console.error('Failed to convert idea:', error)
+      alert('Failed to convert idea to project')
+    } finally {
+      setIsConverting(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Error</CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => refetch()}>Retry</Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  const ideasList = Array.isArray(ideas) ? ideas : []
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold flex items-center gap-2">
+            <Sparkles className="h-8 w-8" />
+            Ideas
+          </h1>
+          <p className="text-muted-foreground mt-2">Capture and organize your project ideas</p>
+        </div>
+        <Button onClick={() => {
+          setEditingIdea(null)
+          setIdeaEditorOpen(true)
+        }}>
+          <Plus className="mr-2 h-4 w-4" />
+          New Idea
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-4">
+        <Select value={statusFilter || 'all'} onValueChange={(value) => setStatusFilter(value === 'all' ? undefined : value)}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Ideas</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="archived">Archived</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {ideasList.length === 0 ? (
+        <EmptyState
+          icon={<Lightbulb className="h-12 w-12 text-muted-foreground" />}
+          title="No ideas yet"
+          description="Get started by creating your first idea"
+          action={{
+            label: 'Create Idea',
+            onClick: () => {
+              setEditingIdea(null)
+              setIdeaEditorOpen(true)
+            },
+          }}
+        />
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {ideasList.map((idea) => (
+            <div key={idea.id} className="relative group">
+              <IdeaCard
+                idea={idea}
+                onConvert={() => handleConvertClick(idea)}
+              />
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setEditingIdea(idea)
+                    setIdeaEditorOpen(true)
+                  }}
+                >
+                  Edit
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Idea Editor Dialog */}
+      <IdeaEditor
+        open={ideaEditorOpen}
+        onOpenChange={(open) => {
+          setIdeaEditorOpen(open)
+          if (!open) {
+            setEditingIdea(null)
+          }
+        }}
+        idea={editingIdea}
+        onSave={handleSaveIdea}
+      />
+
+      {/* Convert to Project Dialog */}
+      <Dialog open={convertDialogOpen} onOpenChange={setConvertDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Convert Idea to Project</DialogTitle>
+            <DialogDescription>
+              Create a new project from this idea
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="project-name">Project Name *</Label>
+              <Input
+                id="project-name"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                placeholder="Enter project name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="project-description">Project Description</Label>
+              <Textarea
+                id="project-description"
+                value={projectDescription}
+                onChange={(e) => setProjectDescription(e.target.value)}
+                placeholder="Enter project description"
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConvertDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConvert} disabled={!projectName.trim() || isConverting}>
+              {isConverting ? 'Converting...' : 'Convert to Project'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}

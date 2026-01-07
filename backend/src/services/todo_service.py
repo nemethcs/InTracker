@@ -16,10 +16,10 @@ class TodoService:
         element_id: UUID,
         title: str,
         description: Optional[str] = None,
-        status: str = "todo",
+        status: str = "new",
         feature_id: Optional[UUID] = None,
         position: Optional[int] = None,
-        estimated_effort: Optional[int] = None,
+        priority: Optional[str] = "medium",
         created_by: Optional[UUID] = None,
         assigned_to: Optional[UUID] = None,
     ) -> Todo:
@@ -44,7 +44,7 @@ class TodoService:
             description=description,
             status=status,
             position=position,
-            estimated_effort=estimated_effort,
+            priority=priority or "medium",
             created_by=created_by,
             assigned_to=assigned_to,
             version=1,
@@ -52,6 +52,13 @@ class TodoService:
         db.add(todo)
         db.commit()
         db.refresh(todo)
+
+        # Update element status based on todos
+        from src.services.element_service import element_service
+        element_service.update_element_status_by_todos(db=db, element_id=element_id)
+        
+        # Update parent element statuses recursively
+        element_service.update_parent_statuses(db=db, element_id=element_id)
 
         # Update feature progress if linked
         if feature_id:
@@ -113,6 +120,30 @@ class TodoService:
         return todos, total
 
     @staticmethod
+    def get_todos_by_project(
+        db: Session,
+        project_id: UUID,
+        status: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 100,
+    ) -> tuple[List[Todo], int]:
+        """Get all todos for a project (via elements)."""
+        # Join with ProjectElement to filter by project_id
+        query = (
+            db.query(Todo)
+            .join(ProjectElement, Todo.element_id == ProjectElement.id)
+            .filter(ProjectElement.project_id == project_id)
+        )
+
+        if status:
+            query = query.filter(Todo.status == status)
+
+        total = query.count()
+        todos = query.order_by(Todo.position, Todo.created_at).offset(skip).limit(limit).all()
+
+        return todos, total
+
+    @staticmethod
     def update_todo(
         db: Session,
         todo_id: UUID,
@@ -120,7 +151,7 @@ class TodoService:
         description: Optional[str] = None,
         status: Optional[str] = None,
         position: Optional[int] = None,
-        estimated_effort: Optional[int] = None,
+        priority: Optional[str] = None,
         blocker_reason: Optional[str] = None,
         assigned_to: Optional[UUID] = None,
         expected_version: Optional[int] = None,
@@ -148,8 +179,8 @@ class TodoService:
                 todo.completed_at = None
         if position is not None:
             todo.position = position
-        if estimated_effort is not None:
-            todo.estimated_effort = estimated_effort
+        if priority is not None:
+            todo.priority = priority
         if blocker_reason is not None:
             todo.blocker_reason = blocker_reason
         if assigned_to is not None:
@@ -160,6 +191,13 @@ class TodoService:
 
         db.commit()
         db.refresh(todo)
+
+        # Update element status based on todos
+        from src.services.element_service import element_service
+        element_service.update_element_status_by_todos(db=db, element_id=todo.element_id)
+        
+        # Update parent element statuses recursively
+        element_service.update_parent_statuses(db=db, element_id=todo.element_id)
 
         # Update feature progress if linked
         if todo.feature_id:
@@ -175,9 +213,17 @@ class TodoService:
         if not todo:
             return False
 
+        element_id = todo.element_id
         feature_id = todo.feature_id
         db.delete(todo)
         db.commit()
+
+        # Update element status based on remaining todos
+        from src.services.element_service import element_service
+        element_service.update_element_status_by_todos(db=db, element_id=element_id)
+        
+        # Update parent element statuses recursively
+        element_service.update_parent_statuses(db=db, element_id=element_id)
 
         # Update feature progress if linked
         if feature_id:

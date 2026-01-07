@@ -202,7 +202,7 @@ model Todo {
   description       String?
   status            String // todo, in_progress, blocked, done
   position          Int?
-  estimatedEffort   Int?      @map("estimated_effort")
+  priority          String?   @default("medium") // low, medium, high, critical
   blockerReason     String?   @map("blocker_reason")
   assignedTo        String?   @map("assigned_to")
   createdBy         String?   @map("created_by")

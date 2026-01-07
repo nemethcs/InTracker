@@ -200,6 +200,67 @@ class GitHubService:
             print(f"⚠️  GitHub error: {e}")
             return None
 
+    def get_issue(self, owner: str, repo: str, issue_number: int) -> Optional[Dict[str, Any]]:
+        """Get GitHub issue by number."""
+        if not self.client:
+            return None
+
+        try:
+            repository = self.client.get_repo(f"{owner}/{repo}")
+            issue = repository.get_issue(issue_number)
+            return {
+                "number": issue.number,
+                "title": issue.title,
+                "body": issue.body,
+                "url": issue.html_url,
+                "state": issue.state,
+                "labels": [label.name for label in issue.labels],
+                "assignees": [assignee.login for assignee in issue.assignees],
+                "created_at": issue.created_at.isoformat() if issue.created_at else None,
+                "updated_at": issue.updated_at.isoformat() if issue.updated_at else None,
+            }
+        except GithubException as e:
+            print(f"⚠️  GitHub API error: {e}")
+            return None
+        except Exception as e:
+            print(f"⚠️  GitHub error: {e}")
+            return None
+
+    def get_pull_request(self, owner: str, repo: str, pr_number: int) -> Optional[Dict[str, Any]]:
+        """Get GitHub pull request by number."""
+        if not self.client:
+            return None
+
+        try:
+            repository = self.client.get_repo(f"{owner}/{repo}")
+            pr = repository.get_pull(pr_number)
+            return {
+                "number": pr.number,
+                "title": pr.title,
+                "body": pr.body,
+                "url": pr.html_url,
+                "state": pr.state,
+                "merged": pr.merged,
+                "mergeable": pr.mergeable,
+                "head": {
+                    "ref": pr.head.ref,
+                    "sha": pr.head.sha,
+                },
+                "base": {
+                    "ref": pr.base.ref,
+                    "sha": pr.base.sha,
+                },
+                "labels": [label.name for label in pr.labels],
+                "created_at": pr.created_at.isoformat() if pr.created_at else None,
+                "updated_at": pr.updated_at.isoformat() if pr.updated_at else None,
+            }
+        except GithubException as e:
+            print(f"⚠️  GitHub API error: {e}")
+            return None
+        except Exception as e:
+            print(f"⚠️  GitHub error: {e}")
+            return None
+
 
 # Global instance
 github_service = GitHubService()

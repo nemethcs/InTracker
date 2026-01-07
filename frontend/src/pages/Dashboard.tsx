@@ -1,19 +1,35 @@
-import { useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useProject } from '@/hooks/useProject'
+import { useProjectStore } from '@/stores/projectStore'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ProjectEditor } from '@/components/projects/ProjectEditor'
 import { FolderKanban, Plus } from 'lucide-react'
 import { format } from 'date-fns'
 
 export function Dashboard() {
   const { projects, isLoading, error, refetch } = useProject()
+  const { createProject } = useProjectStore()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [projectEditorOpen, setProjectEditorOpen] = useState(false)
 
   useEffect(() => {
     refetch()
   }, [refetch])
+
+  // Ensure projects is always an array
+  const projectsList = Array.isArray(projects) ? projects : []
+
+  // Determine title based on route
+  const isProjectsPage = location.pathname === '/projects'
+  const pageTitle = isProjectsPage ? 'Projects' : 'Dashboard'
+  const pageDescription = isProjectsPage 
+    ? 'View and manage all your projects' 
+    : 'Manage your projects and track progress'
 
   if (isLoading) {
     return (
@@ -39,34 +55,61 @@ export function Dashboard() {
     )
   }
 
+  // Calculate statistics
+  const totalProjects = projectsList.length
+  const activeProjects = projectsList.filter(p => p.status === 'active').length
+  const completedProjects = projectsList.filter(p => p.status === 'completed').length
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Manage your projects and track progress</p>
+          <h1 className="text-3xl font-bold">{pageTitle}</h1>
+          <p className="text-muted-foreground">{pageDescription}</p>
         </div>
-        <Button>
+        <Button onClick={() => setProjectEditorOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           New Project
         </Button>
       </div>
 
-      {projects.length === 0 ? (
+      {/* Statistics Cards */}
+      {projectsList.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Total Projects</CardDescription>
+              <CardTitle className="text-3xl">{totalProjects}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Active Projects</CardDescription>
+              <CardTitle className="text-3xl text-blue-500">{activeProjects}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Completed Projects</CardDescription>
+              <CardTitle className="text-3xl text-green-500">{completedProjects}</CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+      )}
+
+      {projectsList.length === 0 ? (
         <EmptyState
           icon={<FolderKanban className="h-12 w-12 text-muted-foreground" />}
           title="No projects yet"
           description="Get started by creating your first project"
           action={{
             label: 'Create Project',
-            onClick: () => {
-              // TODO: Open create project dialog
-            },
+            onClick: () => setProjectEditorOpen(true),
           }}
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => (
+          {projectsList.map((project) => (
             <Link key={project.id} to={`/projects/${project.id}`}>
               <Card className="hover:shadow-lg transition-shadow cursor-pointer">
                 <CardHeader>
@@ -106,6 +149,24 @@ export function Dashboard() {
           ))}
         </div>
       )}
+
+      {/* Project Editor Dialog */}
+      <ProjectEditor
+        open={projectEditorOpen}
+        onOpenChange={setProjectEditorOpen}
+        project={null}
+        onSave={async (data) => {
+          try {
+            const newProject = await createProject(data as any)
+            refetch()
+            // Navigate to the new project
+            navigate(`/projects/${newProject.id}`)
+          } catch (error) {
+            console.error('Failed to create project:', error)
+            throw error // Re-throw to let ProjectEditor handle the error
+          }
+        }}
+      />
     </div>
   )
 }

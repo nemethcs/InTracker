@@ -33,7 +33,7 @@ async def create_todo(
             status=todo_data.status,
             feature_id=todo_data.feature_id,
             position=todo_data.position,
-            estimated_effort=todo_data.estimated_effort,
+            priority=todo_data.priority,
             created_by=UUID(current_user["user_id"]),
             assigned_to=todo_data.assigned_to,
         )
@@ -59,34 +59,70 @@ async def list_todos(
 ):
     """List todos with filtering."""
     user_id = UUID(current_user["user_id"])
+    skip = (page - 1) * page_size
 
-    # If assigned_to is not specified, default to current user's todos
-    if assigned_to is None:
-        assigned_to = user_id
-
-    # If assigned_to is current user, get their todos
-    if assigned_to == user_id:
-        skip = (page - 1) * page_size
-        todos, total = todo_service.get_todos_by_user(
+    # Priority: project_id > feature_id > element_id > assigned_to
+    if project_id:
+        # Get all todos for the project
+        # Check project access
+        from src.services.project_service import project_service
+        if not project_service.check_user_access(
             db=db,
             user_id=user_id,
+            project_id=project_id,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have access to this project",
+            )
+        
+        todos, total = todo_service.get_todos_by_project(
+            db=db,
+            project_id=project_id,
             status=status_filter,
             skip=skip,
             limit=page_size,
         )
+        
+        # Additional filters
+        if feature_id:
+            todos = [t for t in todos if t.feature_id == feature_id]
+        if element_id:
+            todos = [t for t in todos if t.element_id == element_id]
+        if assigned_to:
+            todos = [t for t in todos if t.assigned_to == assigned_to]
+    elif feature_id:
+        # Get todos for a specific feature
+        todos = todo_service.get_todos_by_feature(
+            db=db,
+            feature_id=feature_id,
+            status=status_filter,
+        )
+        total = len(todos)
+        # Apply pagination
+        todos = todos[skip:skip + page_size]
+    elif element_id:
+        # Get todos for a specific element
+        todos = todo_service.get_todos_by_element(
+            db=db,
+            element_id=element_id,
+            status=status_filter,
+        )
+        total = len(todos)
+        # Apply pagination
+        todos = todos[skip:skip + page_size]
     else:
-        # For other users, need to check project access
-        # This is simplified - in production, you'd want more sophisticated filtering
-        todos = []
-        total = 0
-
-    # Filter by feature_id if provided
-    if feature_id:
-        todos = [t for t in todos if t.feature_id == feature_id]
-
-    # Filter by element_id if provided
-    if element_id:
-        todos = [t for t in todos if t.element_id == element_id]
+        # Default: get todos assigned to current user
+        if assigned_to is None:
+            assigned_to = user_id
+        
+        todos, total = todo_service.get_todos_by_user(
+            db=db,
+            user_id=assigned_to,
+            status=status_filter,
+            skip=skip,
+            limit=page_size,
+        )
 
     return TodoListResponse(
         todos=todos,
@@ -166,7 +202,7 @@ async def update_todo(
             description=todo_data.description,
             status=todo_data.status,
             position=todo_data.position,
-            estimated_effort=todo_data.estimated_effort,
+            priority=todo_data.priority,
             blocker_reason=todo_data.blocker_reason,
             assigned_to=todo_data.assigned_to,
             expected_version=expected_version or todo.version,
@@ -231,7 +267,7 @@ async def delete_todo(
 @router.put("/{todo_id}/status", response_model=TodoResponse)
 async def update_todo_status(
     todo_id: UUID,
-    status: str = Query(..., pattern="^(todo|in_progress|blocked|done)$"),
+    status: str = Query(..., pattern="^(new|in_progress|tested|done)$"),
     expected_version: Optional[int] = Query(None),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),

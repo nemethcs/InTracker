@@ -78,6 +78,7 @@ services:
     volumes:
       - ./mcp-server:/app
       - ./backend/src:/backend/src:ro
+      - .:/workspace:ro
     ports:
       - "3001:3001"
     stdin_open: true

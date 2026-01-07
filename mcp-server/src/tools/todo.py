@@ -21,7 +21,7 @@ def get_create_todo_tool() -> MCPTool:
                 "title": {"type": "string", "description": "Todo title"},
                 "description": {"type": "string", "description": "Todo description"},
                 "featureId": {"type": "string", "description": "Optional feature UUID"},
-                "estimatedEffort": {"type": "integer", "description": "Estimated effort in hours"},
+                "priority": {"type": "string", "enum": ["low", "medium", "high", "critical"], "description": "Priority level"},
             },
             "required": ["elementId", "title"],
         },
@@ -33,7 +33,7 @@ async def handle_create_todo(
     title: str,
     description: Optional[str] = None,
     feature_id: Optional[str] = None,
-    estimated_effort: Optional[int] = None,
+    priority: Optional[str] = "medium",
 ) -> dict:
     """Handle create todo tool call."""
     db = get_db_session()
@@ -48,8 +48,8 @@ async def handle_create_todo(
             feature_id=UUID(feature_id) if feature_id else None,
             title=title,
             description=description,
-            status="todo",
-            estimated_effort=estimated_effort,
+            status="new",
+            priority=priority or "medium",
             version=1,
         )
         db.add(todo)
@@ -100,7 +100,7 @@ def get_update_todo_status_tool() -> MCPTool:
                 "todoId": {"type": "string", "description": "Todo UUID"},
                 "status": {
                     "type": "string",
-                    "enum": ["todo", "in_progress", "blocked", "done"],
+                    "enum": ["new", "in_progress", "tested", "done"],
                     "description": "New status",
                 },
                 "expectedVersion": {"type": "integer", "description": "Expected version for optimistic locking"},
@@ -187,7 +187,7 @@ def get_list_todos_tool() -> MCPTool:
                 "projectId": {"type": "string", "description": "Project UUID"},
                 "status": {
                     "type": "string",
-                    "enum": ["todo", "in_progress", "blocked", "done"],
+                    "enum": ["new", "in_progress", "tested", "done"],
                     "description": "Filter by status",
                 },
                 "featureId": {"type": "string", "description": "Filter by feature ID"},

@@ -13,7 +13,7 @@ class ElementBase(BaseModel):
     )
     title: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
-    status: str = Field(default="todo", pattern="^(todo|in_progress|blocked|done)$")
+    status: str = Field(default="new", pattern="^(new|in_progress|tested|done)$")
     position: Optional[int] = None
     definition_of_done: Optional[str] = None
 
@@ -28,7 +28,7 @@ class ElementUpdate(BaseModel):
     """Schema for updating an element."""
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
-    status: Optional[str] = Field(None, pattern="^(todo|in_progress|blocked|done)$")
+    status: Optional[str] = Field(None, pattern="^(new|in_progress|tested|done)$")
     position: Optional[int] = None
     definition_of_done: Optional[str] = None
     parent_id: Optional[UUID] = None

@@ -5,7 +5,7 @@ export interface Feature {
   project_id: string
   name: string
   description?: string
-  status: 'todo' | 'in_progress' | 'blocked' | 'done'
+  status: 'new' | 'in_progress' | 'tested' | 'done'
   progress_percentage: number
   total_todos: number
   completed_todos: number
@@ -28,9 +28,13 @@ export interface FeatureUpdate {
 
 export const featureService = {
   async listFeatures(projectId?: string): Promise<Feature[]> {
-    const params = projectId ? { project_id: projectId } : {}
-    const response = await api.get('/features', { params })
-    return response.data
+    if (!projectId) {
+      return []
+    }
+    // Backend endpoint: GET /features/project/{project_id}
+    const response = await api.get(`/features/project/${projectId}`)
+    // Backend returns { features: [...], total: ... }
+    return response.data.features || response.data || []
   },
 
   async getFeature(id: string): Promise<Feature> {

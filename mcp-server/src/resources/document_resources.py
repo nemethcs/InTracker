@@ -40,11 +40,14 @@ def get_document_resources(project_id: Optional[str] = None) -> list[Resource]:
 
 async def read_document_resource(uri: str) -> str:
     """Read document resource."""
+    # Convert URI to string (MCP SDK may pass AnyUrl object)
+    uri_str = str(uri)
+    
     # Parse URI: intracker://document/{document_id}
-    if not uri.startswith("intracker://document/"):
-        raise ValueError(f"Invalid document resource URI: {uri}")
+    if not uri_str.startswith("intracker://document/"):
+        raise ValueError(f"Invalid document resource URI: {uri_str}")
 
-    document_id = uri.replace("intracker://document/", "")
+    document_id = uri_str.replace("intracker://document/", "")
     db = get_db_session()
     try:
         document = db.query(Document).filter(Document.id == UUID(document_id)).first()
