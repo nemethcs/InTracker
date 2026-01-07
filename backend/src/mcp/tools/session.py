@@ -5,8 +5,7 @@ from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
 from src.database.base import SessionLocal
 from src.mcp.services.cache import cache_service
-from src.database.models import Session as SessionModel, Project, Todo, Feature
-from datetime import datetime
+from src.services.session_service import SessionService
 
 
 def get_start_session_tool() -> MCPTool:
@@ -38,17 +37,14 @@ async def handle_start_session(
     """Handle start session tool call."""
     db = SessionLocal()
     try:
-        session = SessionModel(
+        # Use SessionService to create session
+        feature_uuid_list = [UUID(fid) for fid in (feature_ids or [])]
+        session = SessionService.create_session(
+            db=db,
             project_id=UUID(project_id),
             goal=goal,
-            feature_ids=[UUID(fid) for fid in (feature_ids or [])],
-            todos_completed=[],
-            features_completed=[],
-            elements_updated=[],
+            feature_ids=feature_uuid_list,
         )
-        db.add(session)
-        db.commit()
-        db.refresh(session)
 
         # Invalidate cache
         cache_service.clear_pattern(f"project:{project_id}:*")
@@ -98,19 +94,20 @@ async def handle_update_session(
     """Handle update session tool call."""
     db = SessionLocal()
     try:
-        session = db.query(SessionModel).filter(SessionModel.id == UUID(session_id)).first()
+        # Use SessionService to update session
+        todo_uuid_list = [UUID(tid) for tid in completed_todos] if completed_todos is not None else None
+        feature_uuid_list = [UUID(fid) for fid in completed_features] if completed_features is not None else None
+        
+        session = SessionService.update_session(
+            db=db,
+            session_id=UUID(session_id),
+            todos_completed=todo_uuid_list,
+            features_completed=feature_uuid_list,
+            notes=notes,
+        )
+        
         if not session:
             return {"error": "Session not found"}
-
-        if completed_todos is not None:
-            session.todos_completed = [UUID(tid) for tid in completed_todos]
-        if completed_features is not None:
-            session.features_completed = [UUID(fid) for fid in completed_features]
-        if notes is not None:
-            session.notes = notes
-
-        db.commit()
-        db.refresh(session)
 
         # Invalidate cache
         cache_service.clear_pattern(f"project:{session.project_id}:*")
@@ -145,34 +142,15 @@ async def handle_end_session(session_id: str, summary: Optional[str] = None) -> 
     """Handle end session tool call."""
     db = SessionLocal()
     try:
-        session = db.query(SessionModel).filter(SessionModel.id == UUID(session_id)).first()
+        # Use SessionService to end session
+        session = SessionService.end_session(
+            db=db,
+            session_id=UUID(session_id),
+            summary=summary,
+        )
+        
         if not session:
             return {"error": "Session not found"}
-
-        if session.ended_at:
-            return {"error": "Session already ended"}
-
-        # Generate summary if not provided
-        if not summary:
-            parts = []
-            if session.goal:
-                parts.append(f"Goal: {session.goal}")
-            if session.todos_completed:
-                parts.append(f"Completed {len(session.todos_completed)} todo(s)")
-            if session.features_completed:
-                parts.append(f"Completed {len(session.features_completed)} feature(s)")
-            summary = " | ".join(parts) if parts else "Session completed with no changes recorded."
-
-        session.summary = summary
-        session.ended_at = datetime.utcnow()
-
-        # Update project last_session_at
-        project = db.query(Project).filter(Project.id == session.project_id).first()
-        if project:
-            project.last_session_at = session.ended_at
-
-        db.commit()
-        db.refresh(session)
 
         # Invalidate cache
         cache_service.clear_pattern(f"project:{session.project_id}:*")
