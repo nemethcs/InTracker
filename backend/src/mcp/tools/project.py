@@ -8,7 +8,12 @@ from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
 from src.database.base import SessionLocal
 from src.mcp.services.cache import cache_service
-from src.database.models import Project, ProjectElement, Feature, Todo, Session as SessionModel, User, UserProject
+from src.services.project_service import ProjectService
+from src.services.element_service import ElementService
+from src.services.feature_service import FeatureService
+from src.services.todo_service import TodoService
+from src.services.session_service import SessionService
+from src.database.models import User, UserProject
 from sqlalchemy import func, and_, or_
 import json
 
@@ -42,25 +47,27 @@ async def handle_get_project_context(project_id: str) -> dict:
 
     db = SessionLocal()
     try:
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project:
             return {"error": "Project not found"}
 
-        # Get elements tree
-        elements = db.query(ProjectElement).filter(
-            ProjectElement.project_id == UUID(project_id)
-        ).all()
+        # Use ElementService to get elements
+        elements = ElementService.get_project_elements_tree(db, UUID(project_id))
 
-        # Get features
-        features = db.query(Feature).filter(
-            Feature.project_id == UUID(project_id)
-        ).all()
+        # Use FeatureService to get features
+        features, _ = FeatureService.get_features_by_project(db, UUID(project_id))
 
-        # Get active todos (no user filtering in project context - shows all)
-        todos = db.query(Todo).join(ProjectElement).filter(
-            ProjectElement.project_id == UUID(project_id),
-            Todo.status.in_(["new", "in_progress", "tested"]),
-        ).all()
+        # Use TodoService to get active todos (no user filtering in project context - shows all)
+        todos, _ = TodoService.get_todos_by_project(
+            db=db,
+            project_id=UUID(project_id),
+            status=None,  # We'll filter manually for active statuses
+            skip=0,
+            limit=1000,
+        )
+        # Filter for active statuses
+        todos = [t for t in todos if t.status in ["new", "in_progress", "tested"]]
 
         # Build response
         context = {
@@ -156,7 +163,8 @@ async def handle_get_resume_context(project_id: str, user_id: Optional[str] = No
 
     db = SessionLocal()
     try:
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project:
             return {"error": "Project not found"}
 
@@ -166,24 +174,23 @@ async def handle_get_resume_context(project_id: str, user_id: Optional[str] = No
         if resume_context:
             # If user_id is provided, filter the next_todos in resume_context
             if user_id and "now" in resume_context and "next_todos" in resume_context["now"]:
-                # Re-query to get filtered todos
-                next_todos_query = db.query(Todo).join(ProjectElement).filter(
-                    ProjectElement.project_id == UUID(project_id),
+                # Use TodoService to get filtered todos
+                all_todos, _ = TodoService.get_todos_by_project(
+                    db=db,
+                    project_id=UUID(project_id),
+                    status=None,
+                    skip=0,
+                    limit=1000,
                 )
-                # Exclude todos that are in_progress and assigned to other users
-                next_todos_query = next_todos_query.filter(
-                    or_(
-                        Todo.status == "new",  # New todos are always available
-                        and_(
-                            Todo.status == "in_progress",
-                            or_(
-                                Todo.assigned_to.is_(None),  # Unassigned in_progress todos
-                                Todo.assigned_to == UUID(user_id),  # Assigned to this user
-                            )
-                        )
-                    )
-                )
-                next_todos = next_todos_query.order_by(Todo.position, Todo.created_at).limit(3).all()
+                # Filter for new and in_progress, and exclude in_progress assigned to other users
+                user_uuid = UUID(user_id)
+                next_todos = [
+                    t for t in all_todos
+                    if t.status in ["new", "in_progress"]
+                    and (t.status == "new" or t.assigned_to is None or t.assigned_to == user_uuid)
+                ]
+                # Sort and limit
+                next_todos = sorted(next_todos, key=lambda t: (t.position or 0, t.created_at))[:3]
                 resume_context["now"]["next_todos"] = [
                     {
                         "id": str(t.id),
@@ -196,37 +203,36 @@ async def handle_get_resume_context(project_id: str, user_id: Optional[str] = No
             return resume_context
 
         # Otherwise, generate basic resume context
-        # Get last session
+        # Get last session - query directly as SessionService doesn't have this method
+        from src.database.models import Session as SessionModel
         last_session = db.query(SessionModel).filter(
             SessionModel.project_id == UUID(project_id),
             SessionModel.ended_at.isnot(None),
         ).order_by(SessionModel.ended_at.desc()).first()
 
-        # Get next todos - only show "new" todos, or "in_progress" todos assigned to this user
-        next_todos_query = db.query(Todo).join(ProjectElement).filter(
-            ProjectElement.project_id == UUID(project_id),
-            Todo.status.in_(["new", "in_progress"]),
+        # Use TodoService to get next todos
+        all_todos, _ = TodoService.get_todos_by_project(
+            db=db,
+            project_id=UUID(project_id),
+            status=None,
+            skip=0,
+            limit=1000,
         )
         
-        # If user_id is provided, exclude todos that are in_progress and assigned to other users
+        # Filter for new and in_progress todos
         if user_id:
-            next_todos_query = next_todos_query.filter(
-                or_(
-                    Todo.status == "new",  # New todos are always available
-                    and_(
-                        Todo.status == "in_progress",
-                        or_(
-                            Todo.assigned_to.is_(None),  # Unassigned in_progress todos
-                            Todo.assigned_to == UUID(user_id),  # Assigned to this user
-                        )
-                    )
-                )
-            )
+            user_uuid = UUID(user_id)
+            next_todos = [
+                t for t in all_todos
+                if t.status in ["new", "in_progress"]
+                and (t.status == "new" or t.assigned_to is None or t.assigned_to == user_uuid)
+            ]
         else:
             # If no user_id, only show "new" todos
-            next_todos_query = next_todos_query.filter(Todo.status == "new")
+            next_todos = [t for t in all_todos if t.status == "new"]
         
-        next_todos = next_todos_query.order_by(Todo.position, Todo.created_at).limit(3).all()
+        # Sort and limit
+        next_todos = sorted(next_todos, key=lambda t: (t.position or 0, t.created_at))[:3]
 
         resume = {
             "last": {
@@ -315,9 +321,8 @@ async def handle_get_project_structure(project_id: str) -> dict:
 
     db = SessionLocal()
     try:
-        elements = db.query(ProjectElement).filter(
-            ProjectElement.project_id == UUID(project_id)
-        ).order_by(ProjectElement.position, ProjectElement.created_at).all()
+        # Use ElementService to get elements
+        elements = ElementService.get_project_elements_tree(db, UUID(project_id))
 
         tree = build_element_tree(elements)
 
@@ -388,35 +393,34 @@ async def handle_get_active_todos(
 
     db = SessionLocal()
     try:
-        query = db.query(Todo).join(ProjectElement).filter(
-            ProjectElement.project_id == UUID(project_id),
+        # Use TodoService to get todos by project
+        todos, _ = TodoService.get_todos_by_project(
+            db=db,
+            project_id=UUID(project_id),
+            status=status if status else None,
+            skip=0,
+            limit=1000,
         )
 
-        if status:
-            query = query.filter(Todo.status == status)
-        else:
-            query = query.filter(Todo.status.in_(["new", "in_progress", "tested"]))
-
+        # Filter by feature_id if provided
         if feature_id:
-            query = query.filter(Todo.feature_id == UUID(feature_id))
+            todos = [t for t in todos if t.feature_id == UUID(feature_id)]
+        
+        # Filter for active statuses if no status filter
+        if not status:
+            todos = [t for t in todos if t.status in ["new", "in_progress", "tested"]]
 
         # If user_id is provided, exclude todos that are in_progress and assigned to other users
         if user_id:
-            query = query.filter(
-                or_(
-                    Todo.status == "new",  # New todos are always available
-                    Todo.status == "tested",  # Tested todos are always available
-                    and_(
-                        Todo.status == "in_progress",
-                        or_(
-                            Todo.assigned_to.is_(None),  # Unassigned in_progress todos
-                            Todo.assigned_to == UUID(user_id),  # Assigned to this user
-                        )
-                    )
-                )
-            )
-
-        todos = query.order_by(Todo.position, Todo.created_at).all()
+            user_uuid = UUID(user_id)
+            filtered_todos = []
+            for t in todos:
+                if t.status in ["new", "tested"]:
+                    filtered_todos.append(t)
+                elif t.status == "in_progress":
+                    if t.assigned_to is None or t.assigned_to == user_uuid:
+                        filtered_todos.append(t)
+            todos = filtered_todos
 
         result = {
             "project_id": project_id,
@@ -498,28 +502,18 @@ async def handle_create_project(
         if not user:
             return {"error": "No user available for project creation"}
 
-        # Create project directly
-        project = Project(
+        # Use ProjectService to create project
+        project = ProjectService.create_project(
+            db=db,
+            user_id=user.id,
             name=name,
             description=description,
             status=status,
-            tags=tags or [],
-            technology_tags=technology_tags or [],
+            tags=tags,
+            technology_tags=technology_tags,
             cursor_instructions=cursor_instructions,
             github_repo_url=github_repo_url,
         )
-        db.add(project)
-        db.flush()
-
-        # Assign owner role
-        user_project = UserProject(
-            user_id=user.id,
-            project_id=project.id,
-            role="owner",
-        )
-        db.add(user_project)
-        db.commit()
-        db.refresh(project)
 
         # Invalidate cache
         cache_service.clear_pattern("projects:*")
@@ -569,6 +563,10 @@ async def handle_list_projects(status: Optional[str] = None) -> dict:
 
     db = SessionLocal()
     try:
+        # For list projects, we need to get all projects (no user filtering in MCP context)
+        # Since ProjectService.get_user_projects requires a user_id, we'll query directly
+        # but this is acceptable as it's a simple read operation
+        from src.database.models import Project
         query = db.query(Project)
 
         if status:
@@ -655,28 +653,21 @@ async def handle_update_project(
     """Handle update project tool call."""
     db = SessionLocal()
     try:
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to update project
+        project = ProjectService.update_project(
+            db=db,
+            project_id=UUID(project_id),
+            name=name,
+            description=description,
+            status=status,
+            tags=tags,
+            technology_tags=technology_tags,
+            cursor_instructions=cursor_instructions,
+            github_repo_url=github_repo_url,
+        )
+        
         if not project:
             return {"error": "Project not found"}
-
-        # Update fields
-        if name is not None:
-            project.name = name
-        if description is not None:
-            project.description = description
-        if status is not None:
-            project.status = status
-        if tags is not None:
-            project.tags = tags
-        if technology_tags is not None:
-            project.technology_tags = technology_tags
-        if cursor_instructions is not None:
-            project.cursor_instructions = cursor_instructions
-        if github_repo_url is not None:
-            project.github_repo_url = github_repo_url
-
-        db.commit()
-        db.refresh(project)
 
         # Invalidate cache
         cache_service.delete(f"project:{project_id}:*")
@@ -729,7 +720,7 @@ async def handle_identify_project_by_path(path: Optional[str] = None) -> dict:
                     config = json_lib.load(f)
                     project_id = config.get("project_id")
                     if project_id:
-                        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+                        project = ProjectService.get_project_by_id(db, UUID(project_id))
                         if project:
                             return {
                                 "project_id": str(project.id),
@@ -765,6 +756,9 @@ async def handle_identify_project_by_path(path: Optional[str] = None) -> dict:
                                             owner, repo = parts[0], parts[1]
                                             # Search for project with this GitHub repo URL
                                             github_url = f"https://github.com/{owner}/{repo}"
+                                            # For GitHub URL search, we need to query directly
+                                            # as ProjectService doesn't have a method for this
+                                            from src.database.models import Project
                                             project = db.query(Project).filter(
                                                 Project.github_repo_url == github_url
                                             ).first()
@@ -804,6 +798,8 @@ async def handle_identify_project_by_path(path: Optional[str] = None) -> dict:
         potential_name = path_obj.name
         
         # Search for projects with similar name (case-insensitive)
+        # For name search, we need to query directly as ProjectService doesn't have a method for this
+        from src.database.models import Project
         projects = db.query(Project).filter(
             func.lower(Project.name) == func.lower(potential_name)
         ).all()
