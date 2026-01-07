@@ -6,14 +6,14 @@ from sqlalchemy.orm import Session
 from src.services.database import get_db_session
 from src.services.cache import cache_service
 from src.models import Todo, ProjectElement, Feature
-from sqlalchemy import func
+from sqlalchemy import func, or_, and_
 
 
 def get_create_todo_tool() -> MCPTool:
     """Get create todo tool definition."""
     return MCPTool(
         name="mcp_create_todo",
-        description="Create a new todo and optionally link to feature",
+        description="Create a new todo item linked to a project element. The todo will be created with status 'new' and can optionally be linked to a feature. Returns the created todo with its ID.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -93,7 +93,7 @@ def get_update_todo_status_tool() -> MCPTool:
     """Get update todo status tool definition."""
     return MCPTool(
         name="mcp_update_todo_status",
-        description="Update todo status with optimistic locking",
+        description="Update a todo's status (new → in_progress → tested → done) with optimistic locking to prevent conflicts. Always provide expectedVersion from the previous read to avoid conflicts. Returns updated todo with new version number.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -180,7 +180,7 @@ def get_list_todos_tool() -> MCPTool:
     """Get list todos tool definition."""
     return MCPTool(
         name="mcp_list_todos",
-        description="List todos for a project with optional filters",
+        description="List todos for a project with optional filters. If userId is provided, excludes todos that are in_progress and assigned to other users.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -191,6 +191,10 @@ def get_list_todos_tool() -> MCPTool:
                     "description": "Filter by status",
                 },
                 "featureId": {"type": "string", "description": "Filter by feature ID"},
+                "userId": {
+                    "type": "string",
+                    "description": "Optional: User UUID to filter out todos assigned to other users (in_progress status)",
+                },
             },
             "required": ["projectId"],
         },
@@ -201,13 +205,19 @@ async def handle_list_todos(
     project_id: str,
     status: Optional[str] = None,
     feature_id: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> dict:
-    """Handle list todos tool call."""
+    """Handle list todos tool call.
+    
+    If user_id is provided, excludes todos that are in_progress and assigned to other users.
+    """
     cache_key = f"project:{project_id}:todos"
     if status:
         cache_key += f":status:{status}"
     if feature_id:
         cache_key += f":feature:{feature_id}"
+    if user_id:
+        cache_key += f":user:{user_id}"
     
     cached = cache_service.get(cache_key)
     if cached:
@@ -223,6 +233,24 @@ async def handle_list_todos(
             query = query.filter(Todo.status == status)
         if feature_id:
             query = query.filter(Todo.feature_id == UUID(feature_id))
+
+        # If user_id is provided, exclude todos that are in_progress and assigned to other users
+        if user_id:
+            from sqlalchemy import or_, and_
+            query = query.filter(
+                or_(
+                    Todo.status == "new",  # New todos are always available
+                    Todo.status == "tested",  # Tested todos are always available
+                    Todo.status == "done",  # Done todos are always available
+                    and_(
+                        Todo.status == "in_progress",
+                        or_(
+                            Todo.assigned_to.is_(None),  # Unassigned in_progress todos
+                            Todo.assigned_to == UUID(user_id),  # Assigned to this user
+                        )
+                    )
+                )
+            )
 
         todos = query.order_by(Todo.position, Todo.created_at).all()
 
@@ -252,7 +280,7 @@ def get_assign_todo_tool() -> MCPTool:
     """Get assign todo tool definition."""
     return MCPTool(
         name="mcp_assign_todo",
-        description="Assign todo to a user (auto-assign if userId is null)",
+        description="Assign a todo to a specific user. When a todo is assigned and in 'in_progress' status, it will be hidden from other users' 'next todos' lists. If userId is null, the assignment is cleared (todo becomes unassigned).",
         inputSchema={
             "type": "object",
             "properties": {

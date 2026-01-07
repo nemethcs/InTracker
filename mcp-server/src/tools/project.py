@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from src.services.database import get_db_session
 from src.services.cache import cache_service
 from src.models import Project, ProjectElement, Feature, Todo, Session as SessionModel, User, UserProject
-from sqlalchemy import func
+from sqlalchemy import func, and_, or_
 import json
 
 
@@ -17,7 +17,7 @@ def get_project_context_tool() -> MCPTool:
     """Get project context tool definition."""
     return MCPTool(
         name="mcp_get_project_context",
-        description="Get full project context including structure, features, todos, and resume context",
+        description="Get comprehensive project information including project metadata, element structure tree, all features, active todos (new/in_progress/tested), and cached resume context. Use this for initial project exploration.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -56,10 +56,10 @@ async def handle_get_project_context(project_id: str) -> dict:
             Feature.project_id == UUID(project_id)
         ).all()
 
-        # Get active todos
+        # Get active todos (no user filtering in project context - shows all)
         todos = db.query(Todo).join(ProjectElement).filter(
             ProjectElement.project_id == UUID(project_id),
-            Todo.status.in_(["todo", "in_progress", "blocked"]),
+            Todo.status.in_(["new", "in_progress", "tested"]),
         ).all()
 
         # Build response
@@ -122,7 +122,7 @@ def get_resume_context_tool() -> MCPTool:
     """Get resume context tool definition."""
     return MCPTool(
         name="mcp_get_resume_context",
-        description="Get resume context package (Last, Now, Blockers, Constraints) for a project",
+        description="Get resume context package (Last, Now, Blockers, Constraints) for a project. If userId is provided, excludes todos that are in_progress and assigned to other users.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -130,15 +130,24 @@ def get_resume_context_tool() -> MCPTool:
                     "type": "string",
                     "description": "Project UUID",
                 },
+                "userId": {
+                    "type": "string",
+                    "description": "Optional: User UUID to filter out todos assigned to other users (in_progress status)",
+                },
             },
             "required": ["projectId"],
         },
     )
 
 
-async def handle_get_resume_context(project_id: str) -> dict:
-    """Handle get resume context tool call."""
+async def handle_get_resume_context(project_id: str, user_id: Optional[str] = None) -> dict:
+    """Handle get resume context tool call.
+    
+    If user_id is provided, excludes todos that are in_progress and assigned to other users.
+    """
     cache_key = f"project:{project_id}:resume"
+    if user_id:
+        cache_key += f":user:{user_id}"
     
     # Check cache
     cached = cache_service.get(cache_key)
@@ -153,8 +162,36 @@ async def handle_get_resume_context(project_id: str) -> dict:
 
         resume_context = project.resume_context or {}
 
-        # If resume context exists, return it
+        # If resume context exists, return it (but filter if user_id provided)
         if resume_context:
+            # If user_id is provided, filter the next_todos in resume_context
+            if user_id and "now" in resume_context and "next_todos" in resume_context["now"]:
+                # Re-query to get filtered todos
+                next_todos_query = db.query(Todo).join(ProjectElement).filter(
+                    ProjectElement.project_id == UUID(project_id),
+                )
+                # Exclude todos that are in_progress and assigned to other users
+                next_todos_query = next_todos_query.filter(
+                    or_(
+                        Todo.status == "new",  # New todos are always available
+                        and_(
+                            Todo.status == "in_progress",
+                            or_(
+                                Todo.assigned_to.is_(None),  # Unassigned in_progress todos
+                                Todo.assigned_to == UUID(user_id),  # Assigned to this user
+                            )
+                        )
+                    )
+                )
+                next_todos = next_todos_query.order_by(Todo.position, Todo.created_at).limit(3).all()
+                resume_context["now"]["next_todos"] = [
+                    {
+                        "id": str(t.id),
+                        "title": t.title,
+                        "description": t.description,
+                    }
+                    for t in next_todos
+                ]
             cache_service.set(cache_key, resume_context, ttl=60)  # 1 min TTL
             return resume_context
 
@@ -165,17 +202,31 @@ async def handle_get_resume_context(project_id: str) -> dict:
             SessionModel.ended_at.isnot(None),
         ).order_by(SessionModel.ended_at.desc()).first()
 
-        # Get next todos
-        next_todos = db.query(Todo).join(ProjectElement).filter(
+        # Get next todos - only show "new" todos, or "in_progress" todos assigned to this user
+        next_todos_query = db.query(Todo).join(ProjectElement).filter(
             ProjectElement.project_id == UUID(project_id),
-            Todo.status == "todo",
-        ).order_by(Todo.position, Todo.created_at).limit(3).all()
-
-        # Get blocked todos
-        blocked_todos = db.query(Todo).join(ProjectElement).filter(
-            ProjectElement.project_id == UUID(project_id),
-            Todo.status == "blocked",
-        ).all()
+            Todo.status.in_(["new", "in_progress"]),
+        )
+        
+        # If user_id is provided, exclude todos that are in_progress and assigned to other users
+        if user_id:
+            next_todos_query = next_todos_query.filter(
+                or_(
+                    Todo.status == "new",  # New todos are always available
+                    and_(
+                        Todo.status == "in_progress",
+                        or_(
+                            Todo.assigned_to.is_(None),  # Unassigned in_progress todos
+                            Todo.assigned_to == UUID(user_id),  # Assigned to this user
+                        )
+                    )
+                )
+            )
+        else:
+            # If no user_id, only show "new" todos
+            next_todos_query = next_todos_query.filter(Todo.status == "new")
+        
+        next_todos = next_todos_query.order_by(Todo.position, Todo.created_at).limit(3).all()
 
         resume = {
             "last": {
@@ -198,14 +249,7 @@ async def handle_get_resume_context(project_id: str) -> dict:
                 "immediate_goals": [],
             },
             "next_blockers": {
-                "blocked_todos": [
-                    {
-                        "id": str(t.id),
-                        "title": t.title,
-                        "blocker_reason": t.blocker_reason,
-                    }
-                    for t in blocked_todos
-                ],
+                "blocked_todos": [],  # Removed - "blocked" status does not exist for todos
                 "waiting_for": [],
                 "technical_blocks": [],
             },
@@ -227,7 +271,7 @@ def get_project_structure_tool() -> MCPTool:
     """Get project structure tool definition."""
     return MCPTool(
         name="mcp_get_project_structure",
-        description="Get hierarchical element tree for a project",
+        description="Get the hierarchical element tree structure for a project. Elements are organized in a tree with parent-child relationships. Useful for understanding project organization and dependencies.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -292,7 +336,7 @@ def get_active_todos_tool() -> MCPTool:
     """Get active todos tool definition."""
     return MCPTool(
         name="mcp_get_active_todos",
-        description="Get active todos for a project with optional filters",
+        description="Get active todos for a project with optional filters. If userId is provided, excludes todos that are in_progress and assigned to other users.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -309,6 +353,10 @@ def get_active_todos_tool() -> MCPTool:
                     "type": "string",
                     "description": "Filter by feature ID",
                 },
+                "userId": {
+                    "type": "string",
+                    "description": "Optional: User UUID to filter out todos assigned to other users (in_progress status)",
+                },
             },
             "required": ["projectId"],
         },
@@ -319,13 +367,19 @@ async def handle_get_active_todos(
     project_id: str,
     status: Optional[str] = None,
     feature_id: Optional[str] = None,
+    user_id: Optional[str] = None,
 ) -> dict:
-    """Handle get active todos tool call."""
+    """Handle get active todos tool call.
+    
+    If user_id is provided, excludes todos that are in_progress and assigned to other users.
+    """
     cache_key = f"project:{project_id}:todos:active"
     if status:
         cache_key += f":status:{status}"
     if feature_id:
         cache_key += f":feature:{feature_id}"
+    if user_id:
+        cache_key += f":user:{user_id}"
     
     # Check cache
     cached = cache_service.get(cache_key)
@@ -341,10 +395,26 @@ async def handle_get_active_todos(
         if status:
             query = query.filter(Todo.status == status)
         else:
-            query = query.filter(Todo.status.in_(["todo", "in_progress", "blocked"]))
+            query = query.filter(Todo.status.in_(["new", "in_progress", "tested"]))
 
         if feature_id:
             query = query.filter(Todo.feature_id == UUID(feature_id))
+
+        # If user_id is provided, exclude todos that are in_progress and assigned to other users
+        if user_id:
+            query = query.filter(
+                or_(
+                    Todo.status == "new",  # New todos are always available
+                    Todo.status == "tested",  # Tested todos are always available
+                    and_(
+                        Todo.status == "in_progress",
+                        or_(
+                            Todo.assigned_to.is_(None),  # Unassigned in_progress todos
+                            Todo.assigned_to == UUID(user_id),  # Assigned to this user
+                        )
+                    )
+                )
+            )
 
         todos = query.order_by(Todo.position, Todo.created_at).all()
 

@@ -51,11 +51,16 @@ class ConnectionManager:
         # Broadcast user left events for all projects they were in
         if user_id:
             for project_id in project_ids:
-                asyncio.create_task(self.broadcast_to_project(project_id, {
-                    "type": "userLeft",
-                    "userId": str(user_id),
-                    "projectId": project_id
-                }))
+                # SignalR message format
+                message = {
+                    "type": 1,  # SignalR invocation
+                    "target": "userLeft",
+                    "arguments": [{
+                        "userId": str(user_id),
+                        "projectId": project_id
+                    }]
+                }
+                asyncio.create_task(self.broadcast_to_project(project_id, message))
     
     def get_active_users_for_project(self, project_id: str) -> Set[UUID]:
         """Get set of active user IDs for a project."""
@@ -102,18 +107,25 @@ class ConnectionManager:
         # Broadcast user left event if they were a member
         if was_member and connection_id in self.connection_users:
             user_id = self.connection_users[connection_id]
-            await self.broadcast_to_project(project_id, {
-                "type": "userLeft",
-                "userId": str(user_id),
-                "projectId": project_id
-            })
+            # SignalR message format
+            message = {
+                "type": 1,  # SignalR invocation
+                "target": "userLeft",
+                "arguments": [{
+                    "userId": str(user_id),
+                    "projectId": project_id
+                }]
+            }
+            await self.broadcast_to_project(project_id, message)
     
     async def send_to_connection(self, connection_id: str, message: dict):
         """Send message to specific connection."""
         if connection_id in self.active_connections:
             try:
                 websocket = self.active_connections[connection_id]
-                await websocket.send_json(message)
+                # SignalR protocol requires record separator (0x1E) after each message
+                message_json = json.dumps(message)
+                await websocket.send_text(message_json + '\x1E')
             except Exception as e:
                 print(f"Error sending to connection {connection_id}: {e}")
                 self.disconnect(connection_id)
@@ -168,63 +180,139 @@ async def handle_websocket(websocket: WebSocket, token: Optional[str] = None):
         if token:
             try:
                 # Verify token and get user
-                db = next(get_db())
-                try:
-                    payload = auth_service.decode_token(token)
-                    user_email = payload.get("email")
-                    if user_email:
+                payload = auth_service.verify_token(token, is_refresh=False)
+                user_email = payload.get("email")
+                if user_email:
+                    db = next(get_db())
+                    try:
                         user = db.query(User).filter(User.email == user_email).first()
                         if user:
                             user_id = user.id
-                finally:
-                    db.close()
+                    finally:
+                        db.close()
             except Exception as e:
                 print(f"Token verification failed: {e}")
-                await websocket.close(code=1008, reason="Unauthorized")
+                import traceback
+                traceback.print_exc()
+                try:
+                    await websocket.close(code=1008, reason="Unauthorized")
+                except:
+                    pass
                 return
         
         if not user_id:
-            await websocket.close(code=1008, reason="Unauthorized")
+            try:
+                await websocket.close(code=1008, reason="Unauthorized")
+            except:
+                pass
             return
         
         # Accept connection
         connection_id = await connection_manager.connect(websocket, user_id)
         
-        # Send connection confirmation (SignalR-compatible format)
-        await websocket.send_json({
-            "type": 1,  # SignalR message type: invocation
-            "target": "connection",
-            "arguments": [{
-                "connectionId": connection_id,
-                "message": "Connected"
-            }]
-        })
-        # Also send simple JSON for compatibility
-        await websocket.send_json({
-            "type": "connection",
-            "connectionId": connection_id,
-            "message": "Connected"
-        })
+        # Handle SignalR handshake
+        # SignalR client sends handshake: {"protocol":"json","version":1}
+        # We need to respond with: {} (empty object)
+        try:
+            # Wait for handshake message (with timeout)
+            handshake_data = await asyncio.wait_for(websocket.receive_text(), timeout=2.0)
+            # SignalR handshake might be followed by a record separator (0x1E)
+            # Remove record separator if present
+            if handshake_data.endswith('\x1E'):
+                handshake_data = handshake_data[:-1]
+            
+            try:
+                handshake = json.loads(handshake_data)
+                # If it's a handshake message, respond with empty object
+                if isinstance(handshake, dict) and ("protocol" in handshake or "version" in handshake):
+                    # Send SignalR handshake response: {} followed by record separator
+                    await websocket.send_text("{}\x1E")  # SignalR handshake response with record separator
+                    print(f"SignalR handshake completed for connection {connection_id}")
+                    
+                    # Send a ping message immediately after handshake to prevent timeout
+                    # SignalR message type 6 is ping/keepalive
+                    ping_msg = json.dumps({"type": 6}) + '\x1E'
+                    await websocket.send_text(ping_msg)
+                    print(f"Sent ping message to connection {connection_id}")
+                else:
+                    # Not a handshake, process as regular message
+                    await handle_message(connection_id, user_id, handshake)
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"Error parsing handshake: {e}, data: {handshake_data[:100]}")
+                # Not valid JSON, might be a regular message, try to process it
+                try:
+                    # Try to parse as regular message
+                    data = json.loads(handshake_data.split('\x1E')[0])  # Take first part if multiple messages
+                    await handle_message(connection_id, user_id, data)
+                except:
+                    pass  # Ignore if can't parse
+        except asyncio.TimeoutError:
+            # No handshake received within timeout, continue with normal flow
+            print(f"No handshake received for connection {connection_id}, continuing...")
+        except WebSocketDisconnect:
+            # Client disconnected during handshake
+            return
+        
+        # Note: Ping message is now sent immediately after handshake response
+        # This prevents the SignalR client from timing out
+        
+        # Start a background task to send periodic keepalive pings
+        async def send_keepalive():
+            """Send periodic keepalive pings to prevent timeout."""
+            while connection_id in connection_manager.active_connections:
+                try:
+                    await asyncio.sleep(15)  # Send ping every 15 seconds (SignalR default timeout is 30 seconds)
+                    if connection_id in connection_manager.active_connections:
+                        ping_msg = {"type": 6}
+                        await connection_manager.send_to_connection(connection_id, ping_msg)
+                        print(f"Sent keepalive ping to connection {connection_id}")
+                except Exception as e:
+                    print(f"Error sending keepalive ping: {e}")
+                    break
+        
+        # Start keepalive task
+        keepalive_task = asyncio.create_task(send_keepalive())
         
         # Handle incoming messages
         while True:
             try:
-                data = await websocket.receive_json()
-                await handle_message(connection_id, user_id, data)
+                # Receive as text (SignalR protocol uses text with record separators)
+                text_data = await websocket.receive_text()
+                
+                # SignalR messages are separated by record separator (0x1E)
+                # Split by record separator and process each message
+                messages = text_data.split('\x1E')
+                for msg_text in messages:
+                    if not msg_text.strip():
+                        continue
+                    
+                    try:
+                        data = json.loads(msg_text)
+                        # Log message type for debugging
+                        if isinstance(data, dict) and "type" in data:
+                            print(f"Received message type {data.get('type')} from connection {connection_id}")
+                        await handle_message(connection_id, user_id, data)
+                    except json.JSONDecodeError as e:
+                        # Not valid JSON, might be handshake or other format
+                        print(f"Error parsing message: {e}, text: {msg_text[:100]}")
             except WebSocketDisconnect:
                 break
             except Exception as e:
-                print(f"Error handling message: {e}")
-                await websocket.send_json({
-                    "type": "error",
-                    "message": str(e)
-                })
+                print(f"Error receiving message: {e}")
+                break
     
     except WebSocketDisconnect:
         pass
     except Exception as e:
         print(f"WebSocket error: {e}")
     finally:
+        # Cancel keepalive task if it exists
+        if 'keepalive_task' in locals():
+            keepalive_task.cancel()
+            try:
+                await keepalive_task
+            except asyncio.CancelledError:
+                pass
         if connection_id:
             connection_manager.disconnect(connection_id)
 
@@ -233,7 +321,82 @@ async def handle_message(connection_id: str, user_id: UUID, data: dict):
     """Handle incoming WebSocket message."""
     # Support both SignalR protocol and simple JSON messages
     if isinstance(data, dict):
-        # Check for SignalR invoke method
+        # Handle SignalR ping/keepalive messages (type: 6)
+        # The client sends ping messages, and we need to respond with ping
+        message_type = data.get("type")
+        if message_type == 6:
+            # Respond with ping to keep connection alive
+            ping_response = {"type": 6}
+            await connection_manager.send_to_connection(connection_id, ping_response)
+            return  # Don't log every ping to reduce noise
+        
+        # Log other message types for debugging
+        if message_type != 6:
+            print(f"Received message from connection {connection_id}: {data}")
+        
+        # Check for SignalR invoke method (type: 1 with invocation)
+        if message_type == 1 and "target" in data:
+            # SignalR invocation message format: {"type": 1, "target": "methodName", "arguments": [...]}
+            method = data.get("target")
+            arguments = data.get("arguments", [])
+            
+            if method == "JoinProject":
+                project_id = arguments[0] if arguments and len(arguments) > 0 else arguments[0] if isinstance(arguments[0], str) else None
+                if not project_id and isinstance(arguments[0], dict):
+                    project_id = arguments[0].get("projectId")
+                if project_id:
+                    await connection_manager.join_project(connection_id, str(project_id))
+                    print(f"Connection {connection_id} joined project {project_id}")
+                    # Send confirmation with SignalR format
+                    confirmation = {
+                        "type": 1,  # SignalR invocation
+                        "target": "joinedProject",
+                        "arguments": [{
+                            "projectId": str(project_id)
+                        }]
+                    }
+                    await connection_manager.send_to_connection(connection_id, confirmation)
+                return
+            
+            elif method == "LeaveProject":
+                project_id = arguments[0] if arguments and len(arguments) > 0 else None
+                if not project_id and isinstance(arguments[0], dict):
+                    project_id = arguments[0].get("projectId")
+                if project_id:
+                    await connection_manager.leave_project(connection_id, str(project_id))
+                    print(f"Connection {connection_id} left project {project_id}")
+                    # Send confirmation with SignalR format
+                    confirmation = {
+                        "type": 1,  # SignalR invocation
+                        "target": "leftProject",
+                        "arguments": [{
+                            "projectId": str(project_id)
+                        }]
+                    }
+                    await connection_manager.send_to_connection(connection_id, confirmation)
+                return
+            
+            elif method == "SendUserActivity":
+                project_id = arguments[0] if len(arguments) > 0 else None
+                action = arguments[1] if len(arguments) > 1 else None
+                feature_id = arguments[2] if len(arguments) > 2 else None
+                
+                if project_id:
+                    # SignalR message format
+                    message = {
+                        "type": 1,  # SignalR invocation
+                        "target": "userActivity",
+                        "arguments": [{
+                            "userId": str(user_id),
+                            "projectId": str(project_id),
+                            "action": action,
+                            "featureId": str(feature_id) if feature_id else None
+                        }]
+                    }
+                    await connection_manager.broadcast_to_project(str(project_id), message, exclude_connection=connection_id)
+                return
+        
+        # Check for SignalR invoke method (legacy format with "method" key)
         if "method" in data:
             method = data.get("method")
             arguments = data.get("arguments", [])
@@ -242,19 +405,29 @@ async def handle_message(connection_id: str, user_id: UUID, data: dict):
                 project_id = arguments[0] if arguments else data.get("projectId")
                 if project_id:
                     await connection_manager.join_project(connection_id, str(project_id))
-                    await connection_manager.send_to_connection(connection_id, {
-                        "type": "joinedProject",
-                        "projectId": str(project_id)
-                    })
+                    # Send confirmation with SignalR format
+                    confirmation = {
+                        "type": 1,  # SignalR invocation
+                        "target": "joinedProject",
+                        "arguments": [{
+                            "projectId": str(project_id)
+                        }]
+                    }
+                    await connection_manager.send_to_connection(connection_id, confirmation)
             
             elif method == "LeaveProject":
                 project_id = arguments[0] if arguments else data.get("projectId")
                 if project_id:
                     await connection_manager.leave_project(connection_id, str(project_id))
-                    await connection_manager.send_to_connection(connection_id, {
-                        "type": "leftProject",
-                        "projectId": str(project_id)
-                    })
+                    # Send confirmation with SignalR format
+                    confirmation = {
+                        "type": 1,  # SignalR invocation
+                        "target": "leftProject",
+                        "arguments": [{
+                            "projectId": str(project_id)
+                        }]
+                    }
+                    await connection_manager.send_to_connection(connection_id, confirmation)
             
             elif method == "SendUserActivity":
                 project_id = arguments[0] if len(arguments) > 0 else data.get("projectId")
@@ -262,13 +435,18 @@ async def handle_message(connection_id: str, user_id: UUID, data: dict):
                 feature_id = arguments[2] if len(arguments) > 2 else data.get("featureId")
                 
                 if project_id:
-                    await connection_manager.broadcast_to_project(str(project_id), {
-                        "type": "userActivity",
-                        "userId": str(user_id),
-                        "projectId": str(project_id),
-                        "action": action,
-                        "featureId": str(feature_id) if feature_id else None
-                    }, exclude_connection=connection_id)
+                    # SignalR message format
+                    message = {
+                        "type": 1,  # SignalR invocation
+                        "target": "userActivity",
+                        "arguments": [{
+                            "userId": str(user_id),
+                            "projectId": str(project_id),
+                            "action": action,
+                            "featureId": str(feature_id) if feature_id else None
+                        }]
+                    }
+                    await connection_manager.broadcast_to_project(str(project_id), message, exclude_connection=connection_id)
         
         # Support simple JSON messages for compatibility
         elif "type" in data:
@@ -278,19 +456,29 @@ async def handle_message(connection_id: str, user_id: UUID, data: dict):
                 project_id = data.get("projectId")
                 if project_id:
                     await connection_manager.join_project(connection_id, str(project_id))
-                    await connection_manager.send_to_connection(connection_id, {
-                        "type": "joinedProject",
-                        "projectId": str(project_id)
-                    })
+                    # Send confirmation with SignalR format
+                    confirmation = {
+                        "type": 1,  # SignalR invocation
+                        "target": "joinedProject",
+                        "arguments": [{
+                            "projectId": str(project_id)
+                        }]
+                    }
+                    await connection_manager.send_to_connection(connection_id, confirmation)
             
             elif message_type == "leaveProject":
                 project_id = data.get("projectId")
                 if project_id:
                     await connection_manager.leave_project(connection_id, str(project_id))
-                    await connection_manager.send_to_connection(connection_id, {
-                        "type": "leftProject",
-                        "projectId": str(project_id)
-                    })
+                    # Send confirmation with SignalR format
+                    confirmation = {
+                        "type": 1,  # SignalR invocation
+                        "target": "leftProject",
+                        "arguments": [{
+                            "projectId": str(project_id)
+                        }]
+                    }
+                    await connection_manager.send_to_connection(connection_id, confirmation)
             
             elif message_type == "userActivity":
                 project_id = data.get("projectId")
@@ -317,29 +505,44 @@ async def handle_message(connection_id: str, user_id: UUID, data: dict):
 # Event broadcasting functions
 async def broadcast_todo_update(project_id: str, todo_id: str, user_id: UUID, changes: dict):
     """Broadcast todo update to project group."""
-    await connection_manager.broadcast_to_project(project_id, {
-        "type": "todoUpdated",
-        "todoId": todo_id,
-        "projectId": project_id,
-        "userId": str(user_id),
-        "changes": changes
-    })
+    # SignalR message format
+    message = {
+        "type": 1,  # SignalR invocation
+        "target": "todoUpdated",
+        "arguments": [{
+            "todoId": todo_id,
+            "projectId": project_id,
+            "userId": str(user_id),
+            "changes": changes
+        }]
+    }
+    await connection_manager.broadcast_to_project(project_id, message)
 
 
 async def broadcast_feature_update(project_id: str, feature_id: str, progress: int):
     """Broadcast feature progress update to project group."""
-    await connection_manager.broadcast_to_project(project_id, {
-        "type": "featureUpdated",
-        "featureId": feature_id,
-        "projectId": project_id,
-        "progress": progress
-    })
+    # SignalR message format
+    message = {
+        "type": 1,  # SignalR invocation
+        "target": "featureUpdated",
+        "arguments": [{
+            "featureId": feature_id,
+            "projectId": project_id,
+            "progress": progress
+        }]
+    }
+    await connection_manager.broadcast_to_project(project_id, message)
 
 
 async def broadcast_project_update(project_id: str, changes: dict):
     """Broadcast project update to project group."""
-    await connection_manager.broadcast_to_project(project_id, {
-        "type": "projectUpdated",
-        "projectId": project_id,
-        "changes": changes
-    })
+    # SignalR message format
+    message = {
+        "type": 1,  # SignalR invocation
+        "target": "projectUpdated",
+        "arguments": [{
+            "projectId": project_id,
+            "changes": changes
+        }]
+    }
+    await connection_manager.broadcast_to_project(project_id, message)

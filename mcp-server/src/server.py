@@ -92,7 +92,10 @@ async def call_tool(name: str, arguments: dict):
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
         elif name == "mcp_get_resume_context":
-            result = await project.handle_get_resume_context(arguments["projectId"])
+            result = await project.handle_get_resume_context(
+                arguments["projectId"],
+                arguments.get("userId"),
+            )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 
         elif name == "mcp_get_project_structure":
@@ -104,6 +107,7 @@ async def call_tool(name: str, arguments: dict):
                 arguments["projectId"],
                 arguments.get("status"),
                 arguments.get("featureId"),
+                arguments.get("userId"),
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 
@@ -218,6 +222,7 @@ async def call_tool(name: str, arguments: dict):
                 arguments["projectId"],
                 arguments.get("status"),
                 arguments.get("featureId"),
+                arguments.get("userId"),
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 

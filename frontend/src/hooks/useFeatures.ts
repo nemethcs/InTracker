@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { useFeatureStore } from '@/stores/featureStore'
 
 export function useFeatures(projectId?: string) {
@@ -19,12 +19,19 @@ export function useFeatures(projectId?: string) {
         fetchFeatures(projectId)
       }
     }
-  }, [projectId]) // Remove fetchFeatures from dependencies
+  }, [projectId, fetchFeatures])
+
+  // Use useCallback to create a stable refetch function
+  const refetch = useCallback(() => {
+    if (projectId) {
+      fetchFeatures(projectId)
+    }
+  }, [projectId, fetchFeatures])
 
   return {
     features,
     isLoading,
     error,
-    refetch: () => fetchFeatures(projectId),
+    refetch,
   }
 }

@@ -13,7 +13,7 @@ def get_create_feature_tool() -> MCPTool:
     """Get create feature tool definition."""
     return MCPTool(
         name="mcp_create_feature",
-        description="Create a new feature and optionally link elements",
+        description="Create a new feature for a project. Features group related todos and track progress. Can optionally link existing project elements. The feature will be created with status 'new'.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -44,7 +44,7 @@ async def handle_create_feature(
             project_id=UUID(project_id),
             name=name,
             description=description,
-            status="todo",
+            status="new",  # Changed from "todo" to "new" to match status enum
             total_todos=0,
             completed_todos=0,
             progress_percentage=0,
@@ -167,7 +167,7 @@ def get_list_features_tool() -> MCPTool:
                 "projectId": {"type": "string", "description": "Project UUID"},
                 "status": {
                     "type": "string",
-                    "enum": ["todo", "in_progress", "blocked", "done"],
+                    "enum": ["new", "in_progress", "tested", "done"],
                     "description": "Filter by status",
                 },
             },
@@ -224,7 +224,7 @@ def get_update_feature_status_tool() -> MCPTool:
     """Get update feature status tool definition."""
     return MCPTool(
         name="mcp_update_feature_status",
-        description="Update feature status and recalculate progress",
+        description="Update a feature's status (new → in_progress → tested → done) and automatically recalculate progress percentage based on linked todos. Progress is calculated as: (completed todos / total todos) * 100.",
         inputSchema={
             "type": "object",
             "properties": {

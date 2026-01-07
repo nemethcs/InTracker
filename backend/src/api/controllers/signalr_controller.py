@@ -8,7 +8,7 @@ from src.database.base import get_db
 from sqlalchemy.orm import Session
 from src.database.models import User
 
-router = APIRouter(tags=["signalr"])
+router = APIRouter(prefix="/signalr", tags=["signalr"])
 
 
 @router.websocket("/hub")
@@ -35,7 +35,7 @@ async def negotiate():
     Returns connection info for SignalR client.
     """
     return {
-        "url": "/hub",
+        "url": "/signalr/hub",  # Updated to match router prefix
         "accessToken": None,  # Token should be passed in query string
         "connectionToken": None,
         "availableTransports": [

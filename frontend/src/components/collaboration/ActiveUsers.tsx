@@ -17,7 +17,7 @@ export function ActiveUsers({ projectId }: ActiveUsersProps) {
   useEffect(() => {
     if (!projectId) return
 
-    // Fetch initial active users
+    // Fetch active users function
     const fetchActiveUsers = async () => {
       try {
         const response = await collaborationService.getActiveUsers(projectId)
@@ -29,20 +29,45 @@ export function ActiveUsers({ projectId }: ActiveUsersProps) {
       }
     }
 
-    fetchActiveUsers()
+    // Wait a bit for joinProject to complete, then fetch active users
+    const initializeActiveUsers = async () => {
+      // Wait for SignalR connection and joinProject to complete
+      if (signalrService.isConnected()) {
+        // Small delay to ensure joinProject has completed
+        await new Promise(resolve => setTimeout(resolve, 500))
+      } else {
+        // If not connected, wait for connection
+        const checkConnection = setInterval(() => {
+          if (signalrService.isConnected()) {
+            clearInterval(checkConnection)
+            setTimeout(() => fetchActiveUsers(), 500)
+          }
+        }, 100)
+        
+        // Cleanup interval after 5 seconds
+        setTimeout(() => clearInterval(checkConnection), 5000)
+        return
+      }
+      
+      fetchActiveUsers()
+    }
+
+    initializeActiveUsers()
 
     // Handle user joined/left events
     const handleUserJoined = (data: { userId: string; projectId: string }) => {
       if (data.projectId === projectId) {
-        // Refresh active users list
-        fetchActiveUsers()
+        // Refresh active users list after a short delay
+        setTimeout(() => fetchActiveUsers(), 200)
       }
     }
 
     const handleUserLeft = (data: { userId: string; projectId: string }) => {
       if (data.projectId === projectId) {
-        // Remove user from list
+        // Remove user from list immediately
         setActiveUsers(prev => prev.filter(user => user.id !== data.userId))
+        // Also refresh to ensure consistency
+        setTimeout(() => fetchActiveUsers(), 200)
       }
     }
 
@@ -50,10 +75,21 @@ export function ActiveUsers({ projectId }: ActiveUsersProps) {
     signalrService.on('userJoined', handleUserJoined)
     signalrService.on('userLeft', handleUserLeft)
 
+    // Listen for joinedProject confirmation to refresh
+    const handleJoinedProject = (data: { projectId: string }) => {
+      if (data.projectId === projectId) {
+        // Refresh active users after joining
+        setTimeout(() => fetchActiveUsers(), 300)
+      }
+    }
+
+    signalrService.on('joinedProject', handleJoinedProject)
+
     // Cleanup
     return () => {
       signalrService.off('userJoined', handleUserJoined)
       signalrService.off('userLeft', handleUserLeft)
+      signalrService.off('joinedProject', handleJoinedProject)
     }
   }, [projectId])
 

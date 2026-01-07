@@ -204,49 +204,6 @@ class TodoService:
             from src.services.feature_service import feature_service
             feature_service.calculate_feature_progress(db=db, feature_id=todo.feature_id)
 
-        # Broadcast todo update via SignalR (async, non-blocking)
-        try:
-            from src.services.signalr_hub import broadcast_todo_update
-            element = db.query(ProjectElement).filter(ProjectElement.id == todo.element_id).first()
-            if element:
-                changes = {
-                    "title": title if title is not None else None,
-                    "description": description if description is not None else None,
-                    "status": status if status is not None else None,
-                    "priority": priority if priority is not None else None,
-                    "assigned_to": str(assigned_to) if assigned_to is not None else None,
-                }
-                # Remove None values
-                changes = {k: v for k, v in changes.items() if v is not None}
-                # Schedule broadcast (will be handled by background task)
-                from fastapi import BackgroundTasks
-                # Note: We'll need to pass BackgroundTasks from controller
-                # For now, we'll use a simple async call
-                import asyncio
-                try:
-                    loop = asyncio.get_event_loop()
-                    if loop.is_running():
-                        # If loop is running, schedule as task
-                        asyncio.create_task(broadcast_todo_update(
-                            str(element.project_id),
-                            str(todo.id),
-                            todo.assigned_to or todo.created_by or UUID('00000000-0000-0000-0000-000000000000'),
-                            changes
-                        ))
-                    else:
-                        # If no loop, run in new thread
-                        loop.run_until_complete(broadcast_todo_update(
-                            str(element.project_id),
-                            str(todo.id),
-                            todo.assigned_to or todo.created_by or UUID('00000000-0000-0000-0000-000000000000'),
-                            changes
-                        ))
-                except RuntimeError:
-                    # No event loop, skip broadcast
-                    pass
-        except Exception as e:
-            print(f"Error broadcasting todo update: {e}")
-
         return todo
 
     @staticmethod

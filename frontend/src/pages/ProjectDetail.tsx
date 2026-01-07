@@ -42,16 +42,36 @@ export function ProjectDetail() {
 
 
   useEffect(() => {
-    if (id) {
-      // Join SignalR project group for real-time updates
-      if (signalrService.isConnected()) {
-        signalrService.joinProject(id).catch((error) => {
-          console.error('Failed to join SignalR project group:', error)
-        })
-      }
+    if (!id) return
 
-      setIsLoadingElements(true)
-      elementService.getProjectTree(id)
+    // Join SignalR project group for real-time updates
+    const joinProject = async () => {
+      if (signalrService.isConnected()) {
+        try {
+          await signalrService.joinProject(id)
+        } catch (error) {
+          console.error('Failed to join SignalR project group:', error)
+        }
+      }
+    }
+    
+    // Also listen for connection events to join when connection is established
+    const handleConnected = () => {
+      if (id) {
+        joinProject()
+      }
+    }
+    
+    // Try to join immediately if already connected
+    joinProject()
+    
+    // Subscribe to connection events
+    signalrService.on('connected', handleConnected)
+    signalrService.on('reconnected', handleConnected)
+    
+    // Load element tree
+    setIsLoadingElements(true)
+    elementService.getProjectTree(id)
         .then((tree) => {
           console.log('Element tree loaded:', tree)
           console.log('Elements count:', tree.elements.length)
@@ -96,7 +116,6 @@ export function ProjectDetail() {
           console.error('Failed to load todos:', error)
           setIsLoadingTodos(false)
         })
-    }
 
     // Subscribe to SignalR real-time updates
     const handleTodoUpdate = (data: { todoId: string; projectId: string; userId: string; changes: any }) => {
@@ -133,20 +152,25 @@ export function ProjectDetail() {
     signalrService.on('userActivity', handleUserActivity)
 
     // Cleanup: Leave SignalR project group and unsubscribe from events when component unmounts or project changes
-      return () => {
-        // Unsubscribe from SignalR events
-        signalrService.off('todoUpdated', handleTodoUpdate)
-        signalrService.off('featureUpdated', handleFeatureUpdate)
-        signalrService.off('userActivity', handleUserActivity)
-        
-        // Leave SignalR project group
-        if (id && signalrService.isConnected()) {
-          signalrService.leaveProject(id).catch((error) => {
-            console.error('Failed to leave SignalR project group:', error)
-          })
-        }
+    return () => {
+      // Unsubscribe from SignalR events
+      signalrService.off('todoUpdated', handleTodoUpdate)
+      signalrService.off('featureUpdated', handleFeatureUpdate)
+      signalrService.off('userActivity', handleUserActivity)
+      
+      // Unsubscribe from connection events
+      // handleConnected is defined in the same scope, so it's accessible here
+      signalrService.off('connected', handleConnected)
+      signalrService.off('reconnected', handleConnected)
+      
+      // Leave SignalR project group
+      if (id && signalrService.isConnected()) {
+        signalrService.leaveProject(id).catch((error) => {
+          console.error('Failed to leave SignalR project group:', error)
+        })
       }
-  }, [id])
+    }
+  }, [id]) // Removed refetchFeatures from dependencies to prevent infinite loop
 
 
   if (projectLoading) {

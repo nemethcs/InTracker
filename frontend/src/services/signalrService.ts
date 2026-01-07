@@ -7,6 +7,10 @@ export interface SignalREvents {
   projectUpdated: (data: { projectId: string; changes: any }) => void
   userJoined: (data: { userId: string; projectId: string }) => void
   userLeft: (data: { userId: string; projectId: string }) => void
+  joinedProject: (data: { projectId: string }) => void
+  leftProject: (data: { projectId: string }) => void
+  connected: (data: { connectionId: string | null }) => void
+  reconnected: (data: { connectionId: string | null }) => void
 }
 
 class SignalRService {
@@ -29,12 +33,15 @@ class SignalRService {
     this.isConnecting = true
 
     try {
-      const signalrUrl = import.meta.env.VITE_SIGNALR_URL || 'http://localhost:3000/hub'
+      const signalrUrl = import.meta.env.VITE_SIGNALR_URL || 'http://localhost:3000/signalr/hub'
       
       // Build URL with token as query parameter
       const urlWithToken = token 
         ? `${signalrUrl}?access_token=${encodeURIComponent(token)}`
         : signalrUrl
+      
+      // Log the URL for debugging
+      console.log('SignalR connecting to:', urlWithToken)
       
       const builder = new HubConnectionBuilder()
         .withUrl(urlWithToken, {
@@ -73,6 +80,8 @@ class SignalRService {
         console.log('SignalR reconnected', connectionId)
         this.reconnectAttempts = 0
         this.reconnectDelay = 1000
+        // Emit reconnected event so components can rejoin project groups
+        this.emit('reconnected', { connectionId })
       })
 
       // Start connection
@@ -81,6 +90,9 @@ class SignalRService {
       this.isConnecting = false
       this.reconnectAttempts = 0
       this.reconnectDelay = 1000
+      
+      // Emit connected event so components can join project groups
+      this.emit('connected', { connectionId: this.connection.connectionId })
     } catch (error) {
       console.error('SignalR connection failed:', error)
       this.isConnecting = false
@@ -120,33 +132,51 @@ class SignalRService {
   private setupEventHandlers(): void {
     if (!this.connection) return
 
-    // Todo updates
-    this.connection.on('todoUpdated', (data) => {
-      this.emit('todoUpdated', data)
+    // Todo updates - SignalR sends as {type: 1, target: "todoUpdated", arguments: [data]}
+    this.connection.on('todoUpdated', (data: any) => {
+      // SignalR sends data in arguments array, extract first element
+      const eventData = Array.isArray(data) ? data[0] : (data?.arguments?.[0] || data)
+      this.emit('todoUpdated', eventData)
     })
 
     // Feature updates
-    this.connection.on('featureUpdated', (data) => {
-      this.emit('featureUpdated', data)
+    this.connection.on('featureUpdated', (data: any) => {
+      const eventData = Array.isArray(data) ? data[0] : (data?.arguments?.[0] || data)
+      this.emit('featureUpdated', eventData)
     })
 
     // User activity
-    this.connection.on('userActivity', (data) => {
-      this.emit('userActivity', data)
+    this.connection.on('userActivity', (data: any) => {
+      const eventData = Array.isArray(data) ? data[0] : (data?.arguments?.[0] || data)
+      this.emit('userActivity', eventData)
     })
 
     // Project updates
-    this.connection.on('projectUpdated', (data) => {
-      this.emit('projectUpdated', data)
+    this.connection.on('projectUpdated', (data: any) => {
+      const eventData = Array.isArray(data) ? data[0] : (data?.arguments?.[0] || data)
+      this.emit('projectUpdated', eventData)
     })
 
     // User joined/left
-    this.connection.on('userJoined', (data) => {
-      this.emit('userJoined', data)
+    this.connection.on('userJoined', (data: any) => {
+      const eventData = Array.isArray(data) ? data[0] : (data?.arguments?.[0] || data)
+      this.emit('userJoined', eventData)
     })
 
-    this.connection.on('userLeft', (data) => {
-      this.emit('userLeft', data)
+    this.connection.on('userLeft', (data: any) => {
+      const eventData = Array.isArray(data) ? data[0] : (data?.arguments?.[0] || data)
+      this.emit('userLeft', eventData)
+    })
+
+    // Project join/leave confirmations
+    this.connection.on('joinedProject', (data: any) => {
+      const eventData = Array.isArray(data) ? data[0] : (data?.arguments?.[0] || data)
+      this.emit('joinedProject', eventData)
+    })
+
+    this.connection.on('leftProject', (data: any) => {
+      const eventData = Array.isArray(data) ? data[0] : (data?.arguments?.[0] || data)
+      this.emit('leftProject', eventData)
     })
   }
 
