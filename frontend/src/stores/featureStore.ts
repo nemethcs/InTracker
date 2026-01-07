@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { featureService, type Feature, type FeatureCreate, type FeatureUpdate } from '@/services/featureService'
+import { signalrService } from '@/services/signalrService'
 
 interface FeatureState {
   features: Feature[]
@@ -12,10 +13,41 @@ interface FeatureState {
   deleteFeature: (id: string) => Promise<void>
 }
 
-export const useFeatureStore = create<FeatureState>((set) => ({
-  features: [],
-  isLoading: false,
-  error: null,
+export const useFeatureStore = create<FeatureState>((set, get) => {
+  // Subscribe to SignalR feature updates
+  signalrService.on('featureUpdated', (data: { featureId: string; projectId: string; progress: number }) => {
+    const { features } = get()
+    const featureIndex = features.findIndex(f => f.id === data.featureId)
+    
+    if (featureIndex >= 0) {
+      // Update existing feature with new progress
+      const updatedFeatures = [...features]
+      updatedFeatures[featureIndex] = {
+        ...updatedFeatures[featureIndex],
+        progress_percentage: data.progress,
+        // Optionally refresh the entire feature to get latest data
+      }
+      set({ features: updatedFeatures })
+      
+      // Optionally fetch full feature data to ensure we have latest info
+      featureService.getFeature(data.featureId).then(feature => {
+        const { features } = get()
+        const index = features.findIndex(f => f.id === feature.id)
+        if (index >= 0) {
+          const updatedFeatures = [...features]
+          updatedFeatures[index] = feature
+          set({ features: updatedFeatures })
+        }
+      }).catch(() => {
+        // Feature might not exist or we don't have access, ignore
+      })
+    }
+  })
+
+  return {
+    features: [],
+    isLoading: false,
+    error: null,
 
   fetchFeatures: async (projectId?: string) => {
     set({ isLoading: true, error: null })
@@ -89,4 +121,5 @@ export const useFeatureStore = create<FeatureState>((set) => ({
       throw error
     }
   },
-}))
+  }
+})

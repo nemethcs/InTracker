@@ -13,6 +13,7 @@ from src.api.controllers import (
     document_controller,
     github_controller,
     idea_controller,
+    signalr_controller,
 )
 
 # Create FastAPI app
@@ -43,6 +44,7 @@ app.include_router(session_controller.router)
 app.include_router(document_controller.router)
 app.include_router(github_controller.router)
 app.include_router(idea_controller.router)
+app.include_router(signalr_controller.router)
 
 
 @app.get("/health")

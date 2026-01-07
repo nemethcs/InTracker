@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useFeatures } from '@/hooks/useFeatures'
 import { useTodos } from '@/hooks/useTodos'
 import { useFeatureStore } from '@/stores/featureStore'
 import { useTodoStore } from '@/stores/todoStore'
+import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { Badge } from '@/components/ui/badge'
@@ -44,6 +45,51 @@ export function FeatureDetail() {
   
   // Get first element ID for new todos (we'll improve this later)
   const elementId = '40447518-f6da-4e7a-9857-d42dbd1ca352' // Real-time Sync & WebSocket element
+
+  // Subscribe to SignalR real-time updates
+  useEffect(() => {
+    if (!projectId || !featureId) return
+
+    // Join SignalR project group for real-time updates
+    if (signalrService.isConnected()) {
+      signalrService.joinProject(projectId).catch((error) => {
+        console.error('Failed to join SignalR project group:', error)
+      })
+    }
+
+    // Handle todo updates
+    const handleTodoUpdate = (data: { todoId: string; projectId: string; userId: string; changes: any }) => {
+      if (data.projectId === projectId) {
+        // Refresh todos list to get updated data
+        refetchTodos()
+      }
+    }
+
+    // Handle feature updates
+    const handleFeatureUpdate = (data: { featureId: string; projectId: string; progress: number }) => {
+      if (data.featureId === featureId && data.projectId === projectId) {
+        // Refresh feature data to get updated progress
+        // The feature store will handle this automatically via SignalR subscription
+        // No need to reload the page - the store will update the feature
+      }
+    }
+
+    // Subscribe to SignalR events
+    signalrService.on('todoUpdated', handleTodoUpdate)
+    signalrService.on('featureUpdated', handleFeatureUpdate)
+
+    // Cleanup: Leave SignalR project group and unsubscribe from events
+    return () => {
+      signalrService.off('todoUpdated', handleTodoUpdate)
+      signalrService.off('featureUpdated', handleFeatureUpdate)
+      
+      if (projectId && signalrService.isConnected()) {
+        signalrService.leaveProject(projectId).catch((error) => {
+          console.error('Failed to leave SignalR project group:', error)
+        })
+      }
+    }
+  }, [projectId, featureId, refetchTodos])
 
   if (featuresLoading) {
     return (

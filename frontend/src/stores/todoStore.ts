@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { todoService, type Todo, type TodoCreate, type TodoUpdate } from '@/services/todoService'
+import { signalrService } from '@/services/signalrService'
 
 interface TodoState {
   todos: Todo[]
@@ -13,10 +14,40 @@ interface TodoState {
   deleteTodo: (id: string) => Promise<void>
 }
 
-export const useTodoStore = create<TodoState>((set) => ({
-  todos: [],
-  isLoading: false,
-  error: null,
+export const useTodoStore = create<TodoState>((set, get) => {
+  // Subscribe to SignalR todo updates
+  signalrService.on('todoUpdated', (data: { todoId: string; projectId: string; userId: string; changes: any }) => {
+    const { todos } = get()
+    const todoIndex = todos.findIndex(t => t.id === data.todoId)
+    
+    if (todoIndex >= 0) {
+      // Update existing todo with changes
+      const updatedTodos = [...todos]
+      updatedTodos[todoIndex] = {
+        ...updatedTodos[todoIndex],
+        ...data.changes,
+        // If status changed, update version
+        version: data.changes.status ? (updatedTodos[todoIndex].version || 0) + 1 : updatedTodos[todoIndex].version
+      }
+      set({ todos: updatedTodos })
+    } else {
+      // Todo not in current list, fetch it if needed
+      // This handles cases where a todo is created/updated in another view
+      todoService.getTodo(data.todoId).then(todo => {
+        const { todos } = get()
+        if (!todos.find(t => t.id === todo.id)) {
+          set({ todos: [...todos, todo] })
+        }
+      }).catch(() => {
+        // Todo might not exist or we don't have access, ignore
+      })
+    }
+  })
+
+  return {
+    todos: [],
+    isLoading: false,
+    error: null,
 
   fetchTodos: async (featureId?: string, elementId?: string) => {
     set({ isLoading: true, error: null })
@@ -104,4 +135,5 @@ export const useTodoStore = create<TodoState>((set) => ({
       throw error
     }
   },
-}))
+  }
+})

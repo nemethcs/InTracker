@@ -1,84 +1,79 @@
-"""MCP Resources for projects."""
+"""Project resources for MCP server."""
 from typing import Optional
 from uuid import UUID
 from mcp.types import Resource
-from sqlalchemy.orm import Session
-from src.services.database import get_db_session
-from src.models import Project
+from src.database.base import get_db_session
+from src.database.models import Project
+from src.services.rules_generator import rules_generator
 
 
 def get_project_resources(project_id: Optional[str] = None) -> list[Resource]:
     """Get project resources."""
-    db = get_db_session()
-    try:
-        if project_id:
-            project = db.query(Project).filter(Project.id == UUID(project_id)).first()
-            if project:
-                resources = [
+    resources = []
+    
+    if project_id:
+        # Project-specific resources
+        resources.append(
+            Resource(
+                uri=f"intracker://project/{project_id}",
+                name=f"Project: {project_id}",
+                mimeType="application/json",
+                description=f"Project information for {project_id}",
+            )
+        )
+        resources.append(
+            Resource(
+                uri=f"intracker://project/{project_id}/cursor-rules",
+                name=f"Cursor Rules: {project_id}",
+                mimeType="text/markdown",
+                description=f"Cursor rules for project {project_id}",
+            )
+        )
+    else:
+        # List all projects
+        db = get_db_session()
+        try:
+            projects = db.query(Project).all()
+            for project in projects:
+                resources.append(
                     Resource(
                         uri=f"intracker://project/{project.id}",
                         name=f"Project: {project.name}",
-                        description=project.description or "",
                         mimeType="application/json",
-                    ),
+                        description=f"Project information for {project.name}",
+                    )
+                )
+                resources.append(
                     Resource(
                         uri=f"intracker://project/{project.id}/cursor-rules",
                         name=f"Cursor Rules: {project.name}",
-                        description="Cursor AI instructions for this project",
                         mimeType="text/markdown",
-                    ),
-                ]
-                return resources
-            return []
-        else:
-            # List all projects
-            projects = db.query(Project).all()
-            resources = []
-            for p in projects:
-                resources.append(
-                    Resource(
-                        uri=f"intracker://project/{p.id}",
-                        name=f"Project: {p.name}",
-                        description=p.description or "",
-                        mimeType="application/json",
+                        description=f"Cursor rules for project {project.name}",
                     )
                 )
-                resources.append(
-                    Resource(
-                        uri=f"intracker://project/{p.id}/cursor-rules",
-                        name=f"Cursor Rules: {p.name}",
-                        description="Cursor AI instructions for this project",
-                        mimeType="text/markdown",
-                    )
-                )
-            return resources
-    finally:
-        db.close()
+        finally:
+            db.close()
+    
+    return resources
 
 
 async def read_project_resource(uri: str) -> str:
     """Read project resource."""
-    # Convert URI to string if it's not already
-    uri_str = str(uri)
+    import json
     
-    # Parse URI: intracker://project/{project_id} or intracker://project/{project_id}/cursor-rules
-    if not uri_str.startswith("intracker://project/"):
-        raise ValueError(f"Invalid project resource URI: {uri_str}")
-
-    # Check if it's cursor-rules resource
-    if uri_str.endswith("/cursor-rules"):
-        project_id = uri_str.replace("intracker://project/", "").replace("/cursor-rules", "")
-        return await read_cursor_rules_resource(project_id)
+    # Parse URI: intracker://project/{project_id}
+    if not uri.startswith("intracker://project/"):
+        raise ValueError(f"Invalid resource URI: {uri}")
     
-    # Regular project resource
-    project_id = uri_str.replace("intracker://project/", "")
+    uri_parts = uri.replace("intracker://project/", "").split("/")
+    project_id = uri_parts[0]
+    
     db = get_db_session()
     try:
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
         if not project:
             raise ValueError(f"Project not found: {project_id}")
-
-        import json
+        
         return json.dumps({
             "id": str(project.id),
             "name": project.name,
@@ -87,7 +82,7 @@ async def read_project_resource(uri: str) -> str:
             "tags": project.tags,
             "technology_tags": project.technology_tags,
             "cursor_instructions": project.cursor_instructions,
-            "resume_context": project.resume_context,
+            "github_repo_url": project.github_repo_url,
         }, indent=2)
     finally:
         db.close()
@@ -104,95 +99,9 @@ async def read_cursor_rules_resource(project_id: str) -> str:
         if not project:
             raise ValueError(f"Project not found: {project_id}")
 
-        # Generate cursor rules content from project cursor_instructions
-        cursor_instructions = project.cursor_instructions or ""
+        # Generate cursor rules using the rules generator service
+        rules_content = rules_generator.generate_rules(project)
         
-        # Build cursor rules markdown content
-        rules_content = f"""---
-name: intracker-project-rules
-description: Cursor AI instructions for {project.name}
----
-
-# Cursor Rules for {project.name}
-
-{project.description or ''}
-
-## Project Information
-
-- **Project ID:** {project.id}
-- **Status:** {project.status}
-- **Tags:** {', '.join(project.tags) if project.tags else 'None'}
-- **Technology Tags:** {', '.join(project.technology_tags) if project.technology_tags else 'None'}
-
-## Cursor Instructions
-
-{cursor_instructions}
-
-## Development Rules
-
-### Environment Strategy
-
-- **MVP Phase:** All development in local Docker environment
-- **Post-MVP:** Deploy to Azure (staging → production)
-- **Never deploy to Azure during MVP development**
-
-### Docker Setup
-
-```yaml
-# docker-compose.yml
-services:
-  postgres: postgres:16 (port 5432)
-  redis: redis:7-alpine (port 6379)
-  backend: Node.js API (port 3000)
-  mcp-server: MCP Server (port 3001)
-```
-
-**Commands:**
-- Start: `docker-compose up -d`
-- Stop: `docker-compose down`
-- Reset: `docker-compose down -v && docker-compose up -d`
-- Logs: `docker-compose logs -f [service]`
-
-### Development Workflow
-
-1. Start Docker: `docker-compose up -d`
-2. Work on next unchecked todo item
-3. Test locally in Docker
-4. Mark todo as done
-5. Commit with todo reference
-
-### Commit Message Format
-
-```
-{{type}}({{component}}): {{description}} [feature:{{featureId}}]
-
-- [x] Todo item 1
-- [x] Todo item 2
-```
-
-**Types:** `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
-
-### Coding Standards
-
-- TypeScript strict mode
-- ESLint + Prettier
-- No `any` types
-- Error handling everywhere
-- Document complex logic
-
-### Testing
-
-- **Database:** Prisma Studio, SQL queries
-- **Backend:** Postman/Insomnia collection
-- **MCP:** Test in Cursor, verify tools/resources work
-- **E2E:** Full workflow test
-
----
-
-**Generated by InTracker MCP Server**
-**Last updated:** {project.updated_at.isoformat() if project.updated_at else 'Unknown'}
-"""
-
         # Try to write to .cursor/rules/intracker-project-rules.mdc in project directory
         # First, try to find project directory by checking for .intracker/config.json
         project_dir = None

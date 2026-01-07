@@ -302,7 +302,7 @@ def get_active_todos_tool() -> MCPTool:
                 },
                 "status": {
                     "type": "string",
-                    "enum": ["todo", "in_progress", "blocked", "done"],
+                    "enum": ["new", "in_progress", "tested", "done"],
                     "description": "Filter by status",
                 },
                 "featureId": {

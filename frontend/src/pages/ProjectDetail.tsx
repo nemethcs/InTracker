@@ -7,6 +7,7 @@ import { useProjectStore } from '@/stores/projectStore'
 import { elementService, type ElementTree as ElementTreeData } from '@/services/elementService'
 import { documentService, type Document } from '@/services/documentService'
 import { todoService } from '@/services/todoService'
+import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { Badge } from '@/components/ui/badge'
@@ -41,6 +42,13 @@ export function ProjectDetail() {
 
   useEffect(() => {
     if (id) {
+      // Join SignalR project group for real-time updates
+      if (signalrService.isConnected()) {
+        signalrService.joinProject(id).catch((error) => {
+          console.error('Failed to join SignalR project group:', error)
+        })
+      }
+
       setIsLoadingElements(true)
       elementService.getProjectTree(id)
         .then((tree) => {
@@ -88,6 +96,55 @@ export function ProjectDetail() {
           setIsLoadingTodos(false)
         })
     }
+
+    // Subscribe to SignalR real-time updates
+    const handleTodoUpdate = (data: { todoId: string; projectId: string; userId: string; changes: any }) => {
+      if (data.projectId === id) {
+        // Refresh todos list to get updated data
+        todoService.listTodos(undefined, undefined, id)
+          .then((projectTodos) => {
+            const openTodos = projectTodos.filter(todo => todo.status !== 'done')
+            setTodos(openTodos)
+          })
+          .catch((error) => {
+            console.error('Failed to refresh todos after update:', error)
+          })
+      }
+    }
+
+    const handleFeatureUpdate = (data: { featureId: string; projectId: string; progress: number }) => {
+      if (data.projectId === id) {
+        // Refresh features list to get updated progress
+        refetchFeatures()
+      }
+    }
+
+    const handleUserActivity = (data: { userId: string; projectId: string; action: string; featureId?: string }) => {
+      if (data.projectId === id) {
+        // Optionally show user activity notifications
+        console.log('User activity:', data)
+      }
+    }
+
+    // Subscribe to SignalR events
+    signalrService.on('todoUpdated', handleTodoUpdate)
+    signalrService.on('featureUpdated', handleFeatureUpdate)
+    signalrService.on('userActivity', handleUserActivity)
+
+    // Cleanup: Leave SignalR project group and unsubscribe from events when component unmounts or project changes
+      return () => {
+        // Unsubscribe from SignalR events
+        signalrService.off('todoUpdated', handleTodoUpdate)
+        signalrService.off('featureUpdated', handleFeatureUpdate)
+        signalrService.off('userActivity', handleUserActivity)
+        
+        // Leave SignalR project group
+        if (id && signalrService.isConnected()) {
+          signalrService.leaveProject(id).catch((error) => {
+            console.error('Failed to leave SignalR project group:', error)
+          })
+        }
+      }
   }, [id])
 
 

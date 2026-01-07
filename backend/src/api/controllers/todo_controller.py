@@ -1,12 +1,14 @@
 """Todo controller."""
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from src.database.base import get_db
+from src.database.models import ProjectElement
 from src.api.middleware.auth import get_current_user
 from src.services.todo_service import todo_service
 from src.services.project_service import project_service
+from src.services.signalr_hub import broadcast_todo_update
 from src.api.schemas.todo import (
     TodoCreate,
     TodoUpdate,
@@ -20,6 +22,7 @@ router = APIRouter(prefix="/todos", tags=["todos"])
 @router.post("", response_model=TodoResponse, status_code=status.HTTP_201_CREATED)
 async def create_todo(
     todo_data: TodoCreate,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -37,6 +40,22 @@ async def create_todo(
             created_by=UUID(current_user["user_id"]),
             assigned_to=todo_data.assigned_to,
         )
+        
+        # Broadcast todo creation via SignalR
+        element = db.query(ProjectElement).filter(ProjectElement.id == todo.element_id).first()
+        if element:
+            background_tasks.add_task(
+                broadcast_todo_update,
+                str(element.project_id),
+                str(todo.id),
+                UUID(current_user["user_id"]),
+                {
+                    "title": todo.title,
+                    "status": todo.status,
+                    "action": "created"
+                }
+            )
+        
         return todo
     except ValueError as e:
         raise HTTPException(
@@ -168,6 +187,7 @@ async def update_todo(
     todo_id: UUID,
     todo_data: TodoUpdate,
     expected_version: Optional[int] = Query(None),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -212,6 +232,26 @@ async def update_todo(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Todo not found",
+            )
+
+        # Broadcast todo update via SignalR
+        element = db.query(ProjectElement).filter(ProjectElement.id == updated_todo.element_id).first()
+        if element:
+            changes = {
+                "title": todo_data.title if todo_data.title is not None else None,
+                "description": todo_data.description if todo_data.description is not None else None,
+                "status": todo_data.status if todo_data.status is not None else None,
+                "priority": todo_data.priority if todo_data.priority is not None else None,
+                "assigned_to": str(todo_data.assigned_to) if todo_data.assigned_to is not None else None,
+            }
+            # Remove None values
+            changes = {k: v for k, v in changes.items() if v is not None}
+            background_tasks.add_task(
+                broadcast_todo_update,
+                str(element.project_id),
+                str(updated_todo.id),
+                UUID(current_user["user_id"]),
+                changes
             )
 
         return updated_todo
@@ -269,6 +309,7 @@ async def update_todo_status(
     todo_id: UUID,
     status: str = Query(..., pattern="^(new|in_progress|tested|done)$"),
     expected_version: Optional[int] = Query(None),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -307,6 +348,17 @@ async def update_todo_status(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Todo not found",
+            )
+
+        # Broadcast todo status update via SignalR
+        element = db.query(ProjectElement).filter(ProjectElement.id == updated_todo.element_id).first()
+        if element:
+            background_tasks.add_task(
+                broadcast_todo_update,
+                str(element.project_id),
+                str(updated_todo.id),
+                UUID(current_user["user_id"]),
+                {"status": status}
             )
 
         return updated_todo

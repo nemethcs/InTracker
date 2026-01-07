@@ -9,6 +9,7 @@ from . import (
     document_controller,
     github_controller,
     idea_controller,
+    signalr_controller,
 )
 
 __all__ = [
@@ -21,4 +22,5 @@ __all__ = [
     "document_controller",
     "github_controller",
     "idea_controller",
+    "signalr_controller",
 ]
