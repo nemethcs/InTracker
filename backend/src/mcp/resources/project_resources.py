@@ -73,7 +73,8 @@ async def read_project_resource(uri: str) -> str:
     
     db = SessionLocal()
     try:
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project:
             raise ValueError(f"Project not found: {project_id}")
         
@@ -98,7 +99,8 @@ async def read_cursor_rules_resource(project_id: str) -> str:
     
     db = SessionLocal()
     try:
-        project = db.query(Project).filter(Project.id == UUID(project_id)).first()
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project:
             raise ValueError(f"Project not found: {project_id}")
 
