@@ -66,58 +66,59 @@ export function Settings() {
     }
   }
 
-  const generateCursorConfig = (apiKey: string): string => {
-    // Determine if we should use HTTP/SSE or stdio
-    // For now, we'll provide both options
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
-    const isProduction = apiBaseUrl.includes('intracker-api.kesmarki.com') || apiBaseUrl.includes('azure')
+  const getApiBaseUrl = (): string => {
+    // Always use production URL for MCP configuration
+    // Users can override locally if needed
+    return import.meta.env.VITE_API_BASE_URL || 'https://intracker-api.kesmarki.com'
+  }
+
+  const generateCursorConfig = (apiKey: string): { config: string; deeplink: string } => {
+    const apiBaseUrl = getApiBaseUrl()
     
-    if (isProduction) {
-      // HTTP/SSE transport for production
-      return JSON.stringify({
-        mcpServers: {
-          intracker: {
-            url: `${apiBaseUrl}/mcp/sse`,
-            headers: {
-              "X-API-Key": apiKey
-            }
-          }
+    // Always use HTTP/SSE transport (production-ready)
+    const mcpConfig = {
+      intracker: {
+        url: `${apiBaseUrl}/mcp/sse`,
+        headers: {
+          "X-API-Key": apiKey
         }
-      }, null, 2)
-    } else {
-      // stdio transport for local development
-      // Note: This assumes the MCP server is in the same repo
-      // Users may need to adjust the path
-      return JSON.stringify({
-        mcpServers: {
-          intracker: {
-            command: "python",
-            args: ["-m", "src.mcp.server"],
-            env: {
-              "MCP_API_KEY": apiKey,
-              "DATABASE_URL": "${DATABASE_URL}"
-            }
-          }
-        }
-      }, null, 2)
+      }
+    }
+
+    const configJson = JSON.stringify(mcpConfig, null, 2)
+    
+    // Generate Cursor deeplink for one-click install
+    // Format: cursor://anysphere.cursor-deeplink/mcp/install?name=$NAME&config=$BASE64_ENCODED_CONFIG
+    const base64Config = btoa(JSON.stringify(mcpConfig))
+    const deeplink = `cursor://anysphere.cursor-deeplink/mcp/install?name=intracker&config=${base64Config}`
+
+    return {
+      config: configJson,
+      deeplink
     }
   }
 
   const handleAddToCursor = async () => {
-    if (!mcpKey) {
+    if (!mcpKey && !newKey) {
       // If no key exists, generate one first
       await handleRegenerateKey()
       return
     }
 
-    // We need the plain text key, but we can't retrieve it
-    // So we'll show instructions to generate a new key or use the existing one
+    // Show dialog with deeplink and config
     setShowCursorConfigDialog(true)
   }
 
   const handleCopyCursorConfig = async (apiKey: string) => {
-    const config = generateCursorConfig(apiKey)
+    const { config } = generateCursorConfig(apiKey)
     await navigator.clipboard.writeText(config)
+    setCopiedConfig(true)
+    setTimeout(() => setCopiedConfig(false), 2000)
+  }
+
+  const handleCopyDeeplink = async (apiKey: string) => {
+    const { deeplink } = generateCursorConfig(apiKey)
+    await navigator.clipboard.writeText(deeplink)
     setCopiedConfig(true)
     setTimeout(() => setCopiedConfig(false), 2000)
   }
@@ -343,18 +344,76 @@ export function Settings() {
           <DialogHeader>
             <DialogTitle>Add InTracker to Cursor</DialogTitle>
             <DialogDescription>
-              Copy the configuration below and add it to your Cursor MCP settings.
-              {newKey ? ' The API key is included in the configuration.' : ' You\'ll need to add your MCP API key manually.'}
+              {newKey ? (
+                <>Click the button below to automatically add InTracker to Cursor, or copy the configuration manually.</>
+              ) : (
+                <>Generate a new MCP API key first to get the configuration.</>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {newKey && (
+              <>
+                {/* One-click install button */}
+                <div className="space-y-2">
+                  <Label>Quick Install (Recommended)</Label>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={generateCursorConfig(newKey).deeplink}
+                      className="flex-1"
+                      onClick={(e) => {
+                        // If deeplink doesn't work, fallback to copying
+                        setTimeout(() => {
+                          if (!copiedConfig) {
+                            handleCopyDeeplink(newKey)
+                          }
+                        }, 100)
+                      }}
+                    >
+                      <Button className="w-full" size="lg">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add to Cursor
+                      </Button>
+                    </a>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleCopyDeeplink(newKey)}
+                      title="Copy install link"
+                    >
+                      {copiedConfig ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Click the button above to automatically install InTracker in Cursor. 
+                    If it doesn't work, copy the link and paste it in your browser.
+                  </p>
+                </div>
+
+                <div className="border-t pt-4">
+                  <Label className="text-sm text-muted-foreground">Manual Configuration (Alternative)</Label>
+                </div>
+              </>
+            )}
+
+                <div className="border-t pt-4">
+                  <Label className="text-sm text-muted-foreground">Manual Configuration (Alternative)</Label>
+                </div>
+              </>
+            )}
+
+            {/* Manual configuration */}
             <div className="space-y-2">
-              <Label>Cursor MCP Configuration</Label>
+              <Label>Cursor MCP Configuration (JSON)</Label>
               <div className="flex gap-2">
                 <textarea
-                  value={newKey ? generateCursorConfig(newKey) : (mcpKey ? '// Generate a new key to get the configuration' : '// No key available')}
+                  value={newKey ? generateCursorConfig(newKey).config : (mcpKey ? '// Generate a new key to get the configuration' : '// No key available')}
                   readOnly
-                  className="flex-1 font-mono text-xs p-3 bg-muted rounded-md min-h-[200px] resize-none"
+                  className="flex-1 font-mono text-xs p-3 bg-muted rounded-md min-h-[150px] resize-none"
                   spellCheck={false}
                 />
                 <Button
@@ -376,19 +435,22 @@ export function Settings() {
                 </Button>
               </div>
             </div>
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                <strong>How to add:</strong>
-                <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">
-                  <li>Open Cursor Settings (Cmd/Ctrl + ,)</li>
-                  <li>Go to "Features" → "Model Context Protocol"</li>
-                  <li>Click "Edit Config" or open the MCP settings file</li>
-                  <li>Paste the configuration above into the <code className="text-xs bg-muted px-1 py-0.5 rounded">mcpServers</code> section</li>
-                  <li>Save and restart Cursor</li>
-                </ol>
-              </AlertDescription>
-            </Alert>
+
+            {newKey && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Manual installation:</strong>
+                  <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">
+                    <li>Open Cursor Settings (Cmd/Ctrl + ,)</li>
+                    <li>Go to "Features" → "Model Context Protocol"</li>
+                    <li>Click "Edit Config" or open the MCP settings file</li>
+                    <li>Paste the configuration above into the <code className="text-xs bg-muted px-1 py-0.5 rounded">mcpServers</code> section</li>
+                    <li>Save and restart Cursor</li>
+                  </ol>
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
           <DialogFooter>
             <Button onClick={() => setShowCursorConfigDialog(false)}>
