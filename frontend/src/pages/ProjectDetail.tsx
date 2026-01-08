@@ -20,7 +20,7 @@ import { ElementTree } from '@/components/elements/ElementTree'
 import { ElementDetailDialog } from '@/components/elements/ElementDetailDialog'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { ActiveUsers } from '@/components/collaboration/ActiveUsers'
-import { Plus, Edit, FileText, CheckSquare, UsersRound } from 'lucide-react'
+import { Plus, Edit, FileText, CheckSquare, UsersRound, ChevronDown, ChevronRight } from 'lucide-react'
 
 export function ProjectDetail() {
   const { id } = useParams<{ id: string }>()
@@ -41,7 +41,7 @@ export function ProjectDetail() {
   const [selectedElement, setSelectedElement] = useState<any>(null)
   const [elementDetailOpen, setElementDetailOpen] = useState(false)
   const [teams, setTeams] = useState<Team[]>([])
-  const [showProjectStructure, setShowProjectStructure] = useState(false)
+  const [showProjectStructure, setShowProjectStructure] = useState(false) // Default: collapsed
 
   useEffect(() => {
     loadTeams()
@@ -88,11 +88,13 @@ export function ProjectDetail() {
     setIsLoadingElements(true)
     elementService.getProjectTree(id)
         .then((tree) => {
+          console.log('Element tree loaded:', tree)
           setElementTree(tree)
           setIsLoadingElements(false)
         })
         .catch((error) => {
           console.error('Failed to load element tree:', error)
+          setElementTree(null)
           setIsLoadingElements(false)
         })
 
@@ -342,25 +344,26 @@ export function ProjectDetail() {
         )}
       </div>
 
-      {/* Element Tree Section - Moved down, less important for daily work */}
+      {/* Element Tree Section - Collapsible, collapsed by default */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Project Structure</h2>
+        <button
+          onClick={() => setShowProjectStructure(!showProjectStructure)}
+          className="flex items-center justify-between w-full mb-4 hover:bg-accent/50 rounded-md p-2 -ml-2 transition-colors"
+        >
           <div className="flex items-center gap-2">
-            {elementTree && elementTree.elements.length > 0 && (
+            {showProjectStructure ? (
+              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            )}
+            <h2 className="text-2xl font-bold">Project Structure</h2>
+            {elementTree && elementTree.elements && elementTree.elements.length > 0 && (
               <div className="text-sm text-muted-foreground">
-                {elementTree.elements.length} {elementTree.elements.length === 1 ? 'element' : 'elements'}
+                ({elementTree.elements.length} {elementTree.elements.length === 1 ? 'element' : 'elements'})
               </div>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowProjectStructure(!showProjectStructure)}
-            >
-              {showProjectStructure ? 'Hide' : 'Show'} Structure
-            </Button>
           </div>
-        </div>
+        </button>
         {showProjectStructure && (
           <div>
             {isLoadingElements ? (
