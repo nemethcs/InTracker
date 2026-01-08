@@ -75,21 +75,28 @@ export function Settings() {
   const generateCursorConfig = (apiKey: string): { config: string; deeplink: string } => {
     const apiBaseUrl = getApiBaseUrl()
     
-    // Always use HTTP/SSE transport (production-ready)
-    const mcpConfig = {
-      intracker: {
-        url: `${apiBaseUrl}/mcp/sse`,
-        headers: {
-          "X-API-Key": apiKey
-        }
+    // Server configuration (what goes inside mcpServers)
+    const serverConfig = {
+      url: `${apiBaseUrl}/mcp/sse`,
+      headers: {
+        "X-API-Key": apiKey
       }
     }
 
-    const configJson = JSON.stringify(mcpConfig, null, 2)
+    // Full config for manual copy (with mcpServers wrapper)
+    const fullConfig = {
+      mcpServers: {
+        intracker: serverConfig
+      }
+    }
+
+    const configJson = JSON.stringify(fullConfig, null, 2)
     
     // Generate Cursor deeplink for one-click install
     // Format: cursor://anysphere.cursor-deeplink/mcp/install?name=$NAME&config=$BASE64_ENCODED_CONFIG
-    const base64Config = btoa(JSON.stringify(mcpConfig))
+    // IMPORTANT: Only encode the server config, NOT the mcpServers wrapper!
+    // Cursor will automatically wrap it in mcpServers[name]
+    const base64Config = btoa(JSON.stringify(serverConfig))
     const deeplink = `cursor://anysphere.cursor-deeplink/mcp/install?name=intracker&config=${base64Config}`
 
     return {
