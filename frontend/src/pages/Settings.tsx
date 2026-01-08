@@ -26,6 +26,23 @@ export function Settings() {
     loadCurrentKey()
   }, [])
 
+  // Auto-open deeplink when newKey is set (after regeneration from Add to Cursor)
+  useEffect(() => {
+    if (newKey && showNewKeyDialog) {
+      // Wait a bit for the dialog to show, then auto-open deeplink
+      const timer = setTimeout(() => {
+        const { deeplink } = generateCursorConfig(newKey)
+        // Open deeplink directly - this will trigger Cursor to install
+        window.location.href = deeplink
+        // Also copy to clipboard as fallback
+        navigator.clipboard.writeText(deeplink).catch(() => {
+          // Ignore clipboard errors
+        })
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [newKey, showNewKeyDialog])
+
   const loadCurrentKey = async () => {
     try {
       setIsLoadingKey(true)
@@ -106,30 +123,40 @@ export function Settings() {
   }
 
   const handleAddToCursor = async () => {
+    // If no key exists, generate one first
     if (!mcpKey && !newKey) {
-      // If no key exists, generate one first
       await handleRegenerateKey()
+      // After regeneration, the useEffect will auto-open the deeplink
       return
     }
 
     // If we have an active key but no newKey (plain text), we need to regenerate
     // to get the plain text key for the configuration
     if (mcpKey && !newKey) {
-      // Show a confirmation dialog or directly regenerate
       const confirmed = window.confirm(
         "To add InTracker to Cursor, you need to regenerate your MCP API key. " +
         "This will revoke your current key. Continue?"
       )
       if (confirmed) {
         await handleRegenerateKey()
+        // After regeneration, the useEffect will auto-open the deeplink
         return
       } else {
         return
       }
     }
 
-    // Show dialog with deeplink and config (only if we have newKey)
-    setShowCursorConfigDialog(true)
+    // If we have newKey, directly open the deeplink (quick install)
+    if (newKey) {
+      const { deeplink } = generateCursorConfig(newKey)
+      // Open deeplink directly - this will trigger Cursor to install
+      window.location.href = deeplink
+      
+      // Also copy to clipboard as fallback
+      navigator.clipboard.writeText(deeplink).catch(() => {
+        // Ignore clipboard errors
+      })
+    }
   }
 
   const handleCopyCursorConfig = async (apiKey: string) => {
