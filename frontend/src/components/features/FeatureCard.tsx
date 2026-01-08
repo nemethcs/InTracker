@@ -15,14 +15,24 @@ export function FeatureCard({ feature, projectId, onEdit, number }: FeatureCardP
   return (
     <Link to={`/projects/${projectId}/features/${feature.id}`}>
       <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full relative">
-        {number !== undefined && (
-          <div className="absolute top-2 left-2 z-10">
+        <div className="absolute top-2 left-2 z-10 flex items-center gap-2">
+          {number !== undefined && (
             <Badge variant="outline" className="text-xs font-mono h-5 px-1.5 min-w-[24px] justify-center bg-background">
               {number}
             </Badge>
-          </div>
-        )}
-        <CardHeader className={number !== undefined ? "pt-10" : ""}>
+          )}
+          <Badge 
+            variant={
+              feature.status === 'done' ? 'default' :
+              feature.status === 'tested' ? 'secondary' :
+              feature.status === 'in_progress' ? 'secondary' : 'outline'
+            }
+            className="bg-background"
+          >
+            {feature.status}
+          </Badge>
+        </div>
+        <CardHeader className={(number !== undefined || true) ? "pt-10" : ""}>
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <CardTitle className="mb-1">
@@ -34,15 +44,6 @@ export function FeatureCard({ feature, projectId, onEdit, number }: FeatureCardP
                 </CardDescription>
               )}
             </div>
-            <Badge 
-              variant={
-                feature.status === 'done' ? 'default' :
-                feature.status === 'tested' ? 'secondary' :
-                feature.status === 'in_progress' ? 'secondary' : 'outline'
-              }
-            >
-              {feature.status}
-            </Badge>
           </div>
         </CardHeader>
         <CardContent>
