@@ -385,17 +385,6 @@ async def handle_convert_idea_to_project(
         
         if not project:
             return {"error": "Failed to convert idea to project"}
-                existing_project = ProjectService.get_project_by_id(db, idea.converted_to_project_id)
-                if existing_project:
-                    return {
-                        "id": str(existing_project.id),
-                        "name": existing_project.name,
-                        "description": existing_project.description,
-                        "status": existing_project.status,
-                        "team_id": str(existing_project.team_id),
-                        "message": "Idea was already converted to this project",
-                    }
-            return {"error": "Failed to convert idea to project"}
 
         # Get idea for response
         idea = IdeaService.get_idea_by_id(db, UUID(idea_id))
