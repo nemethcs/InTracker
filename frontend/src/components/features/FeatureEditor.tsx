@@ -121,8 +121,9 @@ export function FeatureEditor({
                 <SelectContent>
                   <SelectItem value="new">New</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="tested">Tested</SelectItem>
                   <SelectItem value="done">Done</SelectItem>
+                  <SelectItem value="tested">Tested</SelectItem>
+                  <SelectItem value="merged">Merged</SelectItem>
                 </SelectContent>
               </Select>
             </div>

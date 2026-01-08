@@ -5,7 +5,7 @@ export interface Feature {
   project_id: string
   name: string
   description?: string
-  status: 'new' | 'in_progress' | 'tested' | 'done'
+  status: 'new' | 'in_progress' | 'done' | 'tested' | 'merged'
   progress_percentage: number
   total_todos: number
   completed_todos: number

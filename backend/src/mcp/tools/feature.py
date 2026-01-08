@@ -146,7 +146,7 @@ def get_list_features_tool() -> MCPTool:
                 "projectId": {"type": "string", "description": "Project UUID"},
                 "status": {
                     "type": "string",
-                    "enum": ["new", "in_progress", "tested", "done"],
+                    "enum": ["new", "in_progress", "done", "tested", "merged"],
                     "description": "Filter by status",
                 },
             },
@@ -204,14 +204,14 @@ def get_update_feature_status_tool() -> MCPTool:
     """Get update feature status tool definition."""
     return MCPTool(
         name="mcp_update_feature_status",
-        description="Update a feature's status (new → in_progress → tested → done) and automatically recalculate progress percentage based on linked todos. Progress is calculated as: (completed todos / total todos) * 100.",
+        description="Update a feature's status (new → in_progress → done → tested → merged) and automatically recalculate progress percentage based on linked todos. Progress is calculated as: (completed todos / total todos) * 100. Completed todos are those with status: done.",
         inputSchema={
             "type": "object",
             "properties": {
                 "featureId": {"type": "string", "description": "Feature UUID"},
                 "status": {
                     "type": "string",
-                    "enum": ["todo", "in_progress", "blocked", "done"],
+                    "enum": ["new", "in_progress", "done", "tested", "merged"],
                     "description": "New status",
                 },
             },

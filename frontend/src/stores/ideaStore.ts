@@ -5,7 +5,7 @@ interface IdeaState {
   ideas: Idea[]
   isLoading: boolean
   error: string | null
-  fetchIdeas: (status?: string) => Promise<void>
+  fetchIdeas: (status?: string, teamId?: string) => Promise<void>
   fetchIdea: (id: string) => Promise<Idea>
   createIdea: (data: IdeaCreate) => Promise<Idea>
   updateIdea: (id: string, data: IdeaUpdate) => Promise<void>
@@ -18,7 +18,7 @@ export const useIdeaStore = create<IdeaState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  fetchIdeas: async (status?: string) => {
+  fetchIdeas: async (status?: string, teamId?: string) => {
     // Prevent duplicate requests
     const currentState = get()
     if (currentState.isLoading) {
@@ -26,7 +26,7 @@ export const useIdeaStore = create<IdeaState>((set, get) => ({
     }
     set({ isLoading: true, error: null })
     try {
-      const ideas = await ideaService.listIdeas(status)
+      const ideas = await ideaService.listIdeas(status, teamId)
       set({ ideas, isLoading: false })
     } catch (error) {
       console.error('Failed to fetch ideas:', error)

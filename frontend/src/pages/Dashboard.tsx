@@ -2,27 +2,56 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useProject } from '@/hooks/useProject'
 import { useProjectStore } from '@/stores/projectStore'
+import { adminService, type Team } from '@/services/adminService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ProjectEditor } from '@/components/projects/ProjectEditor'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FolderKanban, Plus } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
 
 export function Dashboard() {
-  const { projects, isLoading, error, refetch } = useProject()
+  const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>(undefined)
+  const [statusFilter, setStatusFilter] = useState<string>('active') // Default to active projects
+  const [teams, setTeams] = useState<Team[]>([])
+  const [isLoadingTeams, setIsLoadingTeams] = useState(false)
+  const { projects, isLoading, error, refetch } = useProject(undefined, selectedTeamId, statusFilter)
   const { createProject } = useProjectStore()
   const location = useLocation()
   const navigate = useNavigate()
   const [projectEditorOpen, setProjectEditorOpen] = useState(false)
 
   useEffect(() => {
-    refetch()
-  }, [refetch])
+    loadTeams()
+  }, [])
+
+  const loadTeams = async () => {
+    setIsLoadingTeams(true)
+    try {
+      const response = await adminService.getTeams()
+      setTeams(response.teams)
+    } catch (error) {
+      console.error('Failed to load teams:', error)
+    } finally {
+      setIsLoadingTeams(false)
+    }
+  }
 
   // Ensure projects is always an array
   const projectsList = Array.isArray(projects) ? projects : []
+
+  // Group projects by team
+  const projectsByTeam = projectsList.reduce((acc, project) => {
+    const teamId = project.team_id || 'no-team'
+    if (!acc[teamId]) {
+      acc[teamId] = []
+    }
+    acc[teamId].push(project)
+    return acc
+  }, {} as Record<string, typeof projectsList>)
 
   // Determine title based on route
   const isProjectsPage = location.pathname === '/projects'
@@ -31,7 +60,7 @@ export function Dashboard() {
     ? 'View and manage all your projects' 
     : 'Manage your projects and track progress'
 
-  if (isLoading) {
+  if (isLoading || isLoadingTeams) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <LoadingSpinner size="lg" />
@@ -55,7 +84,8 @@ export function Dashboard() {
     )
   }
 
-  // Calculate statistics
+  // Calculate statistics (from all projects, not just filtered)
+  // Note: These stats are based on currently loaded projects, which are already filtered
   const totalProjects = projectsList.length
   const activeProjects = projectsList.filter(p => p.status === 'active').length
   const completedProjects = projectsList.filter(p => p.status === 'completed').length
@@ -71,6 +101,47 @@ export function Dashboard() {
           <Plus className="mr-2 h-4 w-4" />
           New Project
         </Button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center gap-4">
+        {/* Status Filter */}
+        <Select 
+          value={statusFilter} 
+          onValueChange={(value) => setStatusFilter(value)}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="paused">Paused</SelectItem>
+            <SelectItem value="blocked">Blocked</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="archived">Archived</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Team Filter */}
+        {teams.length > 0 && (
+          <Select 
+            value={selectedTeamId || 'all'} 
+            onValueChange={(value) => setSelectedTeamId(value === 'all' ? undefined : value)}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Filter by team" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Teams</SelectItem>
+              {teams.map((team) => (
+                <SelectItem key={team.id} value={team.id}>
+                  {team.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Statistics Cards */}
@@ -108,45 +179,69 @@ export function Dashboard() {
           }}
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {projectsList.map((project) => (
-            <Link key={project.id} to={`/projects/${project.id}`}>
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                <CardHeader>
-                  <CardTitle>{project.name}</CardTitle>
-                  <CardDescription>
-                    {project.description || 'No description'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Status</span>
-                      <span className="capitalize">{project.status}</span>
-                    </div>
-                    {project.last_session_at && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Last session</span>
-                        <span>{format(new Date(project.last_session_at), 'MMM d, yyyy')}</span>
-                      </div>
-                    )}
-                    {project.tags && project.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {project.tags.slice(0, 3).map((tag) => (
-                          <span
-                            key={tag}
-                            className="px-2 py-1 text-xs bg-secondary rounded-md"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+        <div className="space-y-6">
+          {Object.entries(projectsByTeam).map(([teamId, teamProjects]) => {
+            // Try to find team by ID (handle both string and UUID formats)
+            // Normalize IDs for comparison (remove dashes, convert to lowercase)
+            const normalizeId = (id: string) => id?.replace(/-/g, '').toLowerCase() || ''
+            const normalizedTeamId = normalizeId(teamId)
+            const team = teams.find(t => {
+              const normalizedTId = normalizeId(t.id)
+              return normalizedTId === normalizedTeamId || t.id === teamId || t.id === String(teamId)
+            })
+            const teamName = team?.name || (teamId === 'no-team' ? 'No Team' : `Team ${teamId.substring(0, 8)}...`)
+            
+            return (
+              <div key={teamId} className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-semibold">{teamName}</h2>
+                  <Badge variant="secondary" className="text-xs">
+                    {teamProjects.length} {teamProjects.length === 1 ? 'project' : 'projects'}
+                  </Badge>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {teamProjects.map((project) => (
+                    <Link key={project.id} to={`/projects/${project.id}`}>
+                      <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                        <CardHeader>
+                          <CardTitle>{project.name}</CardTitle>
+                          <CardDescription>
+                            {project.description || 'No description'}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Status</span>
+                              <span className="capitalize">{project.status}</span>
+                            </div>
+                            {project.last_session_at && (
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-muted-foreground">Last session</span>
+                                <span>{format(new Date(project.last_session_at), 'MMM d, yyyy')}</span>
+                              </div>
+                            )}
+                            {project.tags && project.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {project.tags.slice(0, 3).map((tag) => (
+                                  <span
+                                    key={tag}
+                                    className="px-2 py-1 text-xs bg-secondary rounded-md"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 

@@ -18,6 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { adminService, type Team } from '@/services/adminService'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import type { Project, ProjectCreate, ProjectUpdate } from '@/services/projectService'
 
 interface ProjectEditorProps {
@@ -36,16 +38,25 @@ export function ProjectEditor({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState<Project['status']>('active')
+  const [teamId, setTeamId] = useState('')
   const [tags, setTags] = useState('')
   const [technologyTags, setTechnologyTags] = useState('')
   const [cursorInstructions, setCursorInstructions] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [teams, setTeams] = useState<Team[]>([])
+  const [isLoadingTeams, setIsLoadingTeams] = useState(false)
 
   useEffect(() => {
+    if (open) {
+      // Load teams when dialog opens
+      loadTeams()
+    }
+    
     if (project) {
       setName(project.name)
       setDescription(project.description || '')
       setStatus(project.status)
+      setTeamId(project.team_id)
       setTags(project.tags?.join(', ') || '')
       setTechnologyTags(project.technology_tags?.join(', ') || '')
       setCursorInstructions(project.cursor_instructions || '')
@@ -53,11 +64,28 @@ export function ProjectEditor({
       setName('')
       setDescription('')
       setStatus('active')
+      setTeamId('')
       setTags('')
       setTechnologyTags('')
       setCursorInstructions('')
     }
   }, [project, open])
+
+  const loadTeams = async () => {
+    setIsLoadingTeams(true)
+    try {
+      const response = await adminService.getTeams()
+      setTeams(response.teams)
+      // If no team selected and teams exist, select first team
+      if (!teamId && response.teams.length > 0) {
+        setTeamId(response.teams[0].id)
+      }
+    } catch (error) {
+      console.error('Failed to load teams:', error)
+    } finally {
+      setIsLoadingTeams(false)
+    }
+  }
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -68,6 +96,11 @@ export function ProjectEditor({
     try {
       const tagsArray = tags.split(',').map(t => t.trim()).filter(t => t.length > 0)
       const technologyTagsArray = technologyTags.split(',').map(t => t.trim()).filter(t => t.length > 0)
+
+      if (!teamId && !project) {
+        alert('Please select a team')
+        return
+      }
 
       if (project) {
         // Update existing project
@@ -83,6 +116,7 @@ export function ProjectEditor({
         // Create new project
         await onSave({
           name,
+          team_id: teamId,
           description: description || undefined,
           tags: tagsArray.length > 0 ? tagsArray : undefined,
           technology_tags: technologyTagsArray.length > 0 ? technologyTagsArray : undefined,
@@ -107,6 +141,27 @@ export function ProjectEditor({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
+          {!project && (
+            <div className="space-y-2">
+              <Label htmlFor="team">Team *</Label>
+              {isLoadingTeams ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                <Select value={teamId} onValueChange={setTeamId}>
+                  <SelectTrigger id="team">
+                    <SelectValue placeholder="Select a team" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teams.map((team) => (
+                      <SelectItem key={team.id} value={team.id}>
+                        {team.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="name">Name *</Label>
             <Input
@@ -179,7 +234,7 @@ export function ProjectEditor({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving || !name.trim()}>
+          <Button onClick={handleSave} disabled={isSaving || !name.trim() || (!project && !teamId)}>
             {isSaving ? 'Saving...' : project ? 'Update' : 'Create'}
           </Button>
         </DialogFooter>

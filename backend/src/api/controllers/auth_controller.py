@@ -19,9 +19,15 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 async def register(request: RegisterRequest, db: Session = Depends(get_db)):
-    """Register new user."""
+    """Register new user with invitation code."""
     try:
-        user = auth_service.register(db, request.email, request.password, request.name)
+        user = auth_service.register(
+            db,
+            request.email,
+            request.password,
+            request.invitation_code,
+            request.name,
+        )
         token_data = {"sub": str(user.id), "email": user.email}
         tokens = {
             "access_token": auth_service.create_access_token(token_data),
@@ -37,6 +43,7 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
                 github_username=user.github_username,
                 avatar_url=user.avatar_url,
                 is_active=user.is_active,
+                role=user.role,
             ),
             tokens=TokenResponse(**tokens),
         )
@@ -67,6 +74,7 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
                 github_username=user.github_username,
                 avatar_url=user.avatar_url,
                 is_active=user.is_active,
+                role=user.role,
             ),
             tokens=TokenResponse(**tokens),
         )
@@ -107,4 +115,5 @@ async def get_me(current_user: dict = Depends(get_current_user), db: Session = D
         github_username=user.github_username,
         avatar_url=user.avatar_url,
         is_active=user.is_active,
+        role=user.role,
     )

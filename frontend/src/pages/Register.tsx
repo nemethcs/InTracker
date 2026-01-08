@@ -13,6 +13,7 @@ export function Register() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [invitationCode, setInvitationCode] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -22,7 +23,7 @@ export function Register() {
     setIsLoading(true)
 
     try {
-      await register(email, password, name || undefined)
+      await register(email, password, name || undefined, invitationCode)
       navigate('/')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
@@ -78,6 +79,21 @@ export function Register() {
                 required
                 disabled={isLoading}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invitationCode">Invitation Code</Label>
+              <Input
+                id="invitationCode"
+                type="text"
+                placeholder="Enter your invitation code"
+                value={invitationCode}
+                onChange={(e) => setInvitationCode(e.target.value)}
+                required
+                disabled={isLoading}
+              />
+              <p className="text-xs text-muted-foreground">
+                You need an invitation code to register. Contact your administrator or team leader.
+              </p>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">

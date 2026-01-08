@@ -5,7 +5,8 @@ from jose import JWTError, jwt
 import bcrypt
 from sqlalchemy.orm import Session
 from src.config import settings
-from src.database.models import User
+from src.database.models import User, TeamMember, Team
+from src.services.invitation_service import InvitationService
 
 
 class AuthService:
@@ -64,12 +65,36 @@ class AuthService:
             raise ValueError("Invalid or expired token")
 
     @staticmethod
-    def register(db: Session, email: str, password: str, name: Optional[str] = None) -> User:
-        """Register new user."""
+    def register(
+        db: Session,
+        email: str,
+        password: str,
+        invitation_code: str,
+        name: Optional[str] = None,
+    ) -> User:
+        """Register new user with invitation code."""
         # Check if user already exists
         existing_user = db.query(User).filter(User.email == email).first()
         if existing_user:
             raise ValueError("User with this email already exists")
+
+        # Validate invitation code
+        is_valid, invitation, error_message = InvitationService.validate_code(db, invitation_code)
+        if not is_valid:
+            raise ValueError(error_message or "Invalid invitation code")
+
+        # Determine user role and team based on invitation type
+        user_role = "member"  # Default role
+        team_id = None
+        should_create_team = False
+
+        if invitation.type == "admin":
+            # Admin invitation creates a team_leader who gets their own team
+            user_role = "team_leader"
+            should_create_team = True
+        elif invitation.type == "team":
+            user_role = "member"
+            team_id = invitation.team_id
 
         # Hash password
         password_hash = AuthService.hash_password(password)
@@ -79,9 +104,44 @@ class AuthService:
             email=email,
             password_hash=password_hash,
             name=name,
+            role=user_role,
             is_active=True,
         )
         db.add(user)
+        db.flush()  # Flush to get user.id
+
+        # Mark invitation as used
+        InvitationService.mark_as_used(db, invitation_code, user.id)
+
+        # Create team for admin invitation (team_leader)
+        if should_create_team:
+            from src.services.team_service import TeamService
+            # Generate team name from user name or email
+            team_name = f"{name}'s Team" if name else f"{email.split('@')[0]}'s Team"
+            # Ensure unique team name
+            base_name = team_name
+            counter = 1
+            while db.query(Team).filter(Team.name == team_name).first():
+                team_name = f"{base_name} {counter}"
+                counter += 1
+            
+            team = TeamService.create_team(
+                db=db,
+                name=team_name,
+                created_by=user.id,
+                description=None,
+            )
+            team_id = team.id
+
+        # Add user to team if team invitation or newly created team
+        if team_id:
+            team_member = TeamMember(
+                team_id=team_id,
+                user_id=user.id,
+                role="team_leader" if should_create_team else "member",
+            )
+            db.add(team_member)
+
         db.commit()
         db.refresh(user)
         return user

@@ -5,6 +5,7 @@ export interface Idea {
   title: string
   description?: string
   status: 'draft' | 'active' | 'archived'
+  team_id: string
   tags?: string[]
   converted_to_project_id?: string
   created_at: string
@@ -13,6 +14,7 @@ export interface Idea {
 
 export interface IdeaCreate {
   title: string
+  team_id: string
   description?: string
   status?: Idea['status']
   tags?: string[]
@@ -34,9 +36,10 @@ export interface IdeaConvertRequest {
 }
 
 export const ideaService = {
-  async listIdeas(status?: string): Promise<Idea[]> {
+  async listIdeas(status?: string, teamId?: string): Promise<Idea[]> {
     const params: Record<string, string> = {}
     if (status) params.status = status
+    if (teamId) params.team_id = teamId
     const response = await api.get('/ideas', { params })
     // Backend returns { ideas: [...], total: ... }
     return response.data.ideas || response.data || []

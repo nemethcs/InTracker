@@ -6,7 +6,7 @@ interface ProjectState {
   currentProject: Project | null
   isLoading: boolean
   error: string | null
-  fetchProjects: () => Promise<void>
+  fetchProjects: (teamId?: string, status?: string) => Promise<void>
   fetchProject: (id: string) => Promise<void>
   createProject: (data: ProjectCreate) => Promise<Project>
   updateProject: (id: string, data: ProjectUpdate) => Promise<void>
@@ -20,10 +20,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  fetchProjects: async () => {
+  fetchProjects: async (teamId?: string, status?: string) => {
+    // Prevent duplicate requests
+    const currentState = get()
+    if (currentState.isLoading) {
+      return
+    }
     set({ isLoading: true, error: null })
     try {
-      const projects = await projectService.listProjects()
+      const projects = await projectService.listProjects(teamId, status)
       set({ projects, isLoading: false })
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to fetch projects', isLoading: false })
@@ -31,6 +36,11 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   },
 
   fetchProject: async (id: string) => {
+    // Prevent duplicate requests
+    const currentState = get()
+    if (currentState.isLoading && currentState.currentProject?.id === id) {
+      return
+    }
     set({ isLoading: true, error: null })
     try {
       const project = await projectService.getProject(id)

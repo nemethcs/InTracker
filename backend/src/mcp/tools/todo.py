@@ -136,14 +136,14 @@ def get_update_todo_status_tool() -> MCPTool:
     """Get update todo status tool definition."""
     return MCPTool(
         name="mcp_update_todo_status",
-        description="Update a todo's status (new → in_progress → tested → done) with optimistic locking to prevent conflicts. Always provide expectedVersion from the previous read to avoid conflicts. Returns updated todo with new version number.",
+        description="Update a todo's status (new → in_progress → done) with optimistic locking to prevent conflicts. Always provide expectedVersion from the previous read to avoid conflicts. Returns updated todo with new version number.",
         inputSchema={
             "type": "object",
             "properties": {
                 "todoId": {"type": "string", "description": "Todo UUID"},
                 "status": {
                     "type": "string",
-                    "enum": ["new", "in_progress", "tested", "done"],
+                    "enum": ["new", "in_progress", "done"],
                     "description": "New status",
                 },
                 "expectedVersion": {"type": "integer", "description": "Expected version for optimistic locking"},
@@ -264,7 +264,7 @@ def get_list_todos_tool() -> MCPTool:
                 "projectId": {"type": "string", "description": "Project UUID"},
                 "status": {
                     "type": "string",
-                    "enum": ["new", "in_progress", "tested", "done"],
+                    "enum": ["new", "in_progress", "done"],
                     "description": "Filter by status",
                 },
                 "featureId": {"type": "string", "description": "Filter by feature ID"},
@@ -316,13 +316,16 @@ async def handle_list_todos(
             todos = [t for t in todos if t.feature_id == UUID(feature_id)]
 
         # If user_id is provided, exclude todos that are in_progress and assigned to other users
+        # Workflow: new → in_progress → done (simplified)
         if user_id:
             user_uuid = UUID(user_id)
             filtered_todos = []
             for t in todos:
-                if t.status in ["new", "tested", "done"]:
+                # All statuses except in_progress are visible to everyone
+                if t.status in ["new", "done"]:
                     filtered_todos.append(t)
                 elif t.status == "in_progress":
+                    # Only show in_progress todos if unassigned or assigned to this user
                     if t.assigned_to is None or t.assigned_to == user_uuid:
                         filtered_todos.append(t)
             todos = filtered_todos

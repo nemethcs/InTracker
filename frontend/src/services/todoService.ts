@@ -6,7 +6,7 @@ export interface Todo {
   feature_id?: string
   title: string
   description?: string
-  status: 'new' | 'in_progress' | 'tested' | 'done'
+  status: 'new' | 'in_progress' | 'done'
   priority?: 'low' | 'medium' | 'high' | 'critical'
   assigned_to?: string
   version: number

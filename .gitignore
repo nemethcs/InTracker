@@ -61,3 +61,4 @@ docker-compose.override.yaml
 
 # Alembic
 backend/alembic/versions/*.pyc
+deploy-*.sh

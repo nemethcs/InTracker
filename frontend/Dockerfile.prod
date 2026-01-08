@@ -1,0 +1,43 @@
+# Production Dockerfile for Frontend using Node.js
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Build the application
+# VITE_API_BASE_URL and VITE_SIGNALR_URL will be set at runtime via environment variables
+# For build time, we use placeholder values that will be replaced at runtime
+ARG VITE_API_BASE_URL=http://localhost:3000
+ARG VITE_SIGNALR_URL=http://localhost:3000/signalr/hub
+ARG VITE_APP_NAME=InTracker
+
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_SIGNALR_URL=$VITE_SIGNALR_URL
+ENV VITE_APP_NAME=$VITE_APP_NAME
+
+RUN npm run build
+
+# Production stage
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy server script
+COPY server.js ./
+
+# Copy built files from builder stage
+COPY --from=builder /app/dist ./dist
+
+# Expose port
+EXPOSE 3000
+
+# Start server
+CMD ["node", "server.js"]

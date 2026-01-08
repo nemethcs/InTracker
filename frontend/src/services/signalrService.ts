@@ -40,8 +40,7 @@ class SignalRService {
         ? `${signalrUrl}?access_token=${encodeURIComponent(token)}`
         : signalrUrl
       
-      // Log the URL for debugging
-      console.log('SignalR connecting to:', urlWithToken)
+      // Connect to SignalR hub
       
       const builder = new HubConnectionBuilder()
         .withUrl(urlWithToken, {
@@ -65,19 +64,17 @@ class SignalRService {
 
       // Connection state handlers
       this.connection.onclose((error) => {
-        console.log('SignalR connection closed', error)
         this.isConnecting = false
         if (error) {
           this.attemptReconnect(token)
         }
       })
 
-      this.connection.onreconnecting((error) => {
-        console.log('SignalR reconnecting...', error)
+      this.connection.onreconnecting(() => {
+        // Reconnecting...
       })
 
       this.connection.onreconnected((connectionId) => {
-        console.log('SignalR reconnected', connectionId)
         this.reconnectAttempts = 0
         this.reconnectDelay = 1000
         // Emit reconnected event so components can rejoin project groups
@@ -86,7 +83,6 @@ class SignalRService {
 
       // Start connection
       await this.connection.start()
-      console.log('SignalR connected', this.connection.connectionId)
       this.isConnecting = false
       this.reconnectAttempts = 0
       this.reconnectDelay = 1000
@@ -116,7 +112,6 @@ class SignalRService {
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectAttempts++
-      console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`)
       this.connect(token).catch((error) => {
         console.error('Reconnection failed:', error)
       })
@@ -224,7 +219,6 @@ class SignalRService {
       try {
         // Try SignalR invoke first
         await this.connection.invoke('JoinProject', projectId)
-        console.log(`Joined project group: ${projectId}`)
       } catch (error) {
         // Fallback to simple JSON message
         try {
@@ -232,7 +226,6 @@ class SignalRService {
             type: 'joinProject',
             projectId: projectId
           })
-          console.log(`Joined project group (fallback): ${projectId}`)
         } catch (fallbackError) {
           console.error('Failed to join project group:', fallbackError)
         }
@@ -248,7 +241,6 @@ class SignalRService {
       try {
         // Try SignalR invoke first
         await this.connection.invoke('LeaveProject', projectId)
-        console.log(`Left project group: ${projectId}`)
       } catch (error) {
         // Fallback to simple JSON message
         try {
@@ -256,7 +248,6 @@ class SignalRService {
             type: 'leaveProject',
             projectId: projectId
           })
-          console.log(`Left project group (fallback): ${projectId}`)
         } catch (fallbackError) {
           console.error('Failed to leave project group:', fallbackError)
         }
@@ -300,7 +291,7 @@ class SignalRService {
     if (this.connection) {
       try {
         await this.connection.stop()
-        console.log('SignalR disconnected')
+        // SignalR disconnected
       } catch (error) {
         console.error('Error disconnecting SignalR:', error)
       }

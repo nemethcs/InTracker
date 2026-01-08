@@ -7,7 +7,7 @@ interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string, name?: string) => Promise<void>
+  register: (email: string, password: string, name?: string, invitationCode?: string) => Promise<void>
   logout: () => Promise<void>
   setUser: (user: User | null) => void
   setTokens: (tokens: AuthTokens) => void
@@ -32,8 +32,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  register: async (email: string, password: string, name?: string) => {
-    const { tokens, user } = await authService.register({ email, password, name })
+  register: async (email: string, password: string, name?: string, invitationCode?: string) => {
+    if (!invitationCode) {
+      throw new Error('Invitation code is required')
+    }
+    const { tokens, user } = await authService.register({ email, password, name, invitation_code: invitationCode })
     localStorage.setItem('access_token', tokens.access_token)
     localStorage.setItem('refresh_token', tokens.refresh_token)
     set({ user, isAuthenticated: true, isLoading: false })

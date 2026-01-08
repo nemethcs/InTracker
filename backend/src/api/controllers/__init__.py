@@ -11,6 +11,8 @@ from . import (
     idea_controller,
     signalr_controller,
     mcp_controller,
+    admin_controller,
+    team_controller,
 )
 
 __all__ = [
@@ -25,4 +27,6 @@ __all__ = [
     "idea_controller",
     "signalr_controller",
     "mcp_controller",
+    "admin_controller",
+    "team_controller",
 ]

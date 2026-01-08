@@ -13,7 +13,7 @@ from src.services.element_service import ElementService
 from src.services.feature_service import FeatureService
 from src.services.todo_service import TodoService
 from src.services.session_service import SessionService
-from src.database.models import User, UserProject
+from src.database.models import User
 from sqlalchemy import func, and_, or_
 import json
 
@@ -22,7 +22,7 @@ def get_project_context_tool() -> MCPTool:
     """Get project context tool definition."""
     return MCPTool(
         name="mcp_get_project_context",
-        description="Get comprehensive project information including project metadata, element structure tree, all features, active todos (new/in_progress/tested), and cached resume context. Use this for initial project exploration.",
+        description="Get comprehensive project information including project metadata, element structure tree, all features, active todos (new/in_progress/done), and cached resume context. Use this for initial project exploration.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -66,8 +66,8 @@ async def handle_get_project_context(project_id: str) -> dict:
             skip=0,
             limit=1000,
         )
-        # Filter for active statuses
-        todos = [t for t in todos if t.status in ["new", "in_progress", "tested"]]
+        # Filter for active statuses (todos: new, in_progress, done - tested/merged are feature-level)
+        todos = [t for t in todos if t.status in ["new", "in_progress", "done"]]
 
         # Build response
         context = {
@@ -351,7 +351,7 @@ def get_active_todos_tool() -> MCPTool:
                 },
                 "status": {
                     "type": "string",
-                    "enum": ["new", "in_progress", "tested", "done"],
+                    "enum": ["new", "in_progress", "done"],
                     "description": "Filter by status",
                 },
                 "featureId": {
@@ -408,14 +408,14 @@ async def handle_get_active_todos(
         
         # Filter for active statuses if no status filter
         if not status:
-            todos = [t for t in todos if t.status in ["new", "in_progress", "tested"]]
+            todos = [t for t in todos if t.status in ["new", "in_progress", "done"]]
 
         # If user_id is provided, exclude todos that are in_progress and assigned to other users
         if user_id:
             user_uuid = UUID(user_id)
             filtered_todos = []
             for t in todos:
-                if t.status in ["new", "tested"]:
+                if t.status in ["new", "done"]:
                     filtered_todos.append(t)
                 elif t.status == "in_progress":
                     if t.assigned_to is None or t.assigned_to == user_uuid:
@@ -449,11 +449,12 @@ def get_create_project_tool() -> MCPTool:
     """Get create project tool definition."""
     return MCPTool(
         name="mcp_create_project",
-        description="Create a new project",
+        description="Create a new project for a team",
         inputSchema={
             "type": "object",
             "properties": {
                 "name": {"type": "string", "description": "Project name"},
+                "teamId": {"type": "string", "description": "Team UUID that will own this project"},
                 "description": {"type": "string", "description": "Project description"},
                 "status": {
                     "type": "string",
@@ -479,13 +480,14 @@ def get_create_project_tool() -> MCPTool:
                     "description": "GitHub repository URL",
                 },
             },
-            "required": ["name"],
+            "required": ["name", "teamId"],
         },
     )
 
 
 async def handle_create_project(
     name: str,
+    team_id: str,
     description: Optional[str] = None,
     status: str = "active",
     tags: Optional[List[str]] = None,
@@ -496,16 +498,10 @@ async def handle_create_project(
     """Handle create project tool call."""
     db = SessionLocal()
     try:
-        # Get first available user (for MCP context, we need a user)
-        # In a real scenario, this would come from the MCP context/authentication
-        user = db.query(User).first()
-        if not user:
-            return {"error": "No user available for project creation"}
-
         # Use ProjectService to create project
         project = ProjectService.create_project(
             db=db,
-            user_id=user.id,
+            team_id=UUID(team_id),
             name=name,
             description=description,
             status=status,
@@ -523,6 +519,7 @@ async def handle_create_project(
             "name": project.name,
             "description": project.description,
             "status": project.status,
+            "team_id": str(project.team_id),
             "tags": project.tags,
             "technology_tags": project.technology_tags,
             "cursor_instructions": project.cursor_instructions,
@@ -581,6 +578,7 @@ async def handle_list_projects(status: Optional[str] = None) -> dict:
                     "name": p.name,
                     "description": p.description,
                     "status": p.status,
+                    "team_id": str(p.team_id),
                     "tags": p.tags,
                     "technology_tags": p.technology_tags,
                     "cursor_instructions": p.cursor_instructions,
@@ -678,6 +676,7 @@ async def handle_update_project(
             "name": project.name,
             "description": project.description,
             "status": project.status,
+            "team_id": str(project.team_id),
             "tags": project.tags,
             "technology_tags": project.technology_tags,
             "cursor_instructions": project.cursor_instructions,

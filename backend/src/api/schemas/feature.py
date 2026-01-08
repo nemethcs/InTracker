@@ -9,7 +9,7 @@ class FeatureBase(BaseModel):
     """Base feature schema."""
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
-    status: str = Field(default="new", pattern="^(new|in_progress|tested|done)$")
+    status: str = Field(default="new", pattern="^(new|in_progress|done|tested|merged)$")
     assigned_to: Optional[UUID] = None
 
 
@@ -23,7 +23,7 @@ class FeatureUpdate(BaseModel):
     """Schema for updating a feature."""
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
-    status: Optional[str] = Field(None, pattern="^(new|in_progress|tested|done)$")
+    status: Optional[str] = Field(None, pattern="^(new|in_progress|done|tested|merged)$")
     assigned_to: Optional[UUID] = None
 
 

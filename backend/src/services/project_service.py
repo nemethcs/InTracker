@@ -3,7 +3,7 @@ from typing import Optional, List
 from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from src.database.models import Project, UserProject
+from src.database.models import Project, User, TeamMember
 
 
 class ProjectService:
@@ -12,7 +12,7 @@ class ProjectService:
     @staticmethod
     def create_project(
         db: Session,
-        user_id: UUID,
+        team_id: UUID,
         name: str,
         description: Optional[str] = None,
         status: str = "active",
@@ -22,27 +22,19 @@ class ProjectService:
         github_repo_url: Optional[str] = None,
         github_repo_id: Optional[str] = None,
     ) -> Project:
-        """Create a new project and assign owner role to user."""
+        """Create a new project for a team."""
         project = Project(
             name=name,
             description=description,
             status=status,
             tags=tags or [],
             technology_tags=technology_tags or [],
+            team_id=team_id,
             cursor_instructions=cursor_instructions,
             github_repo_url=github_repo_url,
             github_repo_id=github_repo_id,
         )
         db.add(project)
-        db.flush()
-
-        # Assign owner role
-        user_project = UserProject(
-            user_id=user_id,
-            project_id=project.id,
-            role="owner",
-        )
-        db.add(user_project)
         db.commit()
         db.refresh(project)
         return project
@@ -57,21 +49,37 @@ class ProjectService:
         db: Session,
         user_id: UUID,
         status: Optional[str] = None,
+        team_id: Optional[UUID] = None,
         skip: int = 0,
         limit: int = 100,
     ) -> tuple[List[Project], int]:
-        """Get projects for a user with optional filtering."""
-        query = (
-            db.query(Project)
-            .join(UserProject)
-            .filter(UserProject.user_id == user_id)
-        )
-
+        """Get projects accessible to a user (projects from teams where user is a member).
+        
+        If user is admin, returns all projects.
+        Otherwise, returns projects from teams where user is a member.
+        """
+        user = db.query(User).filter(User.id == user_id).first()
+        
+        if user and user.role == "admin":
+            # Admins see all projects
+            query = db.query(Project)
+        else:
+            # Get projects from teams where user is a member
+            query = (
+                db.query(Project)
+                .join(TeamMember, Project.team_id == TeamMember.team_id)
+                .filter(TeamMember.user_id == user_id)
+            )
+        
+        # Filter by team_id if provided
+        if team_id:
+            query = query.filter(Project.team_id == team_id)
+        
         if status:
             query = query.filter(Project.status == status)
 
         total = query.count()
-        projects = query.offset(skip).limit(limit).all()
+        projects = query.order_by(Project.created_at.desc()).offset(skip).limit(limit).all()
 
         return projects, total
 
@@ -87,6 +95,7 @@ class ProjectService:
         cursor_instructions: Optional[str] = None,
         github_repo_url: Optional[str] = None,
         github_repo_id: Optional[str] = None,
+        team_id: Optional[UUID] = None,
     ) -> Optional[Project]:
         """Update project."""
         project = db.query(Project).filter(Project.id == project_id).first()
@@ -109,6 +118,8 @@ class ProjectService:
             project.github_repo_url = github_repo_url
         if github_repo_id is not None:
             project.github_repo_id = github_repo_id
+        if team_id is not None:
+            project.team_id = team_id
 
         db.commit()
         db.refresh(project)
@@ -132,25 +143,45 @@ class ProjectService:
         project_id: UUID,
         required_role: Optional[str] = None,
     ) -> bool:
-        """Check if user has access to project."""
-        user_project = (
-            db.query(UserProject)
+        """Check if user has access to project.
+        
+        Admins have access to all projects.
+        Users have access if they are members of the team that owns the project.
+        Team leaders have full access to their team's projects.
+        Regular members have access to their team's projects.
+        """
+        # Get project
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if not project:
+            return False
+        
+        # Check if user is admin - admins have access to all projects
+        user = db.query(User).filter(User.id == user_id).first()
+        if user and user.role == "admin":
+            return True
+        
+        # Check if user is a member of the team that owns the project
+        team_member = (
+            db.query(TeamMember)
             .filter(
-                UserProject.user_id == user_id,
-                UserProject.project_id == project_id,
+                TeamMember.team_id == project.team_id,
+                TeamMember.user_id == user_id,
             )
             .first()
         )
-
-        if not user_project:
+        
+        if not team_member:
             return False
-
+        
+        # If required_role is specified, check role hierarchy
+        # For now, team_leader has full access, members have read access
         if required_role:
-            role_hierarchy = {"viewer": 1, "editor": 2, "owner": 3}
-            user_role_level = role_hierarchy.get(user_project.role, 0)
-            required_role_level = role_hierarchy.get(required_role, 0)
-            return user_role_level >= required_role_level
-
+            if team_member.role == "team_leader":
+                return True  # Team leaders have full access
+            elif required_role in ["viewer", "editor", "owner"]:
+                # Members can view, but not edit
+                return required_role == "viewer"
+        
         return True
 
 

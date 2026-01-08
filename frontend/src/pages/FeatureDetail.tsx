@@ -20,15 +20,17 @@ import type { Feature } from '@/services/featureService'
 const statusIcons = {
   new: Circle,
   in_progress: Clock,
-  tested: CheckCircle2,
   done: CheckCircle2,
+  tested: CheckCircle2,
+  merged: CheckCircle2,
 }
 
 const statusColors = {
   new: 'text-muted-foreground',
   in_progress: 'text-blue-500',
-  tested: 'text-yellow-500',
   done: 'text-green-500',
+  tested: 'text-yellow-500',
+  merged: 'text-purple-500',
 }
 
 export function FeatureDetail() {
@@ -123,7 +125,6 @@ export function FeatureDetail() {
   const todosByStatus = {
     new: todos.filter(t => t.status === 'new'),
     in_progress: todos.filter(t => t.status === 'in_progress'),
-    tested: todos.filter(t => t.status === 'tested'),
     done: todos.filter(t => t.status === 'done'),
   }
 
@@ -182,22 +183,26 @@ export function FeatureDetail() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold">{feature.total_todos}</div>
-                <div className="text-sm text-muted-foreground">Total Todos</div>
+                <div className="text-sm text-muted-foreground">Total</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-500">{feature.completed_todos}</div>
-                <div className="text-sm text-muted-foreground">Completed</div>
+                <div className="text-2xl font-bold text-muted-foreground">{todosByStatus.new.length}</div>
+                <div className="text-sm text-muted-foreground">New</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-500">{todosByStatus.in_progress.length}</div>
                 <div className="text-sm text-muted-foreground">In Progress</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-yellow-500">{todosByStatus.tested.length}</div>
-                <div className="text-sm text-muted-foreground">Tested</div>
+                <div className="text-2xl font-bold text-green-500">{todosByStatus.done.length}</div>
+                <div className="text-sm text-muted-foreground">Done</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-500">{feature.completed_todos}</div>
+                <div className="text-sm text-muted-foreground">Completed</div>
               </div>
             </div>
           </div>
@@ -233,7 +238,7 @@ export function FeatureDetail() {
         ) : (
           <div className="space-y-4">
             {/* Todo Status Columns */}
-            {(['new', 'in_progress', 'tested', 'done'] as const).map((status) => {
+            {(['new', 'in_progress', 'done'] as const).map((status) => {
               const statusTodos = todosByStatus[status]
               if (statusTodos.length === 0) return null
 

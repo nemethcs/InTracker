@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
@@ -11,9 +11,13 @@ import { Settings } from '@/pages/Settings'
 import { Ideas } from '@/pages/Ideas'
 import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
+import { AdminLogin } from '@/pages/AdminLogin'
+import { AdminDashboard } from '@/pages/AdminDashboard'
+import { Teams } from '@/pages/Teams'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, user } = useAuth()
+  const location = useLocation()
 
   if (isLoading) {
     return (
@@ -27,6 +31,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />
   }
 
+  // Admins should only access /admin and /teams routes
+  // Redirect them to /admin if they try to access other routes
+  if (user?.role === 'admin') {
+    const currentPath = location.pathname
+    if (currentPath !== '/admin' && currentPath !== '/teams' && !currentPath.startsWith('/admin/')) {
+      return <Navigate to="/admin" replace />
+    }
+  }
+
   return <>{children}</>
 }
 
@@ -35,6 +48,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/register" element={<Register />} />
         <Route
           path="/"
@@ -112,6 +126,26 @@ function App() {
             <ProtectedRoute>
               <MainLayout>
                 <Settings />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <AdminDashboard />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teams"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <Teams />
               </MainLayout>
             </ProtectedRoute>
           }

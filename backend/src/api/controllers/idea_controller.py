@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from src.database.base import get_db
 from src.api.middleware.auth import get_current_user
 from src.services.idea_service import IdeaService
+from src.services.team_service import TeamService
 from src.api.schemas.idea import (
     IdeaCreate,
     IdeaUpdate,
@@ -26,9 +27,29 @@ async def create_idea(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a new idea."""
+    """Create a new idea for a team."""
+    user_id = UUID(current_user["user_id"])
+    user_role = current_user.get("role")
+    team_id = idea_data.team_id
+    
+    # Verify team exists
+    team = TeamService.get_team_by_id(db, team_id)
+    if not team:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Team not found",
+        )
+    
+    # Check if user has access to the team (admin or team member)
+    if user_role != "admin" and not TeamService.is_team_member(db, team_id, user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this team",
+        )
+    
     idea = idea_service.create_idea(
         db=db,
+        team_id=team_id,
         title=idea_data.title,
         description=idea_data.description,
         status=idea_data.status,
@@ -40,15 +61,29 @@ async def create_idea(
 @router.get("", response_model=IdeaListResponse)
 async def list_ideas(
     status_filter: Optional[str] = Query(None, alias="status"),
+    team_id: Optional[UUID] = Query(None, description="Filter by team ID"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List ideas with optional filtering."""
+    """List ideas accessible to the user (from teams where user is a member)."""
+    user_id = UUID(current_user["user_id"])
+    
+    # If team_id is provided, verify user has access to that team
+    if team_id:
+        user_role = current_user.get("role")
+        if user_role != "admin" and not TeamService.is_team_member(db, team_id, user_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not a member of this team",
+            )
+    
     skip = (page - 1) * page_size
     ideas, total = idea_service.get_ideas(
         db=db,
+        user_id=user_id,
+        team_id=team_id,
         status=status_filter,
         skip=skip,
         limit=page_size,
@@ -63,13 +98,24 @@ async def get_idea(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get idea by ID."""
+    """Get idea by ID. User must be a member of the team that owns the idea."""
+    user_id = UUID(current_user["user_id"])
+    user_role = current_user.get("role")
+    
     idea = idea_service.get_idea_by_id(db=db, idea_id=idea_id)
     if not idea:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Idea not found",
         )
+    
+    # Check if user has access to the team that owns the idea
+    if user_role != "admin" and not TeamService.is_team_member(db, idea.team_id, user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this idea",
+        )
+    
     return idea
 
 
@@ -80,7 +126,24 @@ async def update_idea(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Update idea."""
+    """Update idea. User must be a team leader or admin."""
+    user_id = UUID(current_user["user_id"])
+    user_role = current_user.get("role")
+    
+    idea = idea_service.get_idea_by_id(db=db, idea_id=idea_id)
+    if not idea:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Idea not found",
+        )
+    
+    # Check if user has access (admin or team leader)
+    if user_role != "admin" and not TeamService.is_team_leader(db, idea.team_id, user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only team leaders can edit ideas",
+        )
+    
     idea = idea_service.update_idea(
         db=db,
         idea_id=idea_id,
@@ -89,11 +152,6 @@ async def update_idea(
         status=idea_data.status,
         tags=idea_data.tags,
     )
-    if not idea:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Idea not found",
-        )
     return idea
 
 
@@ -103,7 +161,24 @@ async def delete_idea(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete idea."""
+    """Delete idea. User must be a team leader or admin."""
+    user_id = UUID(current_user["user_id"])
+    user_role = current_user.get("role")
+    
+    idea = idea_service.get_idea_by_id(db=db, idea_id=idea_id)
+    if not idea:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Idea not found",
+        )
+    
+    # Check if user has access (admin or team leader)
+    if user_role != "admin" and not TeamService.is_team_leader(db, idea.team_id, user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only team leaders can delete ideas",
+        )
+    
     success = idea_service.delete_idea(db=db, idea_id=idea_id)
     if not success:
         raise HTTPException(
@@ -119,11 +194,27 @@ async def convert_idea_to_project(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Convert idea to project."""
+    """Convert idea to project. User must be a team leader or admin."""
+    user_id = UUID(current_user["user_id"])
+    user_role = current_user.get("role")
+    
+    idea = idea_service.get_idea_by_id(db=db, idea_id=idea_id)
+    if not idea:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Idea not found",
+        )
+    
+    # Check if user has access (admin or team leader)
+    if user_role != "admin" and not TeamService.is_team_leader(db, idea.team_id, user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only team leaders can convert ideas to projects",
+        )
+    
     project = idea_service.convert_idea_to_project(
         db=db,
         idea_id=idea_id,
-        user_id=UUID(current_user["user_id"]),
         project_name=convert_data.project_name,
         project_description=convert_data.project_description,
         project_status=convert_data.project_status,

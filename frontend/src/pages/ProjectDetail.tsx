@@ -4,6 +4,7 @@ import { useProject } from '@/hooks/useProject'
 import { useFeatures } from '@/hooks/useFeatures'
 import { useFeatureStore } from '@/stores/featureStore'
 import { useProjectStore } from '@/stores/projectStore'
+import { adminService, type Team } from '@/services/adminService'
 import { elementService, type ElementTree as ElementTreeData } from '@/services/elementService'
 import { documentService, type Document } from '@/services/documentService'
 import { todoService } from '@/services/todoService'
@@ -19,7 +20,7 @@ import { ElementTree } from '@/components/elements/ElementTree'
 import { ElementDetailDialog } from '@/components/elements/ElementDetailDialog'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { ActiveUsers } from '@/components/collaboration/ActiveUsers'
-import { Plus, Edit, FileText, CheckSquare } from 'lucide-react'
+import { Plus, Edit, FileText, CheckSquare, UsersRound } from 'lucide-react'
 
 export function ProjectDetail() {
   const { id } = useParams<{ id: string }>()
@@ -39,7 +40,20 @@ export function ProjectDetail() {
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false)
   const [selectedElement, setSelectedElement] = useState<any>(null)
   const [elementDetailOpen, setElementDetailOpen] = useState(false)
+  const [teams, setTeams] = useState<Team[]>([])
 
+  useEffect(() => {
+    loadTeams()
+  }, [])
+
+  const loadTeams = async () => {
+    try {
+      const response = await adminService.getTeams()
+      setTeams(response.teams)
+    } catch (error) {
+      console.error('Failed to load teams:', error)
+    }
+  }
 
   useEffect(() => {
     if (!id) return
@@ -73,18 +87,6 @@ export function ProjectDetail() {
     setIsLoadingElements(true)
     elementService.getProjectTree(id)
         .then((tree) => {
-          console.log('Element tree loaded:', tree)
-          console.log('Elements count:', tree.elements.length)
-          // Log hierarchy depth
-          const logHierarchy = (elements: any[], depth = 0) => {
-            elements.forEach(el => {
-              console.log(`${'  '.repeat(depth)}- ${el.title} (${el.type}) [${el.status}] - children: ${el.children?.length || 0}`)
-              if (el.children && el.children.length > 0) {
-                logHierarchy(el.children, depth + 1)
-              }
-            })
-          }
-          logHierarchy(tree.elements)
           setElementTree(tree)
           setIsLoadingElements(false)
         })
@@ -142,7 +144,7 @@ export function ProjectDetail() {
     const handleUserActivity = (data: { userId: string; projectId: string; action: string; featureId?: string }) => {
       if (data.projectId === id) {
         // Optionally show user activity notifications
-        console.log('User activity:', data)
+        // User activity handled silently
       }
     }
 
@@ -220,6 +222,12 @@ export function ProjectDetail() {
             <p className="text-muted-foreground mt-2">{currentProject.description}</p>
           )}
           <div className="flex gap-2 mt-4">
+            {currentProject.team_id && (
+              <Badge variant="outline" className="flex items-center gap-1">
+                <UsersRound className="h-3 w-3" />
+                {teams.find(t => t.id === currentProject.team_id)?.name || 'Unknown Team'}
+              </Badge>
+            )}
             <Badge variant="outline">{currentProject.status}</Badge>
             {currentProject.tags?.map((tag) => (
               <Badge key={tag} variant="secondary">{tag}</Badge>

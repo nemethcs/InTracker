@@ -266,14 +266,13 @@ class ElementService:
 
         # Count children by status
         done_count = sum(1 for c in children if c.status == "done")
-        tested_count = sum(1 for c in children if c.status == "tested")
         in_progress_count = sum(1 for c in children if c.status == "in_progress")
         total = len(children)
 
         # Determine parent status
         if done_count == total:
             new_status = "done"
-        elif tested_count > 0 or done_count > 0 or in_progress_count > 0:
+        elif done_count > 0 or in_progress_count > 0:
             new_status = "in_progress"
         else:
             new_status = "new"

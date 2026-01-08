@@ -126,6 +126,7 @@ class FeatureService:
             return {"total": 0, "completed": 0, "percentage": 0}
 
         # Count todos
+        # Completed todos are only those with 'done' status (simplified workflow)
         total = db.query(func.count(Todo.id)).filter(Todo.feature_id == feature_id).scalar()
         completed = (
             db.query(func.count(Todo.id))
@@ -141,36 +142,32 @@ class FeatureService:
         feature.progress_percentage = percentage
         
         # Auto-update feature status based on progress
-        # If all todos are done (100%), set feature status to "done"
-        # If some todos are done OR in progress OR tested, set to "in_progress"
-        # Otherwise keep current status or set to "new"
+        # Workflow: new → in_progress → done → tested → merged
+        # - Todos: new → in_progress → done (simplified)
+        # - Features: new → in_progress → done → tested → merged (feature-level testing and merging)
         if total > 0:
             in_progress_count = (
                 db.query(func.count(Todo.id))
                 .filter(Todo.feature_id == feature_id, Todo.status == "in_progress")
                 .scalar()
             )
-            tested_count = (
+            done_count = (
                 db.query(func.count(Todo.id))
-                .filter(Todo.feature_id == feature_id, Todo.status == "tested")
-                .scalar()
-            )
-            new_count = (
-                db.query(func.count(Todo.id))
-                .filter(Todo.feature_id == feature_id, Todo.status == "new")
+                .filter(Todo.feature_id == feature_id, Todo.status == "done")
                 .scalar()
             )
             
             if completed == total:
-                # All todos are done - feature is done
-                if feature.status != "done":
+                # All todos are done - feature can be marked as done
+                # Note: tested/merged status should be set manually after testing/merging
+                if feature.status == "new":
                     feature.status = "done"
-            elif completed > 0 or in_progress_count > 0 or tested_count > 0:
-                # Some todos are done, in progress, or tested - feature is in progress
-                # (even if there are also "new" todos, if there's any progress, it's in_progress)
-                if feature.status not in ["in_progress", "tested", "done"]:
+                # Don't auto-change from tested/merged back to done
+            elif completed > 0 or in_progress_count > 0:
+                # Some todos are in progress or done - feature is in progress
+                if feature.status == "new":
                     feature.status = "in_progress"
-            # If all todos are "new", keep feature status as "new" (or current status)
+            # If all todos are "new", keep feature status as "new"
         
         db.commit()
 

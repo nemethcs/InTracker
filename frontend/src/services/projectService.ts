@@ -5,6 +5,7 @@ export interface Project {
   name: string
   description?: string
   status: 'active' | 'paused' | 'blocked' | 'completed' | 'archived'
+  team_id: string
   tags?: string[]
   technology_tags?: string[]
   created_at: string
@@ -24,6 +25,7 @@ export interface Project {
 
 export interface ProjectCreate {
   name: string
+  team_id: string
   description?: string
   tags?: string[]
   technology_tags?: string[]
@@ -40,8 +42,11 @@ export interface ProjectUpdate {
 }
 
 export const projectService = {
-  async listProjects(): Promise<Project[]> {
-    const response = await api.get('/projects')
+  async listProjects(teamId?: string, status?: string): Promise<Project[]> {
+    const params: Record<string, string> = {}
+    if (teamId) params.team_id = teamId
+    if (status && status !== 'all') params.status = status
+    const response = await api.get('/projects', { params })
     // Backend returns { projects: [...], total, page, page_size }
     return response.data.projects || response.data || []
   },

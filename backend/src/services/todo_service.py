@@ -173,7 +173,8 @@ class TodoService:
         if status is not None:
             old_status = todo.status
             todo.status = status
-            # Update completed_at if status changed to done
+            # Update completed_at if status changed to done (implementation complete)
+            # Workflow: new → in_progress → done (simplified)
             if status == "done" and old_status != "done":
                 todo.completed_at = datetime.utcnow()
             elif status != "done" and old_status == "done":

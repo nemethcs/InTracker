@@ -8,14 +8,12 @@ import type { Todo } from '@/services/todoService'
 const statusIcons = {
   new: Circle,
   in_progress: Clock,
-  tested: CheckCircle2,
   done: CheckCircle2,
 }
 
 const statusColors = {
   new: 'text-muted-foreground',
   in_progress: 'text-blue-500',
-  tested: 'text-yellow-500',
   done: 'text-green-500',
 }
 
@@ -41,8 +39,8 @@ interface TodoCardProps {
 }
 
 export function TodoCard({ todo, onEdit, onDelete, onStatusChange }: TodoCardProps) {
-  const StatusIcon = statusIcons[todo.status]
-  const statusColor = statusColors[todo.status]
+  const StatusIcon = statusIcons[todo.status] || Circle
+  const statusColor = statusColors[todo.status] || 'text-muted-foreground'
 
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -89,30 +87,27 @@ export function TodoCard({ todo, onEdit, onDelete, onStatusChange }: TodoCardPro
             <Badge 
               variant={
                 todo.status === 'done' ? 'default' :
-                todo.status === 'tested' ? 'secondary' :
                 todo.status === 'in_progress' ? 'secondary' : 'outline'
               }
               className="capitalize"
             >
               {todo.status.replace('_', ' ')}
             </Badge>
-            {onStatusChange && todo.status !== 'done' && (
+            {onStatusChange && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
                   const nextStatus: Todo['status'] = 
                     todo.status === 'new' ? 'in_progress' :
-                    todo.status === 'in_progress' ? 'tested' :
-                    todo.status === 'tested' ? 'done' :
+                    todo.status === 'in_progress' ? 'done' :
                     'new'
                   onStatusChange(todo, nextStatus)
                 }}
               >
                 <CheckCircle2 className="h-3 w-3 mr-1" />
                 {todo.status === 'new' ? 'Start' : 
-                 todo.status === 'in_progress' ? 'Mark Tested' : 
-                 todo.status === 'tested' ? 'Mark Done' : 'Reset'}
+                 todo.status === 'in_progress' ? 'Mark Done' : 'Reset'}
               </Button>
             )}
           </div>

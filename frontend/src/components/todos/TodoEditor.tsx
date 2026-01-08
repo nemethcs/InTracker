@@ -129,7 +129,6 @@ export function TodoEditor({
               <SelectContent>
                 <SelectItem value="new">New</SelectItem>
                 <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="tested">Tested</SelectItem>
                 <SelectItem value="done">Done</SelectItem>
               </SelectContent>
             </Select>

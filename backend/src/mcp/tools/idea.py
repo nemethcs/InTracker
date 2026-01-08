@@ -14,11 +14,12 @@ def get_create_idea_tool() -> MCPTool:
     """Get create idea tool definition."""
     return MCPTool(
         name="mcp_create_idea",
-        description="Create a new idea",
+        description="Create a new idea for a team",
         inputSchema={
             "type": "object",
             "properties": {
                 "title": {"type": "string", "description": "Idea title"},
+                "teamId": {"type": "string", "description": "Team UUID that will own this idea"},
                 "description": {"type": "string", "description": "Idea description"},
                 "status": {
                     "type": "string",
@@ -31,13 +32,14 @@ def get_create_idea_tool() -> MCPTool:
                     "description": "Idea tags",
                 },
             },
-            "required": ["title"],
+            "required": ["title", "teamId"],
         },
     )
 
 
 async def handle_create_idea(
     title: str,
+    team_id: str,
     description: Optional[str] = None,
     status: str = "draft",
     tags: Optional[List[str]] = None,
@@ -48,6 +50,7 @@ async def handle_create_idea(
         # Use IdeaService to create idea
         idea = IdeaService.create_idea(
             db=db,
+            team_id=UUID(team_id),
             title=title,
             description=description,
             status=status,
@@ -62,6 +65,7 @@ async def handle_create_idea(
             "title": idea.title,
             "description": idea.description,
             "status": idea.status,
+            "team_id": str(idea.team_id),
             "tags": idea.tags,
             "converted_to_project_id": str(idea.converted_to_project_id) if idea.converted_to_project_id else None,
         }
@@ -73,7 +77,7 @@ def get_list_ideas_tool() -> MCPTool:
     """Get list ideas tool definition."""
     return MCPTool(
         name="mcp_list_ideas",
-        description="List ideas with optional filters",
+        description="List ideas with optional filters. If userId is provided, returns ideas from teams where user is a member.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -82,16 +86,28 @@ def get_list_ideas_tool() -> MCPTool:
                     "enum": ["draft", "active", "archived"],
                     "description": "Filter by status",
                 },
+                "userId": {
+                    "type": "string",
+                    "description": "Optional: User UUID to filter ideas by team membership",
+                },
+                "teamId": {
+                    "type": "string",
+                    "description": "Optional: Team UUID to filter ideas by team",
+                },
             },
         },
     )
 
 
-async def handle_list_ideas(status: Optional[str] = None) -> dict:
+async def handle_list_ideas(status: Optional[str] = None, user_id: Optional[str] = None, team_id: Optional[str] = None) -> dict:
     """Handle list ideas tool call."""
     cache_key = f"ideas:list"
     if status:
         cache_key += f":status:{status}"
+    if user_id:
+        cache_key += f":user:{user_id}"
+    if team_id:
+        cache_key += f":team:{team_id}"
     
     # Check cache
     cached = cache_service.get(cache_key)
@@ -100,9 +116,11 @@ async def handle_list_ideas(status: Optional[str] = None) -> dict:
 
     db = SessionLocal()
     try:
-        # Use IdeaService to get ideas
+        # Use IdeaService to get ideas (with optional user_id and team_id filtering)
         ideas, _ = IdeaService.get_ideas(
             db=db,
+            user_id=UUID(user_id) if user_id else None,
+            team_id=UUID(team_id) if team_id else None,
             status=status,
             skip=0,
             limit=1000,  # Large limit for MCP tools
@@ -115,6 +133,7 @@ async def handle_list_ideas(status: Optional[str] = None) -> dict:
                     "title": i.title,
                     "description": i.description,
                     "status": i.status,
+                    "team_id": str(i.team_id),
                     "tags": i.tags,
                     "converted_to_project_id": str(i.converted_to_project_id) if i.converted_to_project_id else None,
                     "created_at": i.created_at.isoformat(),
@@ -167,6 +186,7 @@ async def handle_get_idea(idea_id: str) -> dict:
             "title": idea.title,
             "description": idea.description,
             "status": idea.status,
+            "team_id": str(idea.team_id),
             "tags": idea.tags,
             "converted_to_project_id": str(idea.converted_to_project_id) if idea.converted_to_project_id else None,
             "created_at": idea.created_at.isoformat(),
@@ -249,6 +269,7 @@ async def handle_update_idea(
             "title": idea.title,
             "description": idea.description,
             "status": idea.status,
+            "team_id": str(idea.team_id),
             "tags": idea.tags,
             "converted_to_project_id": str(idea.converted_to_project_id) if idea.converted_to_project_id else None,
         }
@@ -296,20 +317,13 @@ async def handle_convert_idea_to_project(
     project_tags: Optional[List[str]] = None,
     technology_tags: Optional[List[str]] = None,
 ) -> dict:
-    """Handle convert idea to project tool call."""
+    """Handle convert idea to project tool call. The project will belong to the same team as the idea."""
     db = SessionLocal()
     try:
-        # Get first available user (for MCP context, we need a user)
-        # In a real scenario, this would come from the MCP context/authentication
-        user = db.query(User).first()
-        if not user:
-            return {"error": "No user available for project creation"}
-
-        # Use IdeaService to convert idea to project
+        # Use IdeaService to convert idea to project (team_id comes from idea)
         project = IdeaService.convert_idea_to_project(
             db=db,
             idea_id=UUID(idea_id),
-            user_id=user.id,
             project_name=project_name,
             project_description=project_description,
             project_status=project_status,
@@ -331,9 +345,13 @@ async def handle_convert_idea_to_project(
                         "name": existing_project.name,
                         "description": existing_project.description,
                         "status": existing_project.status,
+                        "team_id": str(existing_project.team_id),
                         "message": "Idea was already converted to this project",
                     }
             return {"error": "Failed to convert idea to project"}
+
+        # Get idea for response
+        idea = IdeaService.get_idea_by_id(db, UUID(idea_id))
 
         # Invalidate cache
         cache_service.delete(f"idea:{idea_id}")
@@ -345,6 +363,7 @@ async def handle_convert_idea_to_project(
             "name": project.name,
             "description": project.description,
             "status": project.status,
+            "team_id": str(project.team_id),
             "tags": project.tags,
             "technology_tags": project.technology_tags,
             "idea_id": str(idea.id),

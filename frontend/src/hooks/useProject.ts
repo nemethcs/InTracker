@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { useProjectStore } from '@/stores/projectStore'
 
-export function useProject(projectId?: string) {
+export function useProject(projectId?: string, teamId?: string, status?: string) {
   const {
     projects,
     currentProject,
@@ -13,25 +13,42 @@ export function useProject(projectId?: string) {
   } = useProjectStore()
 
   const lastProjectId = useRef<string | undefined>(undefined)
+  const lastTeamId = useRef<string | undefined>(undefined)
+  const lastStatus = useRef<string | undefined>(undefined)
+  const hasFetched = useRef(false)
 
   useEffect(() => {
-    // Only fetch if projectId changed
-    if (projectId !== lastProjectId.current) {
+    // Only fetch if projectId, teamId, or status changed, or on first load
+    if (!hasFetched.current || projectId !== lastProjectId.current || teamId !== lastTeamId.current || status !== lastStatus.current) {
       lastProjectId.current = projectId
+      lastTeamId.current = teamId
+      lastStatus.current = status
+      hasFetched.current = true
       if (projectId) {
         fetchProject(projectId)
       } else {
-        fetchProjects()
+        fetchProjects(teamId, status)
       }
     }
-  }, [projectId]) // Remove fetchProject and fetchProjects from dependencies
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, teamId, status]) // fetchProject and fetchProjects are stable from Zustand store
+
+  const refetch = useCallback(() => {
+    hasFetched.current = false
+    if (projectId) {
+      fetchProject(projectId)
+    } else {
+      fetchProjects(teamId, status)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, teamId, status]) // fetchProject and fetchProjects are stable from Zustand store
 
   return {
     projects,
     currentProject: projectId ? currentProject : undefined,
     isLoading,
     error,
-    refetch: projectId ? () => fetchProject(projectId) : fetchProjects,
+    refetch,
     setCurrentProject,
   }
 }

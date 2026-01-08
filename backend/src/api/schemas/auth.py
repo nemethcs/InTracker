@@ -8,6 +8,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     name: Optional[str] = None
+    invitation_code: str  # Required invitation code
 
     class Config:
         json_schema_extra = {
@@ -15,6 +16,7 @@ class RegisterRequest(BaseModel):
                 "email": "user@example.com",
                 "password": "securepassword123",
                 "name": "John Doe",
+                "invitation_code": "abc123xyz...",
             }
         }
 
@@ -67,6 +69,7 @@ class UserResponse(BaseModel):
     github_username: Optional[str]
     avatar_url: Optional[str]
     is_active: bool
+    role: Optional[str] = None
 
     class Config:
         from_attributes = True

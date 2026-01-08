@@ -2,15 +2,19 @@ import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Lightbulb, ArrowRight, CheckCircle2 } from 'lucide-react'
+import { Lightbulb, ArrowRight, CheckCircle2, UsersRound } from 'lucide-react'
 import type { Idea } from '@/services/ideaService'
+import type { Team } from '@/services/adminService'
 
 interface IdeaCardProps {
   idea: Idea
+  teams?: Team[]
   onConvert?: (idea: Idea) => void
 }
 
-export function IdeaCard({ idea, onConvert }: IdeaCardProps) {
+export function IdeaCard({ idea, teams, onConvert }: IdeaCardProps) {
+  const teamName = teams?.find(t => t.id === idea.team_id)?.name
+
   return (
     <Card className="hover:shadow-lg transition-shadow h-full">
       <CardHeader>
@@ -38,6 +42,12 @@ export function IdeaCard({ idea, onConvert }: IdeaCardProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
+          {idea.team_id && teamName && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <UsersRound className="h-3 w-3" />
+              <span>{teamName}</span>
+            </div>
+          )}
           {idea.tags && idea.tags.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {idea.tags.slice(0, 3).map((tag) => (

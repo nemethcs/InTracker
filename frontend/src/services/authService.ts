@@ -9,6 +9,7 @@ export interface RegisterData {
   email: string
   password: string
   name?: string
+  invitation_code: string
 }
 
 export interface AuthTokens {
@@ -20,6 +21,7 @@ export interface User {
   id: string
   email: string
   name?: string
+  role?: string
   github_username?: string
   avatar_url?: string
 }

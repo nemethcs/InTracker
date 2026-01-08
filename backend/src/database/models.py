@@ -27,6 +27,7 @@ class User(Base):
     email = Column(String, unique=True, nullable=False, index=True)
     name = Column(String, nullable=True)
     password_hash = Column(String, nullable=False)
+    role = Column(String, default="member", nullable=False, index=True)  # admin, team_leader, member
     github_username = Column(String, nullable=True)
     avatar_url = Column(String, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
@@ -35,12 +36,15 @@ class User(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationships
-    user_projects = relationship("UserProject", back_populates="user", cascade="all, delete-orphan")
+    # user_projects relationship removed - projects are now team-based
     created_todos = relationship("Todo", foreign_keys="Todo.created_by", back_populates="creator")
     assigned_todos = relationship("Todo", foreign_keys="Todo.assigned_to", back_populates="assigned_user")
     created_features = relationship("Feature", foreign_keys="Feature.created_by", back_populates="creator")
     assigned_features = relationship("Feature", foreign_keys="Feature.assigned_to", back_populates="assigned_user")
     sessions = relationship("Session", back_populates="user")
+    team_memberships = relationship("TeamMember", foreign_keys="TeamMember.user_id", back_populates="user")
+    created_teams = relationship("Team", foreign_keys="Team.created_by", back_populates="creator")
+    created_invitations = relationship("InvitationCode", foreign_keys="InvitationCode.created_by", back_populates="creator")
 
 
 class Project(Base):
@@ -53,6 +57,7 @@ class Project(Base):
     status = Column(String, nullable=False, index=True)  # active, paused, blocked, completed, archived
     tags = Column(ARRAY(String), default=[])
     technology_tags = Column(ARRAY(String), default=[])
+    team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)  # Team that owns this project
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
     last_session_at = Column(DateTime, nullable=True)
@@ -63,7 +68,8 @@ class Project(Base):
     metadata_json = Column("metadata", JSON, nullable=True)
 
     # Relationships
-    user_projects = relationship("UserProject", back_populates="project", cascade="all, delete-orphan")
+    team = relationship("Team", back_populates="projects")
+    # user_projects relationship removed - projects are now team-based
     elements = relationship("ProjectElement", back_populates="project", cascade="all, delete-orphan")
     features = relationship("Feature", back_populates="project", cascade="all, delete-orphan")
     documents = relationship("Document", back_populates="project", cascade="all, delete-orphan")
@@ -72,24 +78,31 @@ class Project(Base):
     github_branches = relationship("GitHubBranch", back_populates="project", cascade="all, delete-orphan")
     github_syncs = relationship("GitHubSync", back_populates="project", cascade="all, delete-orphan")
 
-
-class UserProject(Base):
-    """User-Project relationship model."""
-    __tablename__ = "user_projects"
-
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
-    role = Column(String, nullable=False)  # owner, editor, viewer
-    created_at = Column(DateTime, server_default=func.now(), nullable=False)
-
-    # Relationships
-    user = relationship("User", back_populates="user_projects")
-    project = relationship("Project", back_populates="user_projects")
-
     __table_args__ = (
-        Index("idx_user_projects_user", "user_id"),
-        Index("idx_user_projects_project", "project_id"),
+        Index("idx_projects_team", "team_id"),
     )
+
+
+# DEPRECATED: UserProject model - projects are now team-based
+# This model is kept for backward compatibility but should not be used.
+# The table will be removed in a future migration.
+# class UserProject(Base):
+#     """User-Project relationship model (DEPRECATED)."""
+#     __tablename__ = "user_projects"
+#
+#     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+#     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
+#     role = Column(String, nullable=False)  # owner, editor, viewer
+#     created_at = Column(DateTime, server_default=func.now(), nullable=False)
+#
+#     # Relationships
+#     user = relationship("User", back_populates="user_projects")
+#     project = relationship("Project", back_populates="user_projects")
+#
+#     __table_args__ = (
+#         Index("idx_user_projects_user", "user_id"),
+#         Index("idx_user_projects_project", "project_id"),
+#     )
 
 
 class ProjectElement(Base):
@@ -102,7 +115,7 @@ class ProjectElement(Base):
     type = Column(String, nullable=False)  # module, feature, component, milestone, technical_block, decision_point
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    status = Column(String, nullable=False, index=True)  # new, in_progress, tested, done
+    status = Column(String, nullable=False, index=True)  # new, in_progress, done, tested, merged
     position = Column(Integer, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
@@ -170,7 +183,7 @@ class Feature(Base):
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    status = Column(String, nullable=False, index=True)  # new, in_progress, tested, done
+    status = Column(String, nullable=False, index=True)  # new, in_progress, done, tested, merged
     progress_percentage = Column(Integer, default=0, nullable=False)
     total_todos = Column(Integer, default=0, nullable=False)
     completed_todos = Column(Integer, default=0, nullable=False)
@@ -228,7 +241,7 @@ class Todo(Base):
     feature_id = Column(UUID(as_uuid=True), ForeignKey("features.id", ondelete="SET NULL"), nullable=True)
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    status = Column(String, nullable=False, index=True)  # todo, in_progress, blocked, done
+    status = Column(String, nullable=False, index=True)  # new, in_progress, done
     position = Column(Integer, nullable=True)
     priority = Column(String, nullable=True, server_default='medium')  # low, medium, high, critical
     blocker_reason = Column(Text, nullable=True)
@@ -323,13 +336,19 @@ class Idea(Base):
     description = Column(Text, nullable=True)
     status = Column(String, nullable=False, index=True)  # draft, active, archived
     tags = Column(ARRAY(String), default=[])
+    team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)  # Team that owns this idea
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
     converted_to_project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
     metadata_json = Column("metadata", JSON, nullable=True)
 
     # Relationships
+    team = relationship("Team", back_populates="ideas")
     converted_to_project = relationship("Project", back_populates="ideas")
+
+    __table_args__ = (
+        Index("idx_ideas_team", "team_id"),
+    )
 
 
 class GitHubBranch(Base):
@@ -384,4 +403,75 @@ class GitHubSync(Base):
         UniqueConstraint("entity_id", "github_type", "github_id"),
         Index("idx_github_sync_project", "project_id"),
         Index("idx_github_sync_entity", "entity_type", "entity_id"),
+    )
+
+
+class Team(Base):
+    """Team model."""
+    __tablename__ = "teams"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False, unique=True, index=True)
+    description = Column(Text, nullable=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    creator = relationship("User", foreign_keys=[created_by])
+    members = relationship("TeamMember", back_populates="team", cascade="all, delete-orphan")
+    projects = relationship("Project", back_populates="team", cascade="all, delete-orphan")
+    ideas = relationship("Idea", back_populates="team", cascade="all, delete-orphan")
+    invitation_codes = relationship("InvitationCode", back_populates="team", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index("idx_teams_created_by", "created_by"),
+    )
+
+
+class TeamMember(Base):
+    """Team Member model."""
+    __tablename__ = "team_members"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String, nullable=False)  # team_leader, member
+    joined_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    # Relationships
+    team = relationship("Team", back_populates="members")
+    user = relationship("User", back_populates="team_memberships")
+
+    __table_args__ = (
+        UniqueConstraint("team_id", "user_id"),
+        Index("idx_team_members_team", "team_id"),
+        Index("idx_team_members_user", "user_id"),
+    )
+
+
+class InvitationCode(Base):
+    """Invitation Code model."""
+    __tablename__ = "invitation_codes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code = Column(String, unique=True, nullable=False, index=True)
+    type = Column(String, nullable=False, index=True)  # admin, team
+    team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=True, index=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=True)
+    used_at = Column(DateTime, nullable=True)
+    used_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+
+    # Relationships
+    team = relationship("Team", back_populates="invitation_codes")
+    creator = relationship("User", foreign_keys=[created_by])
+    user_who_used = relationship("User", foreign_keys=[used_by])
+
+    __table_args__ = (
+        Index("idx_invitation_codes_type", "type"),
+        Index("idx_invitation_codes_team", "team_id"),
+        Index("idx_invitation_codes_created_by", "created_by"),
+        Index("idx_invitation_codes_code", "code"),
     )

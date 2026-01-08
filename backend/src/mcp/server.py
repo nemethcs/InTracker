@@ -121,6 +121,7 @@ async def call_tool(name: str, arguments: dict):
         elif name == "mcp_create_project":
             result = await project.handle_create_project(
                 arguments["name"],
+                arguments["teamId"],
                 arguments.get("description"),
                 arguments.get("status", "active"),
                 arguments.get("tags"),
@@ -417,6 +418,7 @@ async def call_tool(name: str, arguments: dict):
         elif name == "mcp_create_idea":
             result = await idea.handle_create_idea(
                 arguments["title"],
+                arguments["teamId"],
                 arguments.get("description"),
                 arguments.get("status", "draft"),
                 arguments.get("tags"),
@@ -426,6 +428,8 @@ async def call_tool(name: str, arguments: dict):
         elif name == "mcp_list_ideas":
             result = await idea.handle_list_ideas(
                 arguments.get("status"),
+                arguments.get("userId"),
+                arguments.get("teamId"),
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 

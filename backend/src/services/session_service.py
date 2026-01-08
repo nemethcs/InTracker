@@ -66,8 +66,27 @@ class SessionService:
         skip: int = 0,
         limit: int = 100,
     ) -> tuple[List[Session], int]:
-        """Get sessions for a user."""
-        query = db.query(Session).filter(Session.user_id == user_id)
+        """Get sessions for a user.
+        
+        Returns sessions for projects where the user is a team member.
+        Admins see all sessions.
+        """
+        from src.database.models import User, TeamMember
+        
+        # Check if user is admin
+        user = db.query(User).filter(User.id == user_id).first()
+        if user and user.role == "admin":
+            # Admins see all sessions
+            query = db.query(Session).filter(Session.user_id == user_id)
+        else:
+            # Get sessions for projects where user is a team member
+            query = (
+                db.query(Session)
+                .join(Project, Session.project_id == Project.id)
+                .join(TeamMember, Project.team_id == TeamMember.team_id)
+                .filter(TeamMember.user_id == user_id)
+                .filter(Session.user_id == user_id)
+            )
 
         total = query.count()
         sessions = query.order_by(Session.started_at.desc()).offset(skip).limit(limit).all()

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useIdeas } from '@/hooks/useIdeas'
 import { useIdeaStore } from '@/stores/ideaStore'
 import { useProjectStore } from '@/stores/projectStore'
+import { adminService, type Team } from '@/services/adminService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
@@ -19,7 +20,10 @@ import type { Idea, IdeaConvertRequest } from '@/services/ideaService'
 
 export function Ideas() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
-  const { ideas, isLoading, error, refetch } = useIdeas(statusFilter)
+  const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>(undefined)
+  const [teams, setTeams] = useState<Team[]>([])
+  const [isLoadingTeams, setIsLoadingTeams] = useState(false)
+  const { ideas, isLoading, error, refetch } = useIdeas(statusFilter, selectedTeamId)
   const { createIdea, updateIdea, deleteIdea, convertIdeaToProject } = useIdeaStore()
   const { createProject } = useProjectStore()
   const [ideaEditorOpen, setIdeaEditorOpen] = useState(false)
@@ -31,6 +35,21 @@ export function Ideas() {
   const [isConverting, setIsConverting] = useState(false)
   const navigate = useNavigate()
 
+  useEffect(() => {
+    loadTeams()
+  }, [])
+
+  const loadTeams = async () => {
+    setIsLoadingTeams(true)
+    try {
+      const response = await adminService.getTeams()
+      setTeams(response.teams)
+    } catch (error) {
+      console.error('Failed to load teams:', error)
+    } finally {
+      setIsLoadingTeams(false)
+    }
+  }
 
   const handleSaveIdea = async (data: any) => {
     if (editingIdea) {
@@ -135,6 +154,24 @@ export function Ideas() {
             <SelectItem value="archived">Archived</SelectItem>
           </SelectContent>
         </Select>
+        {teams.length > 0 && (
+          <Select 
+            value={selectedTeamId || 'all'} 
+            onValueChange={(value) => setSelectedTeamId(value === 'all' ? undefined : value)}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Filter by team" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Teams</SelectItem>
+              {teams.map((team) => (
+                <SelectItem key={team.id} value={team.id}>
+                  {team.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {ideasList.length === 0 ? (
@@ -156,6 +193,7 @@ export function Ideas() {
             <div key={idea.id} className="relative group">
               <IdeaCard
                 idea={idea}
+                teams={teams}
                 onConvert={() => handleConvertClick(idea)}
               />
               <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">

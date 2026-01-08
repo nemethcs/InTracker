@@ -1,5 +1,5 @@
 """Pydantic schemas for projects."""
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
@@ -10,8 +10,8 @@ class ProjectBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     status: str = Field(default="active", pattern="^(active|paused|blocked|completed|archived)$")
-    tags: List[str] = Field(default_factory=list)
-    technology_tags: List[str] = Field(default_factory=list)
+    tags: Optional[List[str]] = Field(default_factory=list)
+    technology_tags: Optional[List[str]] = Field(default_factory=list)
     cursor_instructions: Optional[str] = None
     github_repo_url: Optional[str] = None
     github_repo_id: Optional[str] = None
@@ -19,7 +19,7 @@ class ProjectBase(BaseModel):
 
 class ProjectCreate(ProjectBase):
     """Schema for creating a project."""
-    pass
+    team_id: UUID = Field(..., description="Team ID that will own this project")
 
 
 class ProjectUpdate(BaseModel):
@@ -32,17 +32,24 @@ class ProjectUpdate(BaseModel):
     cursor_instructions: Optional[str] = None
     github_repo_url: Optional[str] = None
     github_repo_id: Optional[str] = None
+    team_id: Optional[UUID] = Field(None, description="Team ID that will own this project")
 
 
 class ProjectResponse(ProjectBase):
     """Schema for project response."""
     id: UUID
+    team_id: UUID
     created_at: datetime
     updated_at: datetime
     last_session_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+    @field_serializer('id', 'team_id')
+    def serialize_uuid(self, value: UUID | str, _info) -> str:
+        """Serialize UUID to string."""
+        return str(value) if isinstance(value, UUID) else value
 
 
 class ProjectListResponse(BaseModel):

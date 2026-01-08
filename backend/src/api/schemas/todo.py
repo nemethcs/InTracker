@@ -9,7 +9,7 @@ class TodoBase(BaseModel):
     """Base todo schema."""
     title: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
-    status: str = Field(default="new", pattern="^(new|in_progress|tested|done)$")
+    status: str = Field(default="new", pattern="^(new|in_progress|done)$")
     position: Optional[int] = None
     priority: Optional[str] = Field(default="medium", pattern="^(low|medium|high|critical)$")
     blocker_reason: Optional[str] = None
@@ -26,7 +26,7 @@ class TodoUpdate(BaseModel):
     """Schema for updating a todo."""
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
-    status: Optional[str] = Field(None, pattern="^(new|in_progress|tested|done)$")
+    status: Optional[str] = Field(None, pattern="^(new|in_progress|done)$")
     position: Optional[int] = None
     priority: Optional[str] = Field(None, pattern="^(low|medium|high|critical)$")
     blocker_reason: Optional[str] = None

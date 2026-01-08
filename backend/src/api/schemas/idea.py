@@ -15,7 +15,7 @@ class IdeaBase(BaseModel):
 
 class IdeaCreate(IdeaBase):
     """Schema for creating an idea."""
-    pass
+    team_id: UUID = Field(..., description="Team ID that will own this idea")
 
 
 class IdeaUpdate(BaseModel):
@@ -29,6 +29,7 @@ class IdeaUpdate(BaseModel):
 class IdeaResponse(IdeaBase):
     """Schema for idea response."""
     id: UUID
+    team_id: UUID
     converted_to_project_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime

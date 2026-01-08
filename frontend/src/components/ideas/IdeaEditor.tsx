@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { adminService, type Team } from '@/services/adminService'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import type { Idea, IdeaCreate, IdeaUpdate } from '@/services/ideaService'
 
 interface IdeaEditorProps {
@@ -19,24 +21,50 @@ export function IdeaEditor({ open, onOpenChange, idea, onSave }: IdeaEditorProps
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState<'draft' | 'active' | 'archived'>('draft')
+  const [teamId, setTeamId] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [tagInput, setTagInput] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [teams, setTeams] = useState<Team[]>([])
+  const [isLoadingTeams, setIsLoadingTeams] = useState(false)
 
   useEffect(() => {
+    if (open) {
+      // Load teams when dialog opens
+      loadTeams()
+    }
+    
     if (idea) {
       setTitle(idea.title)
       setDescription(idea.description || '')
       setStatus(idea.status)
+      setTeamId(idea.team_id)
       setTags(idea.tags || [])
     } else {
       setTitle('')
       setDescription('')
       setStatus('draft')
+      setTeamId('')
       setTags([])
     }
     setTagInput('')
   }, [idea, open])
+
+  const loadTeams = async () => {
+    setIsLoadingTeams(true)
+    try {
+      const response = await adminService.getTeams()
+      setTeams(response.teams)
+      // If no team selected and teams exist, select first team
+      if (!teamId && response.teams.length > 0) {
+        setTeamId(response.teams[0].id)
+      }
+    } catch (error) {
+      console.error('Failed to load teams:', error)
+    } finally {
+      setIsLoadingTeams(false)
+    }
+  }
 
   const handleAddTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -50,14 +78,27 @@ export function IdeaEditor({ open, onOpenChange, idea, onSave }: IdeaEditorProps
   }
 
   const handleSave = async () => {
+    if (!teamId && !idea) {
+      alert('Please select a team')
+      return
+    }
+
     setIsSaving(true)
     try {
-      const data: IdeaCreate | IdeaUpdate = {
-        title,
-        description: description || undefined,
-        status,
-        tags: tags.length > 0 ? tags : undefined,
-      }
+      const data: IdeaCreate | IdeaUpdate = idea
+        ? {
+            title,
+            description: description || undefined,
+            status,
+            tags: tags.length > 0 ? tags : undefined,
+          }
+        : {
+            title,
+            team_id: teamId,
+            description: description || undefined,
+            status,
+            tags: tags.length > 0 ? tags : undefined,
+          }
       await onSave(data)
       onOpenChange(false)
     } catch (error) {
@@ -77,6 +118,27 @@ export function IdeaEditor({ open, onOpenChange, idea, onSave }: IdeaEditorProps
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
+          {!idea && (
+            <div className="space-y-2">
+              <Label htmlFor="team">Team *</Label>
+              {isLoadingTeams ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                <Select value={teamId} onValueChange={setTeamId}>
+                  <SelectTrigger id="team">
+                    <SelectValue placeholder="Select a team" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teams.map((team) => (
+                      <SelectItem key={team.id} value={team.id}>
+                        {team.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="title">Title *</Label>
             <Input
@@ -143,7 +205,7 @@ export function IdeaEditor({ open, onOpenChange, idea, onSave }: IdeaEditorProps
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!title.trim() || isSaving}>
+          <Button onClick={handleSave} disabled={!title.trim() || isSaving || (!idea && !teamId)}>
             {isSaving ? 'Saving...' : idea ? 'Update' : 'Create'}
           </Button>
         </DialogFooter>

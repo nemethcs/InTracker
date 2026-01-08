@@ -1,7 +1,8 @@
 import { Link, useLocation } from 'react-router-dom'
-import { FolderKanban, Settings, Sparkles } from 'lucide-react'
+import { FolderKanban, Settings, Sparkles, Shield, UsersRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/hooks/useAuth'
 
 const navigation = [
   { name: 'Projects', href: '/projects', icon: FolderKanban },
@@ -9,13 +10,34 @@ const navigation = [
   { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
+const teamNavigation = { name: 'Teams', href: '/teams', icon: UsersRound }
+const adminNavigation = { name: 'Admin', href: '/admin', icon: Shield }
+
 export function Sidebar() {
   const location = useLocation()
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
+  const isTeamLeader = user?.role === 'team_leader'
+
+  let allNavigation: typeof navigation = []
+  
+  // Admins only see Admin and Teams links
+  if (isAdmin) {
+    allNavigation = [adminNavigation, teamNavigation]
+  } else {
+    // Regular users and team leaders see normal navigation
+    allNavigation = [...navigation]
+    
+    // Add Teams link for team leaders
+    if (isTeamLeader) {
+      allNavigation.push(teamNavigation)
+    }
+  }
 
   return (
     <aside className="w-64 border-r bg-background">
       <nav className="space-y-1 p-4">
-        {navigation.map((item) => {
+        {allNavigation.map((item) => {
           const Icon = item.icon
           const isActive = location.pathname === item.href
           return (
