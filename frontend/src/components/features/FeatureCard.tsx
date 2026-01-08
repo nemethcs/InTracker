@@ -20,7 +20,9 @@ export function FeatureCard({ feature, projectId, onEdit, number }: FeatureCardP
             <div className="flex-1">
               <CardTitle className="mb-1 flex items-center gap-2">
                 {number !== undefined && (
-                  <span className="text-muted-foreground font-normal text-lg">#{number}</span>
+                  <Badge variant="outline" className="text-xs font-mono h-5 px-1.5 min-w-[24px] justify-center">
+                    {number}
+                  </Badge>
                 )}
                 {feature.name}
               </CardTitle>

@@ -52,7 +52,9 @@ export function TodoCard({ todo, onEdit, onDelete, onStatusChange, number }: Tod
             <div className="flex-1">
               <CardTitle className="text-base flex items-center gap-2">
                 {number !== undefined && (
-                  <span className="text-muted-foreground font-normal">#{number}</span>
+                  <Badge variant="outline" className="text-xs font-mono h-4 px-1.5 min-w-[20px] justify-center flex-shrink-0">
+                    {number}
+                  </Badge>
                 )}
                 {todo.title}
               </CardTitle>
