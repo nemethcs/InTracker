@@ -43,15 +43,22 @@ class SessionService:
         if broadcast_start and user_id:
             try:
                 import asyncio
+                import threading
                 from src.services.signalr_hub import broadcast_session_start
-                # Run async function in background
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # If loop is already running, create a task
-                    asyncio.create_task(broadcast_session_start(str(project_id), str(user_id)))
-                else:
-                    # If no loop is running, run it
-                    loop.run_until_complete(broadcast_session_start(str(project_id), str(user_id)))
+                
+                def run_broadcast():
+                    """Run async broadcast in a new event loop."""
+                    try:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        loop.run_until_complete(broadcast_session_start(str(project_id), str(user_id)))
+                        loop.close()
+                    except Exception as e:
+                        print(f"Error in broadcast thread: {e}")
+                
+                # Run broadcast in a separate thread to avoid blocking
+                thread = threading.Thread(target=run_broadcast, daemon=True)
+                thread.start()
             except Exception as e:
                 # Don't fail session creation if broadcast fails
                 print(f"Failed to broadcast session start: {e}")
