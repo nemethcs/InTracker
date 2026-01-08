@@ -112,7 +112,23 @@ export function Settings() {
       return
     }
 
-    // Show dialog with deeplink and config
+    // If we have an active key but no newKey (plain text), we need to regenerate
+    // to get the plain text key for the configuration
+    if (mcpKey && !newKey) {
+      // Show a confirmation dialog or directly regenerate
+      const confirmed = window.confirm(
+        "To add InTracker to Cursor, you need to regenerate your MCP API key. " +
+        "This will revoke your current key. Continue?"
+      )
+      if (confirmed) {
+        await handleRegenerateKey()
+        return
+      } else {
+        return
+      }
+    }
+
+    // Show dialog with deeplink and config (only if we have newKey)
     setShowCursorConfigDialog(true)
   }
 
