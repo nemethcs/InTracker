@@ -222,8 +222,21 @@ def get_update_feature_status_tool() -> MCPTool:
 
 async def handle_update_feature_status(feature_id: str, status: str) -> dict:
     """Handle update feature status tool call."""
+    from src.mcp.utils.validation import validate_feature_status_transition, ValidationError
+    
     db = SessionLocal()
     try:
+        # Validate the status transition before updating
+        try:
+            validate_feature_status_transition(
+                db=db,
+                feature_id=UUID(feature_id),
+                new_status=status,
+                require_all_todos_done=True,
+            )
+        except ValidationError as e:
+            return {"error": str(e)}
+
         # Use FeatureService to update feature status
         feature = FeatureService.update_feature(
             db=db,
