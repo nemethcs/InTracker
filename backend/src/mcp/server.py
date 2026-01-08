@@ -135,6 +135,7 @@ async def call_tool(name: str, arguments: dict):
         elif name == "mcp_list_projects":
             result = await project.handle_list_projects(
                 arguments.get("status"),
+                arguments.get("userId"),  # Pass userId if provided (auto-extracted from MCP key if not)
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 

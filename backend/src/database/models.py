@@ -45,6 +45,7 @@ class User(Base):
     team_memberships = relationship("TeamMember", foreign_keys="TeamMember.user_id", back_populates="user")
     created_teams = relationship("Team", foreign_keys="Team.created_by", back_populates="creator")
     created_invitations = relationship("InvitationCode", foreign_keys="InvitationCode.created_by", back_populates="creator")
+    mcp_api_keys = relationship("McpApiKey", back_populates="user")
 
 
 class Project(Base):
@@ -460,18 +461,35 @@ class InvitationCode(Base):
     team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=True, index=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     expires_at = Column(DateTime, nullable=True)
-    used_at = Column(DateTime, nullable=True)
-    used_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    max_uses = Column(Integer, nullable=True)  # None = unlimited
+    uses_count = Column(Integer, default=0, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationships
     team = relationship("Team", back_populates="invitation_codes")
-    creator = relationship("User", foreign_keys=[created_by])
-    user_who_used = relationship("User", foreign_keys=[used_by])
+    creator = relationship("User", foreign_keys=[created_by], back_populates="created_invitations")
+
+
+class McpApiKey(Base):
+    """MCP API Key model for user-specific MCP authentication."""
+    __tablename__ = "mcp_api_keys"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    key_hash = Column(String, unique=True, nullable=False, index=True)  # Hashed version of the key for storage
+    name = Column(String, nullable=True)  # Optional name/description for the key
+    last_used_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)  # Optional expiration date
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    user = relationship("User", back_populates="mcp_api_keys")
 
     __table_args__ = (
-        Index("idx_invitation_codes_type", "type"),
-        Index("idx_invitation_codes_team", "team_id"),
-        Index("idx_invitation_codes_created_by", "created_by"),
-        Index("idx_invitation_codes_code", "code"),
+        Index("idx_mcp_api_keys_user", "user_id"),
+        Index("idx_mcp_api_keys_active", "is_active"),
     )

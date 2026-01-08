@@ -100,7 +100,18 @@ def get_list_ideas_tool() -> MCPTool:
 
 
 async def handle_list_ideas(status: Optional[str] = None, user_id: Optional[str] = None, team_id: Optional[str] = None) -> dict:
-    """Handle list ideas tool call."""
+    """Handle list ideas tool call.
+    
+    If user_id is not provided, automatically extracts it from MCP API key if available.
+    """
+    from src.mcp.middleware.auth import get_current_user_id
+    
+    # Auto-extract user_id from MCP API key if not provided
+    if not user_id:
+        current_user_id = get_current_user_id()
+        if current_user_id:
+            user_id = str(current_user_id)
+    
     cache_key = f"ideas:list"
     if status:
         cache_key += f":status:{status}"

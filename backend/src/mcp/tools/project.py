@@ -151,7 +151,16 @@ async def handle_get_resume_context(project_id: str, user_id: Optional[str] = No
     """Handle get resume context tool call.
     
     If user_id is provided, excludes todos that are in_progress and assigned to other users.
+    If user_id is not provided, automatically extracts it from MCP API key if available.
     """
+    from src.mcp.middleware.auth import get_current_user_id
+    
+    # Auto-extract user_id from MCP API key if not provided
+    if not user_id:
+        current_user_id = get_current_user_id()
+        if current_user_id:
+            user_id = str(current_user_id)
+    
     cache_key = f"project:{project_id}:resume"
     if user_id:
         cache_key += f":user:{user_id}"
@@ -377,7 +386,16 @@ async def handle_get_active_todos(
     """Handle get active todos tool call.
     
     If user_id is provided, excludes todos that are in_progress and assigned to other users.
+    If user_id is not provided, automatically extracts it from MCP API key if available.
     """
+    from src.mcp.middleware.auth import get_current_user_id
+    
+    # Auto-extract user_id from MCP API key if not provided
+    if not user_id:
+        current_user_id = get_current_user_id()
+        if current_user_id:
+            user_id = str(current_user_id)
+    
     cache_key = f"project:{project_id}:todos:active"
     if status:
         cache_key += f":status:{status}"
@@ -547,8 +565,20 @@ def get_list_projects_tool() -> MCPTool:
     )
 
 
-async def handle_list_projects(status: Optional[str] = None) -> dict:
-    """Handle list projects tool call."""
+async def handle_list_projects(status: Optional[str] = None, user_id: Optional[str] = None) -> dict:
+    """Handle list projects tool call.
+    
+    If user_id is provided, filters projects by user access (team membership).
+    If user_id is not provided, automatically extracts it from MCP API key if available.
+    """
+    from src.mcp.middleware.auth import get_current_user_id
+    
+    # Auto-extract user_id from MCP API key if not provided
+    if not user_id:
+        current_user_id = get_current_user_id()
+        if current_user_id:
+            user_id = str(current_user_id)
+    
     cache_key = "projects:list"
     if status:
         cache_key += f":status:{status}"

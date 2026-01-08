@@ -39,14 +39,22 @@ async def handle_start_session(
     
     If auto_enforce_workflow is True (default), automatically enforces the workflow
     by calling mcp_enforce_workflow to ensure proper project setup.
+    
+    The user_id is automatically extracted from the MCP API key if available.
     """
+    from src.mcp.middleware.auth import get_current_user_id
+    
     db = SessionLocal()
     try:
+        # Get user_id from MCP API key (if available)
+        user_id = get_current_user_id()
+        
         # Use SessionService to create session
         feature_uuid_list = [UUID(fid) for fid in (feature_ids or [])]
         session = SessionService.create_session(
             db=db,
             project_id=UUID(project_id),
+            user_id=user_id,  # Pass user_id from MCP API key
             goal=goal,
             feature_ids=feature_uuid_list,
         )
