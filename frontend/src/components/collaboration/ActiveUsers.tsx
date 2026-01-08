@@ -109,49 +109,37 @@ export function ActiveUsers({ projectId }: ActiveUsersProps) {
     )
   }
 
+  // Small, unobtrusive display - only show if there are active users
+  if (activeUsers.length === 0) {
+    return null // Don't show anything if no active users
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="h-4 w-4" />
-          Active Users
-        </CardTitle>
-        <CardDescription>
-          {activeUsers.length} {activeUsers.length === 1 ? 'user' : 'users'} currently viewing this project
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {activeUsers.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No active users</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {activeUsers.map((user) => (
-              <div key={user.id} className="flex items-center gap-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.avatarUrl || undefined} alt={user.name || user.email} />
-                  <AvatarFallback>
-                    {user.name
-                      ? user.name
-                          .split(' ')
-                          .map(n => n[0])
-                          .join('')
-                          .toUpperCase()
-                          .slice(0, 2)
-                      : user.email[0].toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium">{user.name || user.email}</span>
-                  {user.name && <span className="text-xs text-muted-foreground">{user.email}</span>}
-                </div>
-                <Badge variant="outline" className="ml-1">
-                  Online
-                </Badge>
-              </div>
-            ))}
+    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <Users className="h-4 w-4" />
+      <span className="flex items-center gap-1">
+        {activeUsers.length} {activeUsers.length === 1 ? 'user' : 'users'} working:
+      </span>
+      <div className="flex items-center gap-1">
+        {activeUsers.map((user, index) => (
+          <div key={user.id} className="flex items-center gap-1">
+            <Avatar className="h-6 w-6">
+              <AvatarImage src={user.avatarUrl || undefined} alt={user.name || user.email} />
+              <AvatarFallback className="text-xs">
+                {user.name
+                  ? user.name
+                      .split(' ')
+                      .map(n => n[0])
+                      .join('')
+                      .toUpperCase()
+                      .slice(0, 2)
+                  : user.email[0].toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            {index < activeUsers.length - 1 && <span className="text-muted-foreground">,</span>}
           </div>
-        )}
-      </CardContent>
-    </Card>
+        ))}
+      </div>
+    </div>
   )
 }

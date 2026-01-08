@@ -217,7 +217,11 @@ export function ProjectDetail() {
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <h1 className="text-3xl font-bold">{currentProject.name}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold">{currentProject.name}</h1>
+            {/* Small, unobtrusive active users display */}
+            {id && <ActiveUsers projectId={id} />}
+          </div>
           {currentProject.description && (
             <p className="text-muted-foreground mt-2">{currentProject.description}</p>
           )}
@@ -271,9 +275,6 @@ export function ProjectDetail() {
           </CardContent>
         </Card>
       )}
-
-      {/* Active Users Section */}
-      {id && <ActiveUsers projectId={id} />}
 
       {/* Element Tree Section */}
       <div>
