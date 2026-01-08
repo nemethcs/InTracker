@@ -68,12 +68,35 @@ class FeatureService:
         db: Session,
         project_id: UUID,
         status: Optional[str] = None,
+        sort: Optional[str] = "updated_at_desc",
     ) -> tuple[List[Feature], int]:
-        """Get features for a project with optional filtering."""
+        """Get features for a project with optional filtering and sorting.
+        
+        Args:
+            sort: Sort order. Options: "updated_at_desc" (default), "updated_at_asc", 
+                  "created_at_desc", "created_at_asc", "name_asc", "name_desc"
+        """
         query = db.query(Feature).filter(Feature.project_id == project_id)
 
         if status:
             query = query.filter(Feature.status == status)
+
+        # Apply sorting
+        if sort == "updated_at_desc" or sort is None:
+            query = query.order_by(Feature.updated_at.desc())
+        elif sort == "updated_at_asc":
+            query = query.order_by(Feature.updated_at.asc())
+        elif sort == "created_at_desc":
+            query = query.order_by(Feature.created_at.desc())
+        elif sort == "created_at_asc":
+            query = query.order_by(Feature.created_at.asc())
+        elif sort == "name_asc":
+            query = query.order_by(Feature.name.asc())
+        elif sort == "name_desc":
+            query = query.order_by(Feature.name.desc())
+        else:
+            # Default to updated_at_desc
+            query = query.order_by(Feature.updated_at.desc())
 
         total = query.count()
         features = query.all()

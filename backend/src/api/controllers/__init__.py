@@ -13,6 +13,7 @@ from . import (
     mcp_controller,
     admin_controller,
     team_controller,
+    mcp_key_controller,
 )
 
 __all__ = [
@@ -29,4 +30,5 @@ __all__ = [
     "mcp_controller",
     "admin_controller",
     "team_controller",
+    "mcp_key_controller",
 ]

@@ -27,12 +27,14 @@ export interface FeatureUpdate {
 }
 
 export const featureService = {
-  async listFeatures(projectId?: string): Promise<Feature[]> {
+  async listFeatures(projectId?: string, sort: string = 'updated_at_desc'): Promise<Feature[]> {
     if (!projectId) {
       return []
     }
-    // Backend endpoint: GET /features/project/{project_id}
-    const response = await api.get(`/features/project/${projectId}`)
+    // Backend endpoint: GET /features/project/{project_id}?sort={sort}
+    const response = await api.get(`/features/project/${projectId}`, {
+      params: { sort }
+    })
     // Backend returns { features: [...], total: ... }
     return response.data.features || response.data || []
   },

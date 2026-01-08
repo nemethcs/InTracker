@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useFeatureStore } from '@/stores/featureStore'
 
-export function useFeatures(projectId?: string) {
+export function useFeatures(projectId?: string, sort: string = 'updated_at_desc') {
   const {
     features,
     isLoading,
@@ -10,23 +10,25 @@ export function useFeatures(projectId?: string) {
   } = useFeatureStore()
 
   const lastProjectId = useRef<string | undefined>(undefined)
+  const lastSort = useRef<string | undefined>(undefined)
 
   useEffect(() => {
-    // Only fetch if projectId changed
-    if (projectId !== lastProjectId.current) {
+    // Only fetch if projectId or sort changed
+    if (projectId !== lastProjectId.current || sort !== lastSort.current) {
       lastProjectId.current = projectId
+      lastSort.current = sort
       if (projectId) {
-        fetchFeatures(projectId)
+        fetchFeatures(projectId, sort)
       }
     }
-  }, [projectId, fetchFeatures])
+  }, [projectId, sort, fetchFeatures])
 
   // Use useCallback to create a stable refetch function
   const refetch = useCallback(() => {
     if (projectId) {
-      fetchFeatures(projectId)
+      fetchFeatures(projectId, sort)
     }
-  }, [projectId, fetchFeatures])
+  }, [projectId, sort, fetchFeatures])
 
   return {
     features,

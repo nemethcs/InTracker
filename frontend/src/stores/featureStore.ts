@@ -6,7 +6,7 @@ interface FeatureState {
   features: Feature[]
   isLoading: boolean
   error: string | null
-  fetchFeatures: (projectId?: string) => Promise<void>
+  fetchFeatures: (projectId?: string, sort?: string) => Promise<void>
   fetchFeature: (id: string) => Promise<Feature>
   createFeature: (data: FeatureCreate) => Promise<Feature>
   updateFeature: (id: string, data: FeatureUpdate) => Promise<void>
@@ -49,10 +49,10 @@ export const useFeatureStore = create<FeatureState>((set, get) => {
     isLoading: false,
     error: null,
 
-  fetchFeatures: async (projectId?: string) => {
+  fetchFeatures: async (projectId?: string, sort: string = 'updated_at_desc') => {
     set({ isLoading: true, error: null })
     try {
-      const features = await featureService.listFeatures(projectId)
+      const features = await featureService.listFeatures(projectId, sort)
       set({ features, isLoading: false })
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to fetch features', isLoading: false })

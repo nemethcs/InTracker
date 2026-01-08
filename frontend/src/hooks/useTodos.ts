@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useTodoStore } from '@/stores/todoStore'
 
-export function useTodos(featureId?: string, elementId?: string) {
+export function useTodos(featureId?: string, elementId?: string, projectId?: string) {
   const {
     todos,
     isLoading,
@@ -11,20 +11,26 @@ export function useTodos(featureId?: string, elementId?: string) {
 
   const lastFeatureId = useRef<string | undefined>(undefined)
   const lastElementId = useRef<string | undefined>(undefined)
+  const lastProjectId = useRef<string | undefined>(undefined)
 
   useEffect(() => {
-    // Only fetch if featureId or elementId changed
-    if (featureId !== lastFeatureId.current || elementId !== lastElementId.current) {
+    // Only fetch if featureId, elementId, or projectId changed
+    if (
+      featureId !== lastFeatureId.current ||
+      elementId !== lastElementId.current ||
+      projectId !== lastProjectId.current
+    ) {
       lastFeatureId.current = featureId
       lastElementId.current = elementId
-      fetchTodos(featureId, elementId)
+      lastProjectId.current = projectId
+      fetchTodos(featureId, elementId, projectId)
     }
-  }, [featureId, elementId]) // Remove fetchTodos from dependencies
+  }, [featureId, elementId, projectId]) // Remove fetchTodos from dependencies
 
   return {
     todos,
     isLoading,
     error,
-    refetch: () => fetchTodos(featureId, elementId),
+    refetch: () => fetchTodos(featureId, elementId, projectId),
   }
 }

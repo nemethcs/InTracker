@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useProject } from '@/hooks/useProject'
 import { useFeatures } from '@/hooks/useFeatures'
 import { useFeatureStore } from '@/stores/featureStore'
 import { useProjectStore } from '@/stores/projectStore'
+import { useTodoStore } from '@/stores/todoStore'
 import { adminService, type Team } from '@/services/adminService'
 import { elementService, type ElementTree as ElementTreeData } from '@/services/elementService'
 import { documentService, type Document } from '@/services/documentService'
-import { todoService } from '@/services/todoService'
 import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
@@ -20,27 +20,45 @@ import { ElementTree } from '@/components/elements/ElementTree'
 import { ElementDetailDialog } from '@/components/elements/ElementDetailDialog'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { ActiveUsers } from '@/components/collaboration/ActiveUsers'
-import { Plus, Edit, FileText, CheckSquare, UsersRound } from 'lucide-react'
+import { Plus, Edit, FileText, CheckSquare, UsersRound, ChevronDown, ChevronRight } from 'lucide-react'
 
 export function ProjectDetail() {
   const { id } = useParams<{ id: string }>()
   const { currentProject, isLoading: projectLoading, error: projectError } = useProject(id)
   const { features, isLoading: featuresLoading, refetch: refetchFeatures } = useFeatures(id)
-  // Get all todos for the project - we'll use the todoService directly since useTodos doesn't support projectId
-  const [todos, setTodos] = useState<any[]>([])
-  const [isLoadingTodos, setIsLoadingTodos] = useState(false)
+  // Use todoStore directly - it supports projectId and auto-updates via SignalR
+  const { todos: allTodos, isLoading: isLoadingTodos, fetchTodos } = useTodoStore()
   const { createFeature, updateFeature } = useFeatureStore()
   const { updateProject, fetchProject } = useProjectStore()
   const [featureEditorOpen, setFeatureEditorOpen] = useState(false)
   const [editingFeature, setEditingFeature] = useState<any>(null)
   const [projectEditorOpen, setProjectEditorOpen] = useState(false)
   const [elementTree, setElementTree] = useState<ElementTreeData | null>(null)
+  // Filter todos: only open todos (exclude "done" status) for this project
+  // Filter by project using element tree - only show todos whose elements belong to this project
+  // Use useMemo to avoid recalculating on every render and to handle elementTree initialization
+  const todos = useMemo(() => {
+    return allTodos.filter(todo => {
+      if (todo.status === 'done') return false // Only show open todos
+      if (!id || !elementTree) return true // If no project or element tree not loaded yet, show all
+      // Check if todo's element belongs to this project by searching in element tree
+      const findElementInTree = (elements: any[]): boolean => {
+        for (const el of elements) {
+          if (el.id === todo.element_id) return true
+          if (el.children && findElementInTree(el.children)) return true
+        }
+        return false
+      }
+      return findElementInTree(elementTree.elements)
+    })
+  }, [allTodos, id, elementTree])
   const [isLoadingElements, setIsLoadingElements] = useState(false)
   const [documents, setDocuments] = useState<Document[]>([])
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false)
   const [selectedElement, setSelectedElement] = useState<any>(null)
   const [elementDetailOpen, setElementDetailOpen] = useState(false)
   const [teams, setTeams] = useState<Team[]>([])
+  const [showProjectStructure, setShowProjectStructure] = useState(false) // Default: collapsed
 
   useEffect(() => {
     loadTeams()
@@ -87,11 +105,13 @@ export function ProjectDetail() {
     setIsLoadingElements(true)
     elementService.getProjectTree(id)
         .then((tree) => {
+          console.log('Element tree loaded:', tree)
           setElementTree(tree)
           setIsLoadingElements(false)
         })
         .catch((error) => {
           console.error('Failed to load element tree:', error)
+          setElementTree(null)
           setIsLoadingElements(false)
         })
 
@@ -106,39 +126,21 @@ export function ProjectDetail() {
           setIsLoadingDocuments(false)
         })
 
-      setIsLoadingTodos(true)
-      todoService.listTodos(undefined, undefined, id)
-        .then((projectTodos) => {
-          // Filter out "done" todos - only show open todos (new, in_progress, tested)
-          const openTodos = projectTodos.filter(todo => todo.status !== 'done')
-          setTodos(openTodos)
-          setIsLoadingTodos(false)
-        })
-        .catch((error) => {
-          console.error('Failed to load todos:', error)
-          setIsLoadingTodos(false)
-        })
+      // Fetch todos using store - it will auto-update via SignalR
+      fetchTodos(undefined, undefined, id)
 
     // Subscribe to SignalR real-time updates
+    // Note: We don't need to manually refresh - the stores auto-update via SignalR subscriptions
+    // The components will re-render automatically when the store state changes
     const handleTodoUpdate = (data: { todoId: string; projectId: string; userId: string; changes: any }) => {
-      if (data.projectId === id) {
-        // Refresh todos list to get updated data
-        todoService.listTodos(undefined, undefined, id)
-          .then((projectTodos) => {
-            const openTodos = projectTodos.filter(todo => todo.status !== 'done')
-            setTodos(openTodos)
-          })
-          .catch((error) => {
-            console.error('Failed to refresh todos after update:', error)
-          })
-      }
+      // Store already handles this via SignalR subscription in todoStore
+      // Only fetch if the todo is not in the current list (e.g., new todo created)
+      // The store's SignalR handler will fetch it automatically if needed
     }
 
     const handleFeatureUpdate = (data: { featureId: string; projectId: string; progress: number }) => {
-      if (data.projectId === id) {
-        // Refresh features list to get updated progress
-        refetchFeatures()
-      }
+      // Store already handles this via SignalR subscription in featureStore
+      // No need to manually refetch - the store updates automatically
     }
 
     const handleUserActivity = (data: { userId: string; projectId: string; action: string; featureId?: string }) => {
@@ -217,7 +219,11 @@ export function ProjectDetail() {
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <h1 className="text-3xl font-bold">{currentProject.name}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold">{currentProject.name}</h1>
+            {/* Small, unobtrusive active users display */}
+            {id && <ActiveUsers projectId={id} />}
+          </div>
           {currentProject.description && (
             <p className="text-muted-foreground mt-2">{currentProject.description}</p>
           )}
@@ -244,27 +250,29 @@ export function ProjectDetail() {
         </Button>
       </div>
 
+      {/* Resume Context - Most important: what was done, what's next */}
       {currentProject.resume_context && (
         <Card>
           <CardHeader>
             <CardTitle>Resume Context</CardTitle>
+            <CardDescription>Quick overview of recent work and next steps</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {currentProject.resume_context.last && (
               <div>
-                <h3 className="font-semibold mb-1">Last</h3>
+                <h3 className="font-semibold mb-1 text-sm">Last</h3>
                 <p className="text-sm text-muted-foreground">{currentProject.resume_context.last}</p>
               </div>
             )}
             {currentProject.resume_context.now && (
               <div>
-                <h3 className="font-semibold mb-1">Now</h3>
+                <h3 className="font-semibold mb-1 text-sm">Now</h3>
                 <p className="text-sm text-muted-foreground">{currentProject.resume_context.now}</p>
               </div>
             )}
             {currentProject.resume_context.next && (
               <div>
-                <h3 className="font-semibold mb-1">Next</h3>
+                <h3 className="font-semibold mb-1 text-sm">Next</h3>
                 <p className="text-sm text-muted-foreground">{currentProject.resume_context.next}</p>
               </div>
             )}
@@ -272,53 +280,37 @@ export function ProjectDetail() {
         </Card>
       )}
 
-      {/* Active Users Section */}
-      {id && <ActiveUsers projectId={id} />}
-
-      {/* Element Tree Section */}
+      {/* Open Todos Section - Next tasks (most important after resume context) */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Project Structure</h2>
-          {elementTree && elementTree.elements.length > 0 && (
-            <div className="text-sm text-muted-foreground">
-              {elementTree.elements.length} {elementTree.elements.length === 1 ? 'element' : 'elements'}
-            </div>
+          <h2 className="text-2xl font-bold">Next Tasks</h2>
+          {features.length > 0 && (
+            <Link to={`/projects/${id}/features/${features[0]?.id}`}>
+              <Button variant="outline" size="sm">
+                <CheckSquare className="mr-2 h-4 w-4" />
+                View by Feature
+              </Button>
+            </Link>
           )}
         </div>
-        {isLoadingElements ? (
+        {isLoadingTodos ? (
+          <LoadingSpinner />
+        ) : todos.length === 0 ? (
           <Card>
-            <CardContent className="py-8">
-              <LoadingSpinner />
-            </CardContent>
-          </Card>
-        ) : elementTree && elementTree.elements.length > 0 ? (
-          <Card className="overflow-hidden">
-            <CardHeader className="pb-3">
-              <CardDescription>
-                Click on an element to view details. Use the chevron icons to expand/collapse folders.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="max-h-[600px] overflow-y-auto">
-                <ElementTree
-                  elements={elementTree.elements}
-                  onElementClick={(element) => {
-                    setSelectedElement(element)
-                    setElementDetailOpen(true)
-                  }}
-                />
-              </div>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              No open todos. All tasks are completed!
             </CardContent>
           </Card>
         ) : (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No elements yet. Project structure will appear here.
-            </CardContent>
-          </Card>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {todos.map((todo) => (
+              <TodoCard key={todo.id} todo={todo} />
+            ))}
+          </div>
         )}
       </div>
 
+      {/* Features Section - Active features (sorted by last update) */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold">Features</h2>
@@ -351,32 +343,61 @@ export function ProjectDetail() {
         )}
       </div>
 
-      {/* Todos Section - Open todos only */}
+      {/* Element Tree Section - Collapsible, collapsed by default */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Open Todos</h2>
-          {features.length > 0 && (
-            <Link to={`/projects/${id}/features/${features[0]?.id}`}>
-              <Button variant="outline" size="sm">
-                <CheckSquare className="mr-2 h-4 w-4" />
-                View by Feature
-              </Button>
-            </Link>
-          )}
-        </div>
-        {isLoadingTodos ? (
-          <LoadingSpinner />
-        ) : todos.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No open todos. All tasks are completed!
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {todos.map((todo) => (
-              <TodoCard key={todo.id} todo={todo} />
-            ))}
+        <button
+          onClick={() => setShowProjectStructure(!showProjectStructure)}
+          className="flex items-center justify-between w-full mb-4 hover:bg-accent/50 rounded-md p-2 -ml-2 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            {showProjectStructure ? (
+              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            )}
+            <h2 className="text-2xl font-bold">Project Structure</h2>
+            {elementTree && elementTree.elements && elementTree.elements.length > 0 && (
+              <div className="text-sm text-muted-foreground">
+                ({elementTree.elements.length} {elementTree.elements.length === 1 ? 'element' : 'elements'})
+              </div>
+            )}
+          </div>
+        </button>
+        {showProjectStructure && (
+          <div>
+            {isLoadingElements ? (
+              <Card>
+                <CardContent className="py-8">
+                  <LoadingSpinner />
+                </CardContent>
+              </Card>
+            ) : elementTree && elementTree.elements && elementTree.elements.length > 0 ? (
+              <Card className="overflow-hidden">
+                <CardHeader className="pb-3">
+                  <CardDescription>
+                    Click on an element to view details. Use the chevron icons to expand/collapse folders.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="max-h-[400px] overflow-y-auto">
+                    <ElementTree
+                      elements={elementTree.elements}
+                      onElementClick={(element) => {
+                        setSelectedElement(element)
+                        setElementDetailOpen(true)
+                      }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  <p>No elements yet. Project structure will appear here.</p>
+                  <p className="text-xs mt-2">Elements are created automatically when you add features and todos to the project.</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
       </div>

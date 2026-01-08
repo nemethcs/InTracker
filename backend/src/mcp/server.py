@@ -34,6 +34,7 @@ async def list_tools() -> list[Tool]:
         project.get_update_project_tool(),
         project.get_identify_project_by_path_tool(),
         project.get_load_cursor_rules_tool(),
+        project.get_enforce_workflow_tool(),
         # Feature tools
         feature.get_create_feature_tool(),
         feature.get_get_feature_tool(),
@@ -134,6 +135,7 @@ async def call_tool(name: str, arguments: dict):
         elif name == "mcp_list_projects":
             result = await project.handle_list_projects(
                 arguments.get("status"),
+                arguments.get("userId"),  # Pass userId if provided (auto-extracted from MCP key if not)
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 
@@ -160,6 +162,12 @@ async def call_tool(name: str, arguments: dict):
             result = await project.handle_load_cursor_rules(
                 arguments["projectId"],
                 arguments.get("projectPath"),
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+
+        elif name == "mcp_enforce_workflow":
+            result = await project.handle_enforce_workflow(
+                arguments.get("path"),
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 

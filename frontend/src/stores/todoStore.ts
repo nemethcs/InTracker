@@ -6,7 +6,7 @@ interface TodoState {
   todos: Todo[]
   isLoading: boolean
   error: string | null
-  fetchTodos: (featureId?: string, elementId?: string) => Promise<void>
+  fetchTodos: (featureId?: string, elementId?: string, projectId?: string) => Promise<void>
   fetchTodo: (id: string) => Promise<Todo>
   createTodo: (data: TodoCreate) => Promise<Todo>
   updateTodo: (id: string, data: TodoUpdate) => Promise<void>
@@ -49,10 +49,10 @@ export const useTodoStore = create<TodoState>((set, get) => {
     isLoading: false,
     error: null,
 
-  fetchTodos: async (featureId?: string, elementId?: string) => {
+  fetchTodos: async (featureId?: string, elementId?: string, projectId?: string) => {
     set({ isLoading: true, error: null })
     try {
-      const todos = await todoService.listTodos(featureId, elementId)
+      const todos = await todoService.listTodos(featureId, elementId, projectId)
       set({ todos, isLoading: false })
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to fetch todos', isLoading: false })

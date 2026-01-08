@@ -1,5 +1,5 @@
 """Pydantic schemas for features."""
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
@@ -40,6 +40,11 @@ class FeatureResponse(FeatureBase):
 
     class Config:
         from_attributes = True
+    
+    @field_serializer('id', 'project_id', 'created_by', 'assigned_to')
+    def serialize_uuid(self, value: UUID | str | None, _info) -> str | None:
+        """Serialize UUID to string."""
+        return str(value) if isinstance(value, UUID) else value
 
 
 class FeatureListResponse(BaseModel):
