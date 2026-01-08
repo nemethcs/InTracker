@@ -102,8 +102,20 @@ class RulesGenerator:
      - Only needed first time or when rules change
      - Rules are saved to `.cursor/rules/intracker-project-rules.mdc`
 
-4. **Work on Next Todo:**
+4. **Branch Check (MANDATORY for feature work!):**
+   - **🚨 CRITICAL: ALWAYS check branch before starting work on a feature!**
+   - Check current branch: `git branch --show-current`
+   - If working on a feature:
+     - Get feature: `mcp_get_feature(featureId)`
+     - Get feature branches: `mcp_get_feature_branches(featureId)`
+     - If feature branch exists: `git checkout feature/{feature-name}` then `git pull origin feature/{feature-name}`
+     - If NO feature branch: `mcp_create_branch_for_feature(featureId)` then `git checkout feature/{feature-name}`
+   - If NOT working on a feature: Use `develop` branch
+   - **NEVER start working on a feature without checking the branch first!**
+
+5. **Work on Next Todo:**
    - Get next todos from resume context
+   - **🚨 VERIFY BRANCH FIRST!** (see step 4 above)
    - Update status: `mcp_update_todo_status(todoId, "in_progress")`
    - Implement changes
    - Check for errors: `read_lints` tool
@@ -111,16 +123,28 @@ class RulesGenerator:
    - Restart affected service if needed
    - Test functionality
 
-5. **Update Todo Status:**
+6. **Update Todo Status:**
    - After implementation: `mcp_update_todo_status(todoId, "tested")` (only if tested!)
    - After merge to dev: `mcp_update_todo_status(todoId, "done")` (only after tested AND merged!)
 
-6. **Git Workflow (MANDATORY - Follow this order!):**
-   - **Before starting work:**
+7. **Git Workflow (MANDATORY - Follow this order!):**
+   - **🚨 Before starting work - BRANCH CHECK (MANDATORY!):**
+     - **ALWAYS check branch before starting work on a feature!**
      - Check current branch: `git branch --show-current`
-     - If working on a feature, ensure you're on the feature branch: `git checkout feature/{feature-name}`
-     - If no feature branch exists, create it: `mcp_create_branch_for_feature(featureId)`
-     - Pull latest changes: `git pull origin {branch-name}`
+     - If working on a feature:
+       - Get feature: `mcp_get_feature(featureId)`
+       - Get feature branches: `mcp_get_feature_branches(featureId)`
+       - If feature branch exists:
+         - Switch to it: `git checkout feature/{feature-name}`
+         - Pull latest: `git pull origin feature/{feature-name}`
+       - If NO feature branch exists:
+         - Create it: `mcp_create_branch_for_feature(featureId)`
+         - Switch to it: `git checkout feature/{feature-name}`
+         - Pull latest: `git pull origin feature/{feature-name}`
+     - If NOT working on a feature:
+       - Use develop branch: `git checkout develop`
+       - Pull latest: `git pull origin develop`
+     - **NEVER start working on a feature without checking the branch first!**
    
    - **During work:**
      - Make code changes
@@ -158,8 +182,11 @@ class RulesGenerator:
      - Pull latest: `git pull origin develop`
    
    **CRITICAL Git Rules:**
+   - **🚨 ALWAYS check branch before starting work on a feature!**
+   - **NEVER start working on a feature without checking the branch first!**
    - **NEVER commit without testing first!**
    - **NEVER commit to main/master directly!** Always use feature branches
+   - **NEVER commit on wrong branch** (e.g., develop when working on a feature)
    - **ALWAYS check git status before committing** to avoid committing wrong files
    - **ALWAYS use the commit message format** with feature ID
    - **ALWAYS push after committing** to keep remote in sync
@@ -175,21 +202,31 @@ class RulesGenerator:
 
 **CRITICAL: Follow this exact order for every change!**
 
-#### 1. Before Starting Work
+#### 🚨 1. Before Starting Work - BRANCH CHECK (MANDATORY!)
+
+**ALWAYS check branch before starting work on a feature!**
 
 ```bash
-# Check current branch
+# 1. Check current branch
 git branch --show-current
 
-# If working on a feature, ensure you're on the feature branch
-git checkout feature/{feature-name}
+# 2. If working on a feature, MANDATORY:
+#    a) Get feature: mcp_get_feature(featureId)
+#    b) Get feature branches: mcp_get_feature_branches(featureId)
+#    c) If feature branch exists:
+#       - Switch to it: git checkout feature/{feature-name}
+#       - Pull latest: git pull origin feature/{feature-name}
+#    d) If NO feature branch exists:
+#       - Create it: mcp_create_branch_for_feature(featureId)
+#       - Switch to it: git checkout feature/{feature-name}
+#       - Pull latest: git pull origin feature/{feature-name}
 
-# If no feature branch exists, create it via MCP:
-# mcp_create_branch_for_feature(featureId)
-
-# Pull latest changes
-git pull origin {branch-name}
+# 3. If NOT working on a feature:
+#    - Use develop branch: git checkout develop
+#    - Pull latest: git pull origin develop
 ```
+
+**NEVER start working on a feature without checking the branch first!**
 
 #### 2. During Work
 
@@ -270,6 +307,7 @@ mcp_update_todo_status(todoId, "done")
 #### Git Rules (CRITICAL)
 
 **ALWAYS:**
+- ✅ **Check branch before starting work on a feature!**
 - ✅ Check git status before committing
 - ✅ Use feature branches (never commit to main/master directly)
 - ✅ Use the commit message format with feature ID
@@ -278,8 +316,10 @@ mcp_update_todo_status(todoId, "done")
 - ✅ Test before committing
 
 **NEVER:**
+- ❌ **Start working on a feature without checking the branch first!**
 - ❌ Commit without testing first
 - ❌ Commit to main/master directly
+- ❌ Commit on wrong branch (e.g., develop when working on a feature)
 - ❌ Commit without checking git status
 - ❌ Mark todo as `done` until it's tested AND merged to dev branch
 - ❌ Skip pushing after committing
