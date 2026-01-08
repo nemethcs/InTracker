@@ -41,6 +41,7 @@ export function ProjectDetail() {
   const [selectedElement, setSelectedElement] = useState<any>(null)
   const [elementDetailOpen, setElementDetailOpen] = useState(false)
   const [teams, setTeams] = useState<Team[]>([])
+  const [showProjectStructure, setShowProjectStructure] = useState(false)
 
   useEffect(() => {
     loadTeams()
@@ -342,8 +343,8 @@ export function ProjectDetail() {
       </div>
 
       {/* Element Tree Section - Moved down, less important for daily work */}
-      <details className="group">
-        <summary className="flex items-center justify-between mb-4 cursor-pointer list-none">
+      <div>
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold">Project Structure</h2>
           <div className="flex items-center gap-2">
             {elementTree && elementTree.elements.length > 0 && (
@@ -351,43 +352,52 @@ export function ProjectDetail() {
                 {elementTree.elements.length} {elementTree.elements.length === 1 ? 'element' : 'elements'}
               </div>
             )}
-            <span className="text-sm text-muted-foreground group-open:hidden">Click to expand</span>
-            <span className="text-sm text-muted-foreground hidden group-open:inline">Click to collapse</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowProjectStructure(!showProjectStructure)}
+            >
+              {showProjectStructure ? 'Hide' : 'Show'} Structure
+            </Button>
           </div>
-        </summary>
-        {isLoadingElements ? (
-          <Card>
-            <CardContent className="py-8">
-              <LoadingSpinner />
-            </CardContent>
-          </Card>
-        ) : elementTree && elementTree.elements.length > 0 ? (
-          <Card className="overflow-hidden">
-            <CardHeader className="pb-3">
-              <CardDescription>
-                Click on an element to view details. Use the chevron icons to expand/collapse folders.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="max-h-[400px] overflow-y-auto">
-                <ElementTree
-                  elements={elementTree.elements}
-                  onElementClick={(element) => {
-                    setSelectedElement(element)
-                    setElementDetailOpen(true)
-                  }}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No elements yet. Project structure will appear here.
-            </CardContent>
-          </Card>
+        </div>
+        {showProjectStructure && (
+          <>
+            {isLoadingElements ? (
+              <Card>
+                <CardContent className="py-8">
+                  <LoadingSpinner />
+                </CardContent>
+              </Card>
+            ) : elementTree && elementTree.elements.length > 0 ? (
+              <Card className="overflow-hidden">
+                <CardHeader className="pb-3">
+                  <CardDescription>
+                    Click on an element to view details. Use the chevron icons to expand/collapse folders.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="max-h-[400px] overflow-y-auto">
+                    <ElementTree
+                      elements={elementTree.elements}
+                      onElementClick={(element) => {
+                        setSelectedElement(element)
+                        setElementDetailOpen(true)
+                      }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  No elements yet. Project structure will appear here.
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
-      </details>
+      </div>
 
       {/* Documents Section */}
       <div>
