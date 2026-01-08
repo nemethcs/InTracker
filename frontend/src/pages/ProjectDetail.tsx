@@ -362,14 +362,14 @@ export function ProjectDetail() {
           </div>
         </div>
         {showProjectStructure && (
-          <>
+          <div>
             {isLoadingElements ? (
               <Card>
                 <CardContent className="py-8">
                   <LoadingSpinner />
                 </CardContent>
               </Card>
-            ) : elementTree && elementTree.elements.length > 0 ? (
+            ) : elementTree && elementTree.elements && elementTree.elements.length > 0 ? (
               <Card className="overflow-hidden">
                 <CardHeader className="pb-3">
                   <CardDescription>
@@ -391,11 +391,12 @@ export function ProjectDetail() {
             ) : (
               <Card>
                 <CardContent className="py-8 text-center text-muted-foreground">
-                  No elements yet. Project structure will appear here.
+                  <p>No elements yet. Project structure will appear here.</p>
+                  <p className="text-xs mt-2">Elements are created automatically when you add features and todos to the project.</p>
                 </CardContent>
               </Card>
             )}
-          </>
+          </div>
         )}
       </div>
 
