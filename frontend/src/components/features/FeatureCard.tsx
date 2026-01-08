@@ -16,13 +16,13 @@ export function FeatureCard({ feature, projectId, onEdit, number }: FeatureCardP
     <Link to={`/projects/${projectId}/features/${feature.id}`}>
       <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full relative">
         {number !== undefined && (
-          <div className="absolute top-3 left-3">
-            <Badge variant="outline" className="text-xs font-mono h-5 px-1.5 min-w-[24px] justify-center">
+          <div className="absolute top-2 left-2 z-10">
+            <Badge variant="outline" className="text-xs font-mono h-5 px-1.5 min-w-[24px] justify-center bg-background">
               {number}
             </Badge>
           </div>
         )}
-        <CardHeader>
+        <CardHeader className={number !== undefined ? "pt-10" : ""}>
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <CardTitle className="mb-1">
