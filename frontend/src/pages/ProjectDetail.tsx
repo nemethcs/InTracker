@@ -88,7 +88,12 @@ export function ProjectDetail() {
         }
         return findElementInTree(elementTree.elements)
       })
-      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .sort((a, b) => {
+        // Use completed_at if available, otherwise fallback to updated_at
+        const aTime = a.completed_at ? new Date(a.completed_at).getTime() : new Date(a.updated_at).getTime()
+        const bTime = b.completed_at ? new Date(b.completed_at).getTime() : new Date(b.updated_at).getTime()
+        return bTime - aTime
+      })
       .slice(0, 3)
     
     // Enrich with feature names
@@ -355,7 +360,7 @@ export function ProjectDetail() {
                         </div>
                         <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                           <Clock className="h-3 w-3" />
-                          {format(new Date(todo.updated_at), 'MMM d, HH:mm')}
+                          {format(new Date(todo.completed_at || todo.updated_at), 'MMM d, HH:mm')}
                         </div>
                       </div>
                     </div>
