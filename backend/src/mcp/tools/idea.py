@@ -255,9 +255,21 @@ async def handle_update_idea(
     status: Optional[str] = None,
     tags: Optional[List[str]] = None,
 ) -> dict:
-    """Handle update idea tool call."""
+    """Handle update idea tool call with validation."""
     db = SessionLocal()
     try:
+        # Get idea first to check if it's already converted
+        idea = IdeaService.get_idea_by_id(db, UUID(idea_id))
+        if not idea:
+            return {"error": "Idea not found"}
+        
+        # Validate: cannot update idea that has been converted to project
+        if idea.converted_to_project_id:
+            return {
+                "error": f"Cannot update idea: idea has already been converted to project. "
+                f"Project ID: {idea.converted_to_project_id}"
+            }
+        
         # Use IdeaService to update idea
         idea = IdeaService.update_idea(
             db=db,

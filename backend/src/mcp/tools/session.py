@@ -128,13 +128,40 @@ async def handle_update_session(
     completed_features: Optional[List[str]] = None,
     notes: Optional[str] = None,
 ) -> dict:
-    """Handle update session tool call."""
+    """Handle update session tool call with validation."""
+    from src.database.models import Todo, Feature
+    
     db = SessionLocal()
     try:
-        # Use SessionService to update session
-        todo_uuid_list = [UUID(tid) for tid in completed_todos] if completed_todos is not None else None
-        feature_uuid_list = [UUID(fid) for fid in completed_features] if completed_features is not None else None
+        # Validate completed todos: they should be 'done' status
+        if completed_todos:
+            todo_uuid_list = [UUID(tid) for tid in completed_todos]
+            todos = db.query(Todo).filter(Todo.id.in_(todo_uuid_list)).all()
+            invalid_todos = [str(t.id) for t in todos if t.status != "done"]
+            if invalid_todos:
+                return {
+                    "error": f"Cannot mark todos as completed: some todos are not 'done' status. "
+                    f"Invalid todo IDs: {', '.join(invalid_todos)}"
+                }
+        else:
+            todo_uuid_list = None
         
+        # Validate completed features: they should be 'done', 'tested', or 'merged' status
+        if completed_features:
+            feature_uuid_list = [UUID(fid) for fid in completed_features]
+            features = db.query(Feature).filter(Feature.id.in_(feature_uuid_list)).all()
+            valid_statuses = ["done", "tested", "merged"]
+            invalid_features = [str(f.id) for f in features if f.status not in valid_statuses]
+            if invalid_features:
+                return {
+                    "error": f"Cannot mark features as completed: some features are not in a completed state. "
+                    f"Features must be 'done', 'tested', or 'merged'. "
+                    f"Invalid feature IDs: {', '.join(invalid_features)}"
+                }
+        else:
+            feature_uuid_list = None
+        
+        # Use SessionService to update session
         session = SessionService.update_session(
             db=db,
             session_id=UUID(session_id),
@@ -176,9 +203,39 @@ def get_end_session_tool() -> MCPTool:
 
 
 async def handle_end_session(session_id: str, summary: Optional[str] = None) -> dict:
-    """Handle end session tool call."""
+    """Handle end session tool call with validation."""
+    from src.database.models import Todo, Feature
+    
     db = SessionLocal()
     try:
+        # Get session first to validate completed items
+        from src.database.models import Session as SessionModel
+        session = db.query(SessionModel).filter(SessionModel.id == UUID(session_id)).first()
+        if not session:
+            return {"error": "Session not found"}
+        
+        # Validate completed todos: they should be 'done' status
+        if session.todos_completed:
+            todos = db.query(Todo).filter(Todo.id.in_(session.todos_completed)).all()
+            invalid_todos = [str(t.id) for t in todos if t.status != "done"]
+            if invalid_todos:
+                return {
+                    "error": f"Cannot end session: some completed todos are not 'done' status. "
+                    f"Invalid todo IDs: {', '.join(invalid_todos)}"
+                }
+        
+        # Validate completed features: they should be 'done', 'tested', or 'merged' status
+        if session.features_completed:
+            features = db.query(Feature).filter(Feature.id.in_(session.features_completed)).all()
+            valid_statuses = ["done", "tested", "merged"]
+            invalid_features = [str(f.id) for f in features if f.status not in valid_statuses]
+            if invalid_features:
+                return {
+                    "error": f"Cannot end session: some completed features are not in a completed state. "
+                    f"Features must be 'done', 'tested', or 'merged'. "
+                    f"Invalid feature IDs: {', '.join(invalid_features)}"
+                }
+        
         # Use SessionService to end session
         session = SessionService.end_session(
             db=db,

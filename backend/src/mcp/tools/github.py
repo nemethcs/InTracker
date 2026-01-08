@@ -413,12 +413,21 @@ def get_link_todo_to_pr_tool() -> MCPTool:
 
 async def handle_link_todo_to_pr(todo_id: str, pr_number: int) -> dict:
     """Handle link todo to PR tool call."""
+    from src.mcp.utils.validation import ValidationError
+    
     db = SessionLocal()
     try:
         # Use TodoService to get todo
         todo = TodoService.get_todo_by_id(db, UUID(todo_id))
         if not todo:
             return {"error": "Todo not found"}
+        
+        # Validate: todo must be 'done' before linking to PR
+        if todo.status != "done":
+            return {
+                "error": f"Cannot link todo to PR: todo must be 'done' status (current: '{todo.status}'). "
+                f"Complete the todo first before linking it to a pull request."
+            }
 
         # Use ElementService to get element
         element = ElementService.get_element_by_id(db, todo.element_id)
@@ -599,6 +608,13 @@ async def handle_create_github_pr(
             if todo_id:
                 todo = TodoService.get_todo_by_id(db, UUID(todo_id))
                 if todo:
+                    # Validate: todo must be 'done' before linking to PR
+                    if todo.status != "done":
+                        return {
+                            "error": f"Cannot link todo to PR: todo must be 'done' status (current: '{todo.status}'). "
+                            f"Complete the todo first before creating a PR for it."
+                        }
+                    
                     element = ElementService.get_element_by_id(db, todo.element_id)
                     if element and element.project_id == project.id:
                         # Update todo directly (TodoService doesn't have update method for GitHub fields)
