@@ -96,15 +96,37 @@ async def call_tool(name: str, arguments: dict):
     try:
         # Project tools
         if name == "mcp_get_project_context":
+            # Convert string booleans/integers to proper types (JSON may send them as strings)
+            def to_bool(val, default):
+                if val is None:
+                    return default
+                if isinstance(val, bool):
+                    return val
+                if isinstance(val, str):
+                    return val.lower() in ("true", "1", "yes")
+                return bool(val)
+            
+            def to_int(val, default):
+                if val is None:
+                    return default
+                if isinstance(val, int):
+                    return val
+                if isinstance(val, str):
+                    try:
+                        return int(val)
+                    except ValueError:
+                        return default
+                return default
+            
             result = await project.handle_get_project_context(
                 arguments["projectId"],
-                include_features=arguments.get("includeFeatures", True),
-                include_todos=arguments.get("includeTodos", True),
-                include_structure=arguments.get("includeStructure", True),
-                include_resume_context=arguments.get("includeResumeContext", True),
-                features_limit=arguments.get("featuresLimit", 20),
-                todos_limit=arguments.get("todosLimit", 50),
-                summary_only=arguments.get("summaryOnly", False),
+                include_features=to_bool(arguments.get("includeFeatures"), True),
+                include_todos=to_bool(arguments.get("includeTodos"), True),
+                include_structure=to_bool(arguments.get("includeStructure"), True),
+                include_resume_context=to_bool(arguments.get("includeResumeContext"), True),
+                features_limit=to_int(arguments.get("featuresLimit"), 20),
+                todos_limit=to_int(arguments.get("todosLimit"), 50),
+                summary_only=to_bool(arguments.get("summaryOnly"), False),
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
