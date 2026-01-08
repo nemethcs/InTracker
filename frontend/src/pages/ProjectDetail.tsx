@@ -20,7 +20,10 @@ import { ElementTree } from '@/components/elements/ElementTree'
 import { ElementDetailDialog } from '@/components/elements/ElementDetailDialog'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { ActiveUsers } from '@/components/collaboration/ActiveUsers'
-import { Plus, Edit, FileText, CheckSquare, UsersRound, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Edit, FileText, CheckSquare, UsersRound, ChevronDown, ChevronRight, Clock } from 'lucide-react'
+import { format } from 'date-fns'
+import type { Feature } from '@/services/featureService'
+import type { Todo } from '@/services/todoService'
 
 export function ProjectDetail() {
   const { id } = useParams<{ id: string }>()
@@ -52,6 +55,80 @@ export function ProjectDetail() {
       return findElementInTree(elementTree.elements)
     })
   }, [allTodos, id, elementTree])
+
+  // Sort and filter features: in_progress → done → tested (hide merged)
+  const sortedFeatures = useMemo(() => {
+    const filtered = features.filter(f => f.status !== 'merged')
+    
+    // Sort by status priority, then by updated_at
+    const statusOrder = { 'in_progress': 0, 'done': 1, 'tested': 2, 'new': 3 }
+    
+    return filtered.sort((a, b) => {
+      const statusDiff = (statusOrder[a.status as keyof typeof statusOrder] ?? 999) - 
+                        (statusOrder[b.status as keyof typeof statusOrder] ?? 999)
+      if (statusDiff !== 0) return statusDiff
+      
+      // Within same status, sort by updated_at (most recent first)
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    })
+  }, [features])
+
+  // Get last 3 completed todos (status: done)
+  const lastCompletedTodos = useMemo(() => {
+    const completed = allTodos
+      .filter(todo => {
+        if (todo.status !== 'done') return false
+        if (!id || !elementTree) return true
+        const findElementInTree = (elements: any[]): boolean => {
+          for (const el of elements) {
+            if (el.id === todo.element_id) return true
+            if (el.children && findElementInTree(el.children)) return true
+          }
+          return false
+        }
+        return findElementInTree(elementTree.elements)
+      })
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .slice(0, 3)
+    
+    // Enrich with feature names
+    return completed.map(todo => ({
+      ...todo,
+      featureName: todo.feature_id ? features.find(f => f.id === todo.feature_id)?.name : undefined
+    }))
+  }, [allTodos, id, elementTree, features])
+
+  // Get last worked feature (has in_progress or done todos, or was recently updated)
+  const lastWorkedFeature = useMemo(() => {
+    if (sortedFeatures.length === 0) return null
+    
+    // Find features with active todos
+    const featuresWithActiveTodos = sortedFeatures
+      .map(feature => {
+        const activeTodos = allTodos.filter(t => 
+          t.feature_id === feature.id && 
+          (t.status === 'in_progress' || t.status === 'done')
+        )
+        return { feature, activeTodos: activeTodos.length, lastTodoUpdate: 
+          activeTodos.length > 0 ? Math.max(...activeTodos.map(t => new Date(t.updated_at).getTime())) : 0
+        }
+      })
+      .filter(f => f.activeTodos > 0 || new Date(f.feature.updated_at).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
+    
+    if (featuresWithActiveTodos.length === 0) {
+      // Fallback to most recently updated feature
+      return sortedFeatures[0]
+    }
+    
+    // Sort by last todo update or feature update
+    featuresWithActiveTodos.sort((a, b) => {
+      const aTime = a.lastTodoUpdate || new Date(a.feature.updated_at).getTime()
+      const bTime = b.lastTodoUpdate || new Date(b.feature.updated_at).getTime()
+      return bTime - aTime
+    })
+    
+    return featuresWithActiveTodos[0].feature
+  }, [sortedFeatures, allTodos])
   const [isLoadingElements, setIsLoadingElements] = useState(false)
   const [documents, setDocuments] = useState<Document[]>([])
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false)
@@ -250,6 +327,76 @@ export function ProjectDetail() {
         </Button>
       </div>
 
+      {/* Recent Activity - Compact display */}
+      {(lastCompletedTodos.length > 0 || lastWorkedFeature) && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Recent Activity</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Last 3 completed todos */}
+            {lastCompletedTodos.length > 0 && (
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
+                  Last 3 Completed
+                </h3>
+                <div className="space-y-1.5">
+                  {lastCompletedTodos.map((todo, idx) => (
+                    <div key={todo.id} className="flex items-start gap-2 text-sm">
+                      <CheckSquare className="h-3.5 w-3.5 text-green-500 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium truncate">{todo.title}</span>
+                          {todo.featureName && (
+                            <Badge variant="outline" className="text-xs px-1.5 py-0">
+                              {todo.featureName}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <Clock className="h-3 w-3" />
+                          {format(new Date(todo.updated_at), 'MMM d, HH:mm')}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Last worked feature */}
+            {lastWorkedFeature && (
+              <div className="pt-2 border-t">
+                <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
+                  Last Worked On
+                </h3>
+                <div className="flex items-start gap-2 text-sm">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium truncate">{lastWorkedFeature.name}</span>
+                      <Badge 
+                        variant={
+                          lastWorkedFeature.status === 'done' ? 'default' :
+                          lastWorkedFeature.status === 'tested' ? 'secondary' :
+                          lastWorkedFeature.status === 'in_progress' ? 'secondary' : 'outline'
+                        }
+                        className="text-xs"
+                      >
+                        {lastWorkedFeature.status}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                      <Clock className="h-3 w-3" />
+                      {format(new Date(lastWorkedFeature.updated_at), 'MMM d, HH:mm')}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Resume Context - Most important: what was done, what's next */}
       {currentProject.resume_context && (
         <Card>
@@ -332,11 +479,12 @@ export function ProjectDetail() {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature) => (
+            {sortedFeatures.map((feature, index) => (
               <FeatureCard
                 key={feature.id}
                 feature={feature}
                 projectId={id!}
+                number={index + 1}
               />
             ))}
           </div>

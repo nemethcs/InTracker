@@ -36,9 +36,10 @@ interface TodoCardProps {
   onEdit?: (todo: Todo) => void
   onDelete?: (todo: Todo) => void
   onStatusChange?: (todo: Todo, newStatus: Todo['status']) => void
+  number?: number | string
 }
 
-export function TodoCard({ todo, onEdit, onDelete, onStatusChange }: TodoCardProps) {
+export function TodoCard({ todo, onEdit, onDelete, onStatusChange, number }: TodoCardProps) {
   const StatusIcon = statusIcons[todo.status] || Circle
   const statusColor = statusColors[todo.status] || 'text-muted-foreground'
 
@@ -49,7 +50,12 @@ export function TodoCard({ todo, onEdit, onDelete, onStatusChange }: TodoCardPro
           <div className="flex items-start gap-2 flex-1">
             <StatusIcon className={`h-5 w-5 ${statusColor} flex-shrink-0 mt-0.5`} />
             <div className="flex-1">
-              <CardTitle className="text-base">{todo.title}</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                {number !== undefined && (
+                  <span className="text-muted-foreground font-normal">#{number}</span>
+                )}
+                {todo.title}
+              </CardTitle>
               {todo.description && (
                 <CardDescription className="line-clamp-2 mt-1">
                   {todo.description}

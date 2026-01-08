@@ -8,16 +8,22 @@ interface FeatureCardProps {
   feature: Feature
   projectId: string
   onEdit?: (feature: Feature) => void
+  number?: number
 }
 
-export function FeatureCard({ feature, projectId, onEdit }: FeatureCardProps) {
+export function FeatureCard({ feature, projectId, onEdit, number }: FeatureCardProps) {
   return (
     <Link to={`/projects/${projectId}/features/${feature.id}`}>
       <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
         <CardHeader>
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <CardTitle className="mb-1">{feature.name}</CardTitle>
+              <CardTitle className="mb-1 flex items-center gap-2">
+                {number !== undefined && (
+                  <span className="text-muted-foreground font-normal text-lg">#{number}</span>
+                )}
+                {feature.name}
+              </CardTitle>
               {feature.description && (
                 <CardDescription className="line-clamp-2">
                   {feature.description}

@@ -253,37 +253,46 @@ export function FeatureDetail() {
                     <Badge variant="outline" className="ml-2">{statusTodos.length}</Badge>
                   </div>
                   <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-                    {statusTodos.map((todo) => (
-                      <TodoCard
-                        key={todo.id}
-                        todo={todo}
-                        onEdit={(todo) => {
-                          setEditingTodo(todo)
-                          setTodoEditorOpen(true)
-                        }}
-                        onDelete={async (todo) => {
-                          if (confirm('Are you sure you want to delete this todo?')) {
-                            await deleteTodo(todo.id)
-                            refetchTodos()
-                          }
-                        }}
-                        onStatusChange={async (todo, newStatus) => {
-                          try {
-                            await updateTodoStatus(todo.id, newStatus, todo.version)
-                            refetchTodos()
-                          } catch (error: any) {
-                            if (error.isConflict) {
-                              // Show conflict warning
-                              alert(`Conflict: ${error.message}\n\nPlease refresh the page to get the latest version.`)
-                              // Refresh todos to get latest data
+                    {statusTodos.map((todo, todoIndex) => {
+                      // Calculate todo number: find position in all todos sorted by created_at
+                      const allTodosSorted = [...todos].sort((a, b) => {
+                        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                      })
+                      const todoNumber = allTodosSorted.findIndex(t => t.id === todo.id) + 1
+                      
+                      return (
+                        <TodoCard
+                          key={todo.id}
+                          todo={todo}
+                          number={todoNumber}
+                          onEdit={(todo) => {
+                            setEditingTodo(todo)
+                            setTodoEditorOpen(true)
+                          }}
+                          onDelete={async (todo) => {
+                            if (confirm('Are you sure you want to delete this todo?')) {
+                              await deleteTodo(todo.id)
                               refetchTodos()
-                            } else {
-                              alert(`Failed to update todo: ${error.message}`)
                             }
-                          }
-                        }}
-                      />
-                    ))}
+                          }}
+                          onStatusChange={async (todo, newStatus) => {
+                            try {
+                              await updateTodoStatus(todo.id, newStatus, todo.version)
+                              refetchTodos()
+                            } catch (error: any) {
+                              if (error.isConflict) {
+                                // Show conflict warning
+                                alert(`Conflict: ${error.message}\n\nPlease refresh the page to get the latest version.`)
+                                // Refresh todos to get latest data
+                                refetchTodos()
+                              } else {
+                                alert(`Failed to update todo: ${error.message}`)
+                              }
+                            }
+                          }}
+                        />
+                      )
+                    })}
                   </div>
                 </div>
               )
