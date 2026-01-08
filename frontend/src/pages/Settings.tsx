@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuthStore } from '@/stores/authStore'
 import { mcpKeyService, type McpApiKey } from '@/services/mcpKeyService'
-import { Settings as SettingsIcon, Key, Copy, CheckCircle2, RefreshCw, AlertCircle } from 'lucide-react'
+import { Settings as SettingsIcon, Key, Copy, CheckCircle2, RefreshCw, AlertCircle, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -19,6 +19,8 @@ export function Settings() {
   const [showNewKeyDialog, setShowNewKeyDialog] = useState(false)
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [copiedConfig, setCopiedConfig] = useState(false)
+  const [showCursorConfigDialog, setShowCursorConfigDialog] = useState(false)
 
   useEffect(() => {
     loadCurrentKey()
@@ -62,6 +64,62 @@ export function Settings() {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
+  }
+
+  const generateCursorConfig = (apiKey: string): string => {
+    // Determine if we should use HTTP/SSE or stdio
+    // For now, we'll provide both options
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+    const isProduction = apiBaseUrl.includes('intracker-api.kesmarki.com') || apiBaseUrl.includes('azure')
+    
+    if (isProduction) {
+      // HTTP/SSE transport for production
+      return JSON.stringify({
+        mcpServers: {
+          intracker: {
+            url: `${apiBaseUrl}/mcp/sse`,
+            headers: {
+              "X-API-Key": apiKey
+            }
+          }
+        }
+      }, null, 2)
+    } else {
+      // stdio transport for local development
+      // Note: This assumes the MCP server is in the same repo
+      // Users may need to adjust the path
+      return JSON.stringify({
+        mcpServers: {
+          intracker: {
+            command: "python",
+            args: ["-m", "src.mcp.server"],
+            env: {
+              "MCP_API_KEY": apiKey,
+              "DATABASE_URL": "${DATABASE_URL}"
+            }
+          }
+        }
+      }, null, 2)
+    }
+  }
+
+  const handleAddToCursor = async () => {
+    if (!mcpKey) {
+      // If no key exists, generate one first
+      await handleRegenerateKey()
+      return
+    }
+
+    // We need the plain text key, but we can't retrieve it
+    // So we'll show instructions to generate a new key or use the existing one
+    setShowCursorConfigDialog(true)
+  }
+
+  const handleCopyCursorConfig = async (apiKey: string) => {
+    const config = generateCursorConfig(apiKey)
+    await navigator.clipboard.writeText(config)
+    setCopiedConfig(true)
+    setTimeout(() => setCopiedConfig(false), 2000)
   }
 
   const handleLogout = () => {
@@ -176,15 +234,24 @@ export function Settings() {
                 </AlertDescription>
               </Alert>
 
-              <Button
-                onClick={handleRegenerateKey}
-                disabled={isRegenerating}
-                variant="outline"
-                className="w-full"
-              >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
-                {isRegenerating ? 'Regenerating...' : 'Regenerate Key'}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleAddToCursor}
+                  className="flex-1"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add to Cursor
+                </Button>
+                <Button
+                  onClick={handleRegenerateKey}
+                  disabled={isRegenerating}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  <RefreshCw className={`mr-2 h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
+                  {isRegenerating ? 'Regenerating...' : 'Regenerate Key'}
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -203,6 +270,19 @@ export function Settings() {
                 <Key className={`mr-2 h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
                 {isRegenerating ? 'Generating...' : 'Generate MCP API Key'}
               </Button>
+              {newKey && (
+                <Button
+                  onClick={() => {
+                    handleCopyCursorConfig(newKey)
+                    setShowCursorConfigDialog(true)
+                  }}
+                  className="w-full mt-2"
+                  variant="outline"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add to Cursor
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
@@ -252,6 +332,67 @@ export function Settings() {
           <DialogFooter>
             <Button onClick={() => setShowNewKeyDialog(false)}>
               I've Saved the Key
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cursor Configuration Dialog */}
+      <Dialog open={showCursorConfigDialog} onOpenChange={setShowCursorConfigDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add InTracker to Cursor</DialogTitle>
+            <DialogDescription>
+              Copy the configuration below and add it to your Cursor MCP settings.
+              {newKey ? ' The API key is included in the configuration.' : ' You\'ll need to add your MCP API key manually.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Cursor MCP Configuration</Label>
+              <div className="flex gap-2">
+                <textarea
+                  value={newKey ? generateCursorConfig(newKey) : (mcpKey ? '// Generate a new key to get the configuration' : '// No key available')}
+                  readOnly
+                  className="flex-1 font-mono text-xs p-3 bg-muted rounded-md min-h-[200px] resize-none"
+                  spellCheck={false}
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    if (newKey) {
+                      handleCopyCursorConfig(newKey)
+                    }
+                  }}
+                  title="Copy configuration to clipboard"
+                  disabled={!newKey}
+                >
+                  {copiedConfig ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>How to add:</strong>
+                <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">
+                  <li>Open Cursor Settings (Cmd/Ctrl + ,)</li>
+                  <li>Go to "Features" → "Model Context Protocol"</li>
+                  <li>Click "Edit Config" or open the MCP settings file</li>
+                  <li>Paste the configuration above into the <code className="text-xs bg-muted px-1 py-0.5 rounded">mcpServers</code> section</li>
+                  <li>Save and restart Cursor</li>
+                </ol>
+              </AlertDescription>
+            </Alert>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowCursorConfigDialog(false)}>
+              Done
             </Button>
           </DialogFooter>
         </DialogContent>
