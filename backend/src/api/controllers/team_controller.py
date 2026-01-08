@@ -15,6 +15,7 @@ from src.api.schemas.team import (
     TeamMemberResponse,
     TeamListResponse,
     TeamInvitationResponse,
+    TeamLanguageRequest,
 )
 
 router = APIRouter(prefix="/teams", tags=["teams"])
@@ -45,6 +46,7 @@ async def create_team(
             "id": str(team.id),
             "name": team.name,
             "description": team.description,
+            "language": team.language,
             "created_by": str(team.created_by),
             "created_at": team.created_at,
             "updated_at": team.updated_at,
@@ -79,6 +81,7 @@ async def list_teams(
             "id": str(team.id),
             "name": team.name,
             "description": team.description,
+            "language": team.language,
             "created_by": str(team.created_by),
             "created_at": team.created_at,
             "updated_at": team.updated_at,
@@ -165,6 +168,7 @@ async def update_team(
             "id": str(updated_team.id),
             "name": updated_team.name,
             "description": updated_team.description,
+            "language": updated_team.language,
             "created_by": str(updated_team.created_by),
             "created_at": updated_team.created_at,
             "updated_at": updated_team.updated_at,
@@ -323,6 +327,47 @@ async def update_member_role(
             "user_id": str(team_member.user_id),
             "role": team_member.role,
             "joined_at": team_member.joined_at,
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.post("/{team_id}/language", response_model=TeamResponse, status_code=status.HTTP_200_OK)
+async def set_team_language(
+    team_id: UUID,
+    request: TeamLanguageRequest,
+    current_user: dict = Depends(get_current_team_leader),
+    db: Session = Depends(get_db),
+):
+    """Set team language. Only team leaders can set language, and it can only be set once."""
+    user_role = current_user.get("role")
+    current_user_id = UUID(current_user["user_id"])
+
+    # Check if user is admin or team leader
+    if user_role != "admin" and not TeamService.is_team_leader(db, team_id, current_user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only team leaders or admins can set team language",
+        )
+
+    try:
+        team = TeamService.set_team_language(
+            db=db,
+            team_id=team_id,
+            language=request.language,
+        )
+        # Convert UUIDs to strings for response
+        return {
+            "id": str(team.id),
+            "name": team.name,
+            "description": team.description,
+            "language": team.language,
+            "created_by": str(team.created_by),
+            "created_at": team.created_at,
+            "updated_at": team.updated_at,
         }
     except ValueError as e:
         raise HTTPException(
