@@ -50,12 +50,7 @@ export function TodoCard({ todo, onEdit, onDelete, onStatusChange, number }: Tod
           <div className="flex items-start gap-2 flex-1">
             <StatusIcon className={`h-5 w-5 ${statusColor} flex-shrink-0 mt-0.5`} />
             <div className="flex-1">
-              <CardTitle className="text-base flex items-center gap-2">
-                {number !== undefined && (
-                  <Badge variant="outline" className="text-xs font-mono h-4 px-1.5 min-w-[20px] justify-center flex-shrink-0">
-                    {number}
-                  </Badge>
-                )}
+              <CardTitle className="text-base">
                 {todo.title}
               </CardTitle>
               {todo.description && (
@@ -65,28 +60,11 @@ export function TodoCard({ todo, onEdit, onDelete, onStatusChange, number }: Tod
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            {onEdit && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => onEdit(todo)}
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-            )}
-            {onDelete && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive hover:text-destructive"
-                onClick={() => onDelete(todo)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
+          {number !== undefined && (
+            <Badge variant="outline" className="text-xs font-mono h-5 px-1.5 min-w-[24px] justify-center flex-shrink-0">
+              {number}
+            </Badge>
+          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -101,23 +79,6 @@ export function TodoCard({ todo, onEdit, onDelete, onStatusChange, number }: Tod
             >
               {todo.status.replace('_', ' ')}
             </Badge>
-            {onStatusChange && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const nextStatus: Todo['status'] = 
-                    todo.status === 'new' ? 'in_progress' :
-                    todo.status === 'in_progress' ? 'done' :
-                    'new'
-                  onStatusChange(todo, nextStatus)
-                }}
-              >
-                <CheckCircle2 className="h-3 w-3 mr-1" />
-                {todo.status === 'new' ? 'Start' : 
-                 todo.status === 'in_progress' ? 'Mark Done' : 'Reset'}
-              </Button>
-            )}
           </div>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             {todo.assigned_to && (
