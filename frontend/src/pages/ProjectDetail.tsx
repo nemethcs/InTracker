@@ -4,10 +4,10 @@ import { useProject } from '@/hooks/useProject'
 import { useFeatures } from '@/hooks/useFeatures'
 import { useFeatureStore } from '@/stores/featureStore'
 import { useProjectStore } from '@/stores/projectStore'
+import { useTodoStore } from '@/stores/todoStore'
 import { adminService, type Team } from '@/services/adminService'
 import { elementService, type ElementTree as ElementTreeData } from '@/services/elementService'
 import { documentService, type Document } from '@/services/documentService'
-import { todoService } from '@/services/todoService'
 import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
@@ -26,9 +26,23 @@ export function ProjectDetail() {
   const { id } = useParams<{ id: string }>()
   const { currentProject, isLoading: projectLoading, error: projectError } = useProject(id)
   const { features, isLoading: featuresLoading, refetch: refetchFeatures } = useFeatures(id)
-  // Get all todos for the project - we'll use the todoService directly since useTodos doesn't support projectId
-  const [todos, setTodos] = useState<any[]>([])
-  const [isLoadingTodos, setIsLoadingTodos] = useState(false)
+  // Use todoStore directly - it supports projectId and auto-updates via SignalR
+  const { todos: allTodos, isLoading: isLoadingTodos, fetchTodos } = useTodoStore()
+  // Filter todos: only open todos (exclude "done" status) for this project
+  // Filter by project using element tree - only show todos whose elements belong to this project
+  const todos = allTodos.filter(todo => {
+    if (todo.status === 'done') return false // Only show open todos
+    if (!id || !elementTree) return true // If no project or element tree not loaded yet, show all
+    // Check if todo's element belongs to this project by searching in element tree
+    const findElementInTree = (elements: any[]): boolean => {
+      for (const el of elements) {
+        if (el.id === todo.element_id) return true
+        if (el.children && findElementInTree(el.children)) return true
+      }
+      return false
+    }
+    return findElementInTree(elementTree.elements)
+  })
   const { createFeature, updateFeature } = useFeatureStore()
   const { updateProject, fetchProject } = useProjectStore()
   const [featureEditorOpen, setFeatureEditorOpen] = useState(false)
@@ -109,39 +123,21 @@ export function ProjectDetail() {
           setIsLoadingDocuments(false)
         })
 
-      setIsLoadingTodos(true)
-      todoService.listTodos(undefined, undefined, id)
-        .then((projectTodos) => {
-          // Filter out "done" todos - only show open todos (new, in_progress, tested)
-          const openTodos = projectTodos.filter(todo => todo.status !== 'done')
-          setTodos(openTodos)
-          setIsLoadingTodos(false)
-        })
-        .catch((error) => {
-          console.error('Failed to load todos:', error)
-          setIsLoadingTodos(false)
-        })
+      // Fetch todos using store - it will auto-update via SignalR
+      fetchTodos(undefined, undefined, id)
 
     // Subscribe to SignalR real-time updates
+    // Note: We don't need to manually refresh - the stores auto-update via SignalR subscriptions
+    // The components will re-render automatically when the store state changes
     const handleTodoUpdate = (data: { todoId: string; projectId: string; userId: string; changes: any }) => {
-      if (data.projectId === id) {
-        // Refresh todos list to get updated data
-        todoService.listTodos(undefined, undefined, id)
-          .then((projectTodos) => {
-            const openTodos = projectTodos.filter(todo => todo.status !== 'done')
-            setTodos(openTodos)
-          })
-          .catch((error) => {
-            console.error('Failed to refresh todos after update:', error)
-          })
-      }
+      // Store already handles this via SignalR subscription in todoStore
+      // Only fetch if the todo is not in the current list (e.g., new todo created)
+      // The store's SignalR handler will fetch it automatically if needed
     }
 
     const handleFeatureUpdate = (data: { featureId: string; projectId: string; progress: number }) => {
-      if (data.projectId === id) {
-        // Refresh features list to get updated progress
-        refetchFeatures()
-      }
+      // Store already handles this via SignalR subscription in featureStore
+      // No need to manually refetch - the store updates automatically
     }
 
     const handleUserActivity = (data: { userId: string; projectId: string; action: string; featureId?: string }) => {
