@@ -22,7 +22,7 @@ def get_project_context_tool() -> MCPTool:
     """Get project context tool definition."""
     return MCPTool(
         name="mcp_get_project_context",
-        description="Get comprehensive project information including project metadata, element structure tree, all features, active todos (new/in_progress/done), and cached resume context. Use this for initial project exploration.",
+        description="Get comprehensive project information with optional filtering for large projects. Returns project metadata, element structure tree, features, active todos (new/in_progress/done), and cached resume context. Use optional parameters to reduce response size for large projects. Use summaryOnly=true for quick overview with just statistics.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -30,15 +30,71 @@ def get_project_context_tool() -> MCPTool:
                     "type": "string",
                     "description": "Project UUID",
                 },
+                "includeFeatures": {
+                    "type": "boolean",
+                    "description": "Include features list (default: true). Set to false to exclude features from response.",
+                    "default": True,
+                },
+                "includeTodos": {
+                    "type": "boolean",
+                    "description": "Include active todos list (default: true). Set to false to exclude todos from response.",
+                    "default": True,
+                },
+                "includeStructure": {
+                    "type": "boolean",
+                    "description": "Include element structure tree (default: true). Set to false to exclude structure from response.",
+                    "default": True,
+                },
+                "includeResumeContext": {
+                    "type": "boolean",
+                    "description": "Include resume context (default: true). Set to false to exclude resume context from response.",
+                    "default": True,
+                },
+                "featuresLimit": {
+                    "type": "integer",
+                    "description": "Maximum number of features to return (default: 20). Use 0 for no limit. Lower values improve performance for large projects.",
+                    "default": 20,
+                },
+                "todosLimit": {
+                    "type": "integer",
+                    "description": "Maximum number of active todos to return (default: 50). Use 0 for no limit. Lower values improve performance for large projects.",
+                    "default": 50,
+                },
+                "summaryOnly": {
+                    "type": "boolean",
+                    "description": "Return only summary statistics (counts) instead of full data (default: false). Useful for quick overviews without loading all details.",
+                    "default": False,
+                },
             },
             "required": ["projectId"],
         },
     )
 
 
-async def handle_get_project_context(project_id: str) -> dict:
-    """Handle get project context tool call."""
-    cache_key = f"project:{project_id}:context"
+async def handle_get_project_context(
+    project_id: str,
+    include_features: bool = True,
+    include_todos: bool = True,
+    include_structure: bool = True,
+    include_resume_context: bool = True,
+    features_limit: int = 20,
+    todos_limit: int = 50,
+    summary_only: bool = False,
+) -> dict:
+    """Handle get project context tool call with optional filtering for large projects."""
+    # Build cache key based on parameters to prevent cache collisions
+    # Use string concatenation for deterministic cache keys
+    cache_key_parts = [
+        f"project:{project_id}:context",
+        f"f:{int(include_features)}",
+        f"t:{int(include_todos)}",
+        f"s:{int(include_structure)}",
+        f"r:{int(include_resume_context)}",
+        f"fl:{features_limit}",
+        f"tl:{todos_limit}",
+        f"sum:{int(summary_only)}",
+    ]
+    cache_key = ":".join(cache_key_parts)
     
     # Check cache
     cached = cache_service.get(cache_key)
@@ -52,35 +108,55 @@ async def handle_get_project_context(project_id: str) -> dict:
         if not project:
             return {"error": "Project not found"}
 
-        # Use ElementService to get elements
-        elements = ElementService.get_project_elements_tree(db, UUID(project_id))
+        # Always include project metadata
+        project_data = {
+            "id": str(project.id),
+            "name": project.name,
+            "description": project.description,
+            "status": project.status,
+            "tags": project.tags,
+            "technology_tags": project.technology_tags,
+            "cursor_instructions": project.cursor_instructions,
+        }
 
-        # Use FeatureService to get features
-        features, _ = FeatureService.get_features_by_project(db, UUID(project_id))
+        # If summary_only, return just counts
+        if summary_only:
+            # Get counts efficiently
+            from sqlalchemy import func
+            from src.database.models import Feature, Todo, ProjectElement
+            
+            feature_count = db.query(func.count(Feature.id)).filter(Feature.project_id == UUID(project_id)).scalar()
+            todo_count = (
+                db.query(func.count(Todo.id))
+                .join(ProjectElement)
+                .filter(
+                    ProjectElement.project_id == UUID(project_id),
+                    Todo.status.in_(["new", "in_progress", "done"])
+                )
+                .scalar()
+            )
+            element_count = db.query(func.count(ProjectElement.id)).filter(ProjectElement.project_id == UUID(project_id)).scalar()
+            
+            context = {
+                "project": project_data,
+                "summary": {
+                    "feature_count": feature_count,
+                    "active_todo_count": todo_count,
+                    "element_count": element_count,
+                },
+            }
+            
+            # Cache summary for 5 minutes
+            cache_service.set(cache_key, context, ttl=300)
+            return context
 
-        # Use TodoService to get active todos (no user filtering in project context - shows all)
-        todos, _ = TodoService.get_todos_by_project(
-            db=db,
-            project_id=UUID(project_id),
-            status=None,  # We'll filter manually for active statuses
-            skip=0,
-            limit=1000,
-        )
-        # Filter for active statuses (todos: new, in_progress, done - tested/merged are feature-level)
-        todos = [t for t in todos if t.status in ["new", "in_progress", "done"]]
+        # Build response based on include flags
+        context = {"project": project_data}
 
-        # Build response
-        context = {
-            "project": {
-                "id": str(project.id),
-                "name": project.name,
-                "description": project.description,
-                "status": project.status,
-                "tags": project.tags,
-                "technology_tags": project.technology_tags,
-                "cursor_instructions": project.cursor_instructions,
-            },
-            "structure": [
+        # Include structure if requested
+        if include_structure:
+            elements = ElementService.get_project_elements_tree(db, UUID(project_id))
+            context["structure"] = [
                 {
                     "id": str(e.id),
                     "type": e.type,
@@ -90,8 +166,19 @@ async def handle_get_project_context(project_id: str) -> dict:
                     "parent_id": str(e.parent_id) if e.parent_id else None,
                 }
                 for e in elements
-            ],
-            "features": [
+            ]
+
+        # Include features if requested
+        if include_features:
+            # Get features with limit
+            features, total_features = FeatureService.get_features_by_project(
+                db=db,
+                project_id=UUID(project_id),
+                status=None,
+                skip=0,
+                limit=features_limit if features_limit > 0 else None,
+            )
+            context["features"] = [
                 {
                     "id": str(f.id),
                     "name": f.name,
@@ -102,8 +189,30 @@ async def handle_get_project_context(project_id: str) -> dict:
                     "completed_todos": f.completed_todos,
                 }
                 for f in features
-            ],
-            "active_todos": [
+            ]
+            # Include total count if limited
+            if features_limit > 0 and total_features > len(features):
+                context["features_total"] = total_features
+                context["features_shown"] = len(features)
+
+        # Include todos if requested
+        if include_todos:
+            # Get active todos with limit
+            todos, total_todos = TodoService.get_todos_by_project(
+                db=db,
+                project_id=UUID(project_id),
+                status=None,  # We'll filter manually for active statuses
+                skip=0,
+                limit=todos_limit if todos_limit > 0 else None,
+            )
+            # Filter for active statuses (todos: new, in_progress, done - tested/merged are feature-level)
+            active_todos = [t for t in todos if t.status in ["new", "in_progress", "done"]]
+            
+            # Apply limit after filtering
+            if todos_limit > 0 and len(active_todos) > todos_limit:
+                active_todos = active_todos[:todos_limit]
+            
+            context["active_todos"] = [
                 {
                     "id": str(t.id),
                     "title": t.title,
@@ -112,10 +221,29 @@ async def handle_get_project_context(project_id: str) -> dict:
                     "element_id": str(t.element_id),
                     "feature_id": str(t.feature_id) if t.feature_id else None,
                 }
-                for t in todos
-            ],
-            "resume_context": project.resume_context or {},
-        }
+                for t in active_todos
+            ]
+            # Include total count if limited
+            if todos_limit > 0:
+                # Count all active todos for total
+                from sqlalchemy import func
+                from src.database.models import Todo, ProjectElement
+                total_active = (
+                    db.query(func.count(Todo.id))
+                    .join(ProjectElement)
+                    .filter(
+                        ProjectElement.project_id == UUID(project_id),
+                        Todo.status.in_(["new", "in_progress", "done"])
+                    )
+                    .scalar()
+                )
+                if total_active > len(active_todos):
+                    context["active_todos_total"] = total_active
+                    context["active_todos_shown"] = len(active_todos)
+
+        # Include resume context if requested
+        if include_resume_context:
+            context["resume_context"] = project.resume_context or {}
 
         # Cache for 5 minutes
         cache_service.set(cache_key, context, ttl=300)

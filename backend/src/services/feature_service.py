@@ -69,12 +69,16 @@ class FeatureService:
         project_id: UUID,
         status: Optional[str] = None,
         sort: Optional[str] = "updated_at_desc",
+        skip: int = 0,
+        limit: Optional[int] = None,
     ) -> tuple[List[Feature], int]:
-        """Get features for a project with optional filtering and sorting.
+        """Get features for a project with optional filtering, sorting, and pagination.
         
         Args:
             sort: Sort order. Options: "updated_at_desc" (default), "updated_at_asc", 
                   "created_at_desc", "created_at_asc", "name_asc", "name_desc"
+            skip: Number of features to skip (for pagination)
+            limit: Maximum number of features to return (None for no limit)
         """
         query = db.query(Feature).filter(Feature.project_id == project_id)
 
@@ -99,6 +103,13 @@ class FeatureService:
             query = query.order_by(Feature.updated_at.desc())
 
         total = query.count()
+        
+        # Apply pagination
+        if skip > 0:
+            query = query.offset(skip)
+        if limit is not None and limit > 0:
+            query = query.limit(limit)
+        
         features = query.all()
 
         return features, total
