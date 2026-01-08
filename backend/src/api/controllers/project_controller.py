@@ -97,6 +97,34 @@ async def list_projects(
     )
 
 
+@router.get("/{project_id}/active-users")
+async def get_active_users(
+    project_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get active users for a project (users with open MCP sessions on project todos).
+    
+    Active user = user with open session (ended_at IS NULL) on the project.
+    If no open sessions, returns empty array.
+    """
+    from src.services.session_service import session_service
+    
+    # Check project access
+    if not project_service.check_user_access(
+        db=db,
+        user_id=UUID(current_user["user_id"]),
+        project_id=project_id,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have access to this project",
+        )
+
+    active_users = session_service.get_active_users_for_project(db=db, project_id=project_id)
+    return {"active_users": active_users, "count": len(active_users)}
+
+
 @router.get("/{project_id}", response_model=ProjectResponse)
 async def get_project(
     project_id: UUID,
