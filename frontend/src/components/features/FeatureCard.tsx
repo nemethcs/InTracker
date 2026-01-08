@@ -32,7 +32,7 @@ export function FeatureCard({ feature, projectId, onEdit, number }: FeatureCardP
             {feature.status}
           </Badge>
         </div>
-        <CardHeader className={(number !== undefined || true) ? "pt-10" : ""}>
+        <CardHeader className="pt-10">
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <CardTitle className="mb-1">
