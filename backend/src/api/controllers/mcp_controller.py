@@ -13,14 +13,42 @@ router = APIRouter(prefix="/mcp", tags=["mcp"])
 sse_transport = SseServerTransport("/mcp/messages/")
 
 
-def verify_api_key(api_key: Optional[str]) -> None:
-    """Verify API key."""
-    if not settings.MCP_API_KEY:
-        # If no API key is set, allow all requests (development)
-        return
+def verify_api_key(api_key: Optional[str]) -> Optional[str]:
+    """Verify API key and return user_id if valid.
     
-    if not api_key or api_key != settings.MCP_API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+    Checks both:
+    1. User-specific MCP API keys from database (preferred)
+    2. Legacy settings.MCP_API_KEY (fallback for development)
+    
+    Returns:
+        user_id (as string) if key is valid, None otherwise
+    """
+    if not api_key:
+        raise HTTPException(status_code=401, detail="Missing API key")
+    
+    # First, try to verify as user-specific MCP API key
+    from src.database.base import SessionLocal
+    from src.services.mcp_key_service import mcp_key_service
+    
+    db = SessionLocal()
+    try:
+        user_id = mcp_key_service.verify_and_get_user_id(db=db, key=api_key)
+        if user_id:
+            # Valid user-specific key found
+            return str(user_id)
+    except Exception as e:
+        # Key not found in database, try legacy key
+        pass
+    finally:
+        db.close()
+    
+    # Fallback to legacy settings.MCP_API_KEY (for development)
+    if settings.MCP_API_KEY and api_key == settings.MCP_API_KEY:
+        # Legacy key is valid, but no user_id (returns None)
+        return None
+    
+    # Key is invalid
+    raise HTTPException(status_code=401, detail="Invalid API key")
 
 
 @router.get("/health")
@@ -38,7 +66,7 @@ class MCPSSEASGIApp:
             await response(scope, receive, send)
             return
         
-        # Verify API key
+        # Verify API key and get user_id
         api_key = None
         headers = scope.get("headers", [])
         for key, value in headers:
@@ -47,7 +75,11 @@ class MCPSSEASGIApp:
                 break
         
         try:
-            verify_api_key(api_key)
+            user_id = verify_api_key(api_key)
+            # Set the user_id in MCP middleware for this connection
+            if user_id:
+                from src.mcp.middleware.auth import set_mcp_api_key
+                set_mcp_api_key(api_key)  # This will extract and set user_id
         except HTTPException as e:
             response = JSONResponse(
                 content={"detail": e.detail},
@@ -79,7 +111,7 @@ class MCPMessagesASGIApp:
             await response(scope, receive, send)
             return
         
-        # Verify API key
+        # Verify API key and get user_id
         api_key = None
         headers = scope.get("headers", [])
         for key, value in headers:
@@ -88,7 +120,11 @@ class MCPMessagesASGIApp:
                 break
         
         try:
-            verify_api_key(api_key)
+            user_id = verify_api_key(api_key)
+            # Set the user_id in MCP middleware for this connection
+            if user_id:
+                from src.mcp.middleware.auth import set_mcp_api_key
+                set_mcp_api_key(api_key)  # This will extract and set user_id
         except HTTPException as e:
             response = JSONResponse(
                 content={"detail": e.detail},
