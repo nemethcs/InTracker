@@ -28,6 +28,12 @@ export function ProjectDetail() {
   const { features, isLoading: featuresLoading, refetch: refetchFeatures } = useFeatures(id)
   // Use todoStore directly - it supports projectId and auto-updates via SignalR
   const { todos: allTodos, isLoading: isLoadingTodos, fetchTodos } = useTodoStore()
+  const { createFeature, updateFeature } = useFeatureStore()
+  const { updateProject, fetchProject } = useProjectStore()
+  const [featureEditorOpen, setFeatureEditorOpen] = useState(false)
+  const [editingFeature, setEditingFeature] = useState<any>(null)
+  const [projectEditorOpen, setProjectEditorOpen] = useState(false)
+  const [elementTree, setElementTree] = useState<ElementTreeData | null>(null)
   // Filter todos: only open todos (exclude "done" status) for this project
   // Filter by project using element tree - only show todos whose elements belong to this project
   // Use useMemo to avoid recalculating on every render and to handle elementTree initialization
@@ -46,12 +52,6 @@ export function ProjectDetail() {
       return findElementInTree(elementTree.elements)
     })
   }, [allTodos, id, elementTree])
-  const { createFeature, updateFeature } = useFeatureStore()
-  const { updateProject, fetchProject } = useProjectStore()
-  const [featureEditorOpen, setFeatureEditorOpen] = useState(false)
-  const [editingFeature, setEditingFeature] = useState<any>(null)
-  const [projectEditorOpen, setProjectEditorOpen] = useState(false)
-  const [elementTree, setElementTree] = useState<ElementTreeData | null>(null)
   const [isLoadingElements, setIsLoadingElements] = useState(false)
   const [documents, setDocuments] = useState<Document[]>([])
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false)
