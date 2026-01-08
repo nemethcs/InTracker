@@ -250,7 +250,8 @@ async def handle_update_feature_status(feature_id: str, status: str) -> dict:
             broadcast_feature_update(
                 str(feature.project_id),
                 str(feature_id),
-                percentage
+                feature.progress_percentage,
+                feature.status
             )
         )
 

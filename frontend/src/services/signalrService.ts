@@ -2,7 +2,7 @@ import { HubConnection, HubConnectionBuilder, LogLevel } from '@microsoft/signal
 
 export interface SignalREvents {
   todoUpdated: (data: { todoId: string; projectId: string; userId: string; changes: any }) => void
-  featureUpdated: (data: { featureId: string; projectId: string; progress: number }) => void
+  featureUpdated: (data: { featureId: string; projectId: string; progress: number; status?: string }) => void
   userActivity: (data: { userId: string; projectId: string; action: string; featureId?: string }) => void
   projectUpdated: (data: { projectId: string; changes: any }) => void
   userJoined: (data: { userId: string; projectId: string }) => void

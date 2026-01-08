@@ -60,11 +60,13 @@ async def create_todo(
             # Update feature progress if todo is linked to a feature
             if todo.feature_id:
                 progress = feature_service.calculate_feature_progress(db=db, feature_id=todo.feature_id)
+                feature = feature_service.get_feature_by_id(db=db, feature_id=todo.feature_id)
                 background_tasks.add_task(
                     broadcast_feature_update,
                     str(element.project_id),
                     str(todo.feature_id),
-                    progress["percentage"]
+                    progress["percentage"],
+                    feature.status if feature else None
                 )
         
         return todo
@@ -269,11 +271,13 @@ async def update_todo(
             # Update feature progress if todo is linked to a feature and status changed
             if updated_todo.feature_id and todo_data.status is not None:
                 progress = feature_service.calculate_feature_progress(db=db, feature_id=updated_todo.feature_id)
+                feature = feature_service.get_feature_by_id(db=db, feature_id=updated_todo.feature_id)
                 background_tasks.add_task(
                     broadcast_feature_update,
                     str(element.project_id),
                     str(updated_todo.feature_id),
-                    progress["percentage"]
+                    progress["percentage"],
+                    feature.status if feature else None
                 )
 
         return updated_todo
@@ -386,11 +390,13 @@ async def update_todo_status(
             # Update feature progress if todo is linked to a feature
             if updated_todo.feature_id:
                 progress = feature_service.calculate_feature_progress(db=db, feature_id=updated_todo.feature_id)
+                feature = feature_service.get_feature_by_id(db=db, feature_id=updated_todo.feature_id)
                 background_tasks.add_task(
                     broadcast_feature_update,
                     str(element.project_id),
                     str(updated_todo.feature_id),
-                    progress["percentage"]
+                    progress["percentage"],
+                    feature.status if feature else None
                 )
 
         return updated_todo

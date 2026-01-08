@@ -519,8 +519,8 @@ async def broadcast_todo_update(project_id: str, todo_id: str, user_id: UUID, ch
     await connection_manager.broadcast_to_project(project_id, message)
 
 
-async def broadcast_feature_update(project_id: str, feature_id: str, progress: int):
-    """Broadcast feature progress update to project group."""
+async def broadcast_feature_update(project_id: str, feature_id: str, progress: int, status: Optional[str] = None):
+    """Broadcast feature progress and status update to project group."""
     # SignalR message format
     message = {
         "type": 1,  # SignalR invocation
@@ -528,7 +528,8 @@ async def broadcast_feature_update(project_id: str, feature_id: str, progress: i
         "arguments": [{
             "featureId": feature_id,
             "projectId": project_id,
-            "progress": progress
+            "progress": progress,
+            "status": status
         }]
     }
     await connection_manager.broadcast_to_project(project_id, message)

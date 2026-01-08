@@ -151,7 +151,8 @@ async def update_feature(
             broadcast_feature_update,
             str(updated_feature.project_id),
             str(updated_feature.id),
-            updated_feature.progress_percentage
+            updated_feature.progress_percentage,
+            updated_feature.status
         )
 
     return updated_feature

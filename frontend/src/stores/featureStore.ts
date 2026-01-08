@@ -15,17 +15,17 @@ interface FeatureState {
 
 export const useFeatureStore = create<FeatureState>((set, get) => {
   // Subscribe to SignalR feature updates
-  signalrService.on('featureUpdated', (data: { featureId: string; projectId: string; progress: number }) => {
+  signalrService.on('featureUpdated', (data: { featureId: string; projectId: string; progress: number; status?: string }) => {
     const { features } = get()
     const featureIndex = features.findIndex(f => f.id === data.featureId)
     
     if (featureIndex >= 0) {
-      // Update existing feature with new progress
+      // Update existing feature with new progress and status
       const updatedFeatures = [...features]
       updatedFeatures[featureIndex] = {
         ...updatedFeatures[featureIndex],
         progress_percentage: data.progress,
-        // Optionally refresh the entire feature to get latest data
+        ...(data.status && { status: data.status }),
       }
       set({ features: updatedFeatures })
       

@@ -110,11 +110,14 @@ async def handle_create_todo(
         # Broadcast feature progress update if feature exists
         if feature_id and feature_progress is not None:
             import asyncio
+            # Get feature to include status in broadcast
+            feature = FeatureService.get_feature_by_id(db, UUID(feature_id))
             asyncio.create_task(
                 broadcast_feature_update(
                     str(element.project_id),
                     feature_id,
-                    feature_progress
+                    feature_progress,
+                    feature.status if feature else None
                 )
             )
 
@@ -227,11 +230,14 @@ async def handle_update_todo_status(
             # Broadcast feature progress update if feature exists
             if updated_todo.feature_id and feature_progress is not None:
                 import asyncio
+                # Get feature to include status in broadcast
+                feature = FeatureService.get_feature_by_id(db, updated_todo.feature_id)
                 asyncio.create_task(
                     broadcast_feature_update(
                         str(element.project_id),
                         str(updated_todo.feature_id),
-                        feature_progress
+                        feature_progress,
+                        feature.status if feature else None
                     )
                 )
 
