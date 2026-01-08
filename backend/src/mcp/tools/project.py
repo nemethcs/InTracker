@@ -13,6 +13,7 @@ from src.services.element_service import ElementService
 from src.services.feature_service import FeatureService
 from src.services.todo_service import TodoService
 from src.services.session_service import SessionService
+from src.services.signalr_hub import broadcast_project_update
 from src.database.models import User
 from sqlalchemy import func, and_, or_
 import json
@@ -660,6 +661,19 @@ async def handle_create_project(
         # Invalidate cache
         cache_service.clear_pattern("projects:*")
 
+        # Broadcast SignalR update (fire and forget)
+        import asyncio
+        asyncio.create_task(
+            broadcast_project_update(
+                str(project.id),
+                {
+                    "action": "created",
+                    "name": project.name,
+                    "status": project.status
+                }
+            )
+        )
+
         return {
             "id": str(project.id),
             "name": project.name,
@@ -847,6 +861,32 @@ async def handle_update_project(
         # Invalidate cache
         cache_service.delete(f"project:{project_id}:*")
         cache_service.clear_pattern("projects:*")
+
+        # Broadcast SignalR update (fire and forget)
+        changes = {}
+        if name is not None:
+            changes["name"] = name
+        if description is not None:
+            changes["description"] = description
+        if status is not None:
+            changes["status"] = status
+        if tags is not None:
+            changes["tags"] = tags
+        if technology_tags is not None:
+            changes["technology_tags"] = technology_tags
+        if cursor_instructions is not None:
+            changes["cursor_instructions"] = cursor_instructions
+        if github_repo_url is not None:
+            changes["github_repo_url"] = github_repo_url
+        
+        if changes:
+            import asyncio
+            asyncio.create_task(
+                broadcast_project_update(
+                    project_id,
+                    changes
+                )
+            )
 
         return {
             "id": str(project.id),

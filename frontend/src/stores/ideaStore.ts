@@ -7,6 +7,7 @@ interface IdeaState {
   error: string | null
   fetchIdeas: (status?: string, teamId?: string) => Promise<void>
   fetchIdea: (id: string) => Promise<Idea>
+  fetchIdeaSilently: (id: string) => Promise<Idea>
   createIdea: (data: IdeaCreate) => Promise<Idea>
   updateIdea: (id: string, data: IdeaUpdate) => Promise<void>
   deleteIdea: (id: string) => Promise<void>
@@ -50,6 +51,26 @@ export const useIdeaStore = create<IdeaState>((set, get) => ({
       return idea
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to fetch idea', isLoading: false })
+      throw error
+    }
+  },
+
+  // Silently fetch idea without setting loading state (for real-time updates)
+  fetchIdeaSilently: async (id: string) => {
+    try {
+      const idea = await ideaService.getIdea(id)
+      set(state => {
+        const index = state.ideas.findIndex(i => i.id === id)
+        if (index >= 0) {
+          const ideas = [...state.ideas]
+          ideas[index] = idea
+          return { ideas }
+        }
+        return { ideas: [...state.ideas, idea] }
+      })
+      return idea
+    } catch (error) {
+      console.error('Failed to fetch idea silently:', error)
       throw error
     }
   },

@@ -1,12 +1,13 @@
 """Session controller."""
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from src.database.base import get_db
 from src.api.middleware.auth import get_current_user
 from src.services.session_service import session_service
 from src.services.project_service import project_service
+from src.services.signalr_hub import broadcast_session_start, broadcast_session_end
 from src.api.schemas.session import (
     SessionCreate,
     SessionUpdate,
@@ -21,6 +22,7 @@ router = APIRouter(prefix="/sessions", tags=["sessions"])
 @router.post("", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
 async def create_session(
     session_data: SessionCreate,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -44,6 +46,14 @@ async def create_session(
         goal=session_data.goal,
         feature_ids=session_data.feature_ids,
     )
+    
+    # Broadcast session start via SignalR (active users list update)
+    background_tasks.add_task(
+        broadcast_session_start,
+        str(session_data.project_id),
+        str(current_user["user_id"])
+    )
+    
     return session
 
 
@@ -117,6 +127,7 @@ async def get_session(
 async def update_session(
     session_id: UUID,
     session_data: SessionUpdate,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -157,6 +168,10 @@ async def update_session(
             detail="Session not found",
         )
 
+    # Note: Session updates don't typically need real-time broadcast
+    # as they're mostly internal tracking. If needed, we could add
+    # a broadcast_project_update here, but it's not critical for UI updates.
+
     return updated_session
 
 
@@ -164,6 +179,7 @@ async def update_session(
 async def end_session(
     session_id: UUID,
     end_data: EndSessionRequest,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -202,6 +218,13 @@ async def end_session(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Session not found",
             )
+
+        # Broadcast session end via SignalR (active users list update)
+        background_tasks.add_task(
+            broadcast_session_end,
+            str(session.project_id),
+            str(current_user["user_id"])
+        )
 
         return ended_session
     except ValueError as e:

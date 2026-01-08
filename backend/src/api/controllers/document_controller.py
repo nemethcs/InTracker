@@ -1,12 +1,13 @@
 """Document controller."""
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from src.database.base import get_db
 from src.api.middleware.auth import get_current_user
 from src.services.document_service import document_service
 from src.services.project_service import project_service
+from src.services.signalr_hub import broadcast_project_update
 from src.api.schemas.document import (
     DocumentCreate,
     DocumentUpdate,
@@ -20,6 +21,7 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 @router.post("", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
 async def create_document(
     document_data: DocumentCreate,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -45,6 +47,20 @@ async def create_document(
         element_id=document_data.element_id,
         tags=document_data.tags,
     )
+    
+    # Broadcast document creation via SignalR
+    background_tasks.add_task(
+        broadcast_project_update,
+        str(document_data.project_id),
+        {
+            "action": "document_created",
+            "document_id": str(document.id),
+            "document_type": document.type,
+            "document_title": document.title,
+            "element_id": str(document.element_id) if document.element_id else None
+        }
+    )
+    
     return document
 
 
@@ -156,6 +172,7 @@ async def get_document_content(
 async def update_document(
     document_id: UUID,
     document_data: DocumentUpdate,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -193,12 +210,31 @@ async def update_document(
             detail="Document not found",
         )
 
+    # Broadcast document update via SignalR
+    changes = {
+        "action": "document_updated",
+        "document_id": str(document_id)
+    }
+    if document_data.title is not None:
+        changes["title"] = document_data.title
+    if document_data.content is not None:
+        changes["content_updated"] = True  # Don't send full content, just flag
+    if document_data.tags is not None:
+        changes["tags"] = document_data.tags
+    
+    background_tasks.add_task(
+        broadcast_project_update,
+        str(document.project_id),
+        changes
+    )
+
     return updated_document
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_document(
     document_id: UUID,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -222,9 +258,22 @@ async def delete_document(
             detail="You don't have permission to delete this document",
         )
 
+    # Store project_id before deletion for broadcast
+    project_id = document.project_id
+
     success = document_service.delete_document(db=db, document_id=document_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found",
         )
+
+    # Broadcast document deletion via SignalR
+    background_tasks.add_task(
+        broadcast_project_update,
+        str(project_id),
+        {
+            "action": "document_deleted",
+            "document_id": str(document_id)
+        }
+    )

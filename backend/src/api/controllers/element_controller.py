@@ -1,12 +1,13 @@
 """Element controller."""
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from src.database.base import get_db
 from src.api.middleware.auth import get_current_user
 from src.services.element_service import element_service
 from src.services.project_service import project_service
+from src.services.signalr_hub import broadcast_project_update
 from src.api.schemas.element import (
     ElementCreate,
     ElementUpdate,
@@ -23,6 +24,7 @@ router = APIRouter(prefix="/elements", tags=["elements"])
 @router.post("", response_model=ElementResponse, status_code=status.HTTP_201_CREATED)
 async def create_element(
     element_data: ElementCreate,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -51,6 +53,19 @@ async def create_element(
             position=element_data.position,
             definition_of_done=element_data.definition_of_done,
         )
+        
+        # Broadcast element creation via SignalR (project structure changed)
+        background_tasks.add_task(
+            broadcast_project_update,
+            str(element_data.project_id),
+            {
+                "action": "element_created",
+                "element_id": str(element.id),
+                "element_type": element.type,
+                "element_title": element.title
+            }
+        )
+        
         return element
     except ValueError as e:
         raise HTTPException(
@@ -146,6 +161,7 @@ async def get_element(
 async def update_element(
     element_id: UUID,
     element_data: ElementUpdate,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -187,6 +203,28 @@ async def update_element(
                 detail="Element not found",
             )
 
+        # Broadcast element update via SignalR (project structure changed)
+        changes = {}
+        if element_data.title is not None:
+            changes["title"] = element_data.title
+        if element_data.description is not None:
+            changes["description"] = element_data.description
+        if element_data.status is not None:
+            changes["status"] = element_data.status
+        if element_data.position is not None:
+            changes["position"] = element_data.position
+        if element_data.parent_id is not None:
+            changes["parent_id"] = str(element_data.parent_id)
+        
+        if changes:
+            changes["action"] = "element_updated"
+            changes["element_id"] = str(element_id)
+            background_tasks.add_task(
+                broadcast_project_update,
+                str(updated_element.project_id),
+                changes
+            )
+
         return updated_element
     except ValueError as e:
         raise HTTPException(
@@ -198,6 +236,7 @@ async def update_element(
 @router.delete("/{element_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_element(
     element_id: UUID,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -221,6 +260,9 @@ async def delete_element(
             detail="Only project owner can delete elements",
         )
 
+    # Store project_id before deletion for broadcast
+    project_id = element.project_id
+
     success = element_service.delete_element(db=db, element_id=element_id)
     if not success:
         raise HTTPException(
@@ -228,11 +270,22 @@ async def delete_element(
             detail="Element not found",
         )
 
+    # Broadcast element deletion via SignalR (project structure changed)
+    background_tasks.add_task(
+        broadcast_project_update,
+        str(project_id),
+        {
+            "action": "element_deleted",
+            "element_id": str(element_id)
+        }
+    )
+
 
 @router.post("/{element_id}/dependencies", response_model=DependencyResponse, status_code=status.HTTP_201_CREATED)
 async def add_dependency(
     element_id: UUID,
     dependency_data: DependencyCreate,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -263,6 +316,18 @@ async def add_dependency(
             depends_on_element_id=dependency_data.depends_on_element_id,
             dependency_type=dependency_data.dependency_type,
         )
+        
+        # Broadcast dependency addition via SignalR (element structure changed)
+        background_tasks.add_task(
+            broadcast_project_update,
+            str(element.project_id),
+            {
+                "action": "element_dependency_added",
+                "element_id": str(element_id),
+                "depends_on_element_id": str(dependency_data.depends_on_element_id)
+            }
+        )
+        
         return dependency
     except ValueError as e:
         raise HTTPException(
@@ -304,6 +369,7 @@ async def get_element_dependencies(
 async def remove_dependency(
     element_id: UUID,
     depends_on_element_id: UUID,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -338,3 +404,14 @@ async def remove_dependency(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Dependency not found",
         )
+
+    # Broadcast dependency removal via SignalR (element structure changed)
+    background_tasks.add_task(
+        broadcast_project_update,
+        str(element.project_id),
+        {
+            "action": "element_dependency_removed",
+            "element_id": str(element_id),
+            "depends_on_element_id": str(depends_on_element_id)
+        }
+    )

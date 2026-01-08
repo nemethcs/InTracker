@@ -1,12 +1,13 @@
 """Idea controller."""
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from src.database.base import get_db
 from src.api.middleware.auth import get_current_user
 from src.services.idea_service import IdeaService
 from src.services.team_service import TeamService
+from src.services.signalr_hub import broadcast_idea_update, broadcast_project_update
 from src.api.schemas.idea import (
     IdeaCreate,
     IdeaUpdate,
@@ -24,6 +25,7 @@ idea_service = IdeaService()
 @router.post("", response_model=IdeaResponse, status_code=status.HTTP_201_CREATED)
 async def create_idea(
     idea_data: IdeaCreate,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -55,6 +57,19 @@ async def create_idea(
         status=idea_data.status,
         tags=idea_data.tags,
     )
+    
+    # Broadcast idea creation via SignalR
+    background_tasks.add_task(
+        broadcast_idea_update,
+        str(team_id),
+        str(idea.id),
+        {
+            "action": "created",
+            "title": idea.title,
+            "status": idea.status
+        }
+    )
+    
     return idea
 
 
@@ -123,6 +138,7 @@ async def get_idea(
 async def update_idea(
     idea_id: UUID,
     idea_data: IdeaUpdate,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -152,12 +168,33 @@ async def update_idea(
         status=idea_data.status,
         tags=idea_data.tags,
     )
+    
+    # Broadcast idea update via SignalR
+    changes = {}
+    if idea_data.title is not None:
+        changes["title"] = idea_data.title
+    if idea_data.description is not None:
+        changes["description"] = idea_data.description
+    if idea_data.status is not None:
+        changes["status"] = idea_data.status
+    if idea_data.tags is not None:
+        changes["tags"] = idea_data.tags
+    
+    if changes:
+        background_tasks.add_task(
+            broadcast_idea_update,
+            str(idea.team_id),
+            str(idea_id),
+            changes
+        )
+    
     return idea
 
 
 @router.delete("/{idea_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_idea(
     idea_id: UUID,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -178,6 +215,9 @@ async def delete_idea(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only team leaders can delete ideas",
         )
+
+    # Store team_id before deletion for broadcast
+    team_id = idea.team_id
     
     success = idea_service.delete_idea(db=db, idea_id=idea_id)
     if not success:
@@ -186,11 +226,22 @@ async def delete_idea(
             detail="Idea not found",
         )
 
+    # Broadcast idea deletion via SignalR
+    background_tasks.add_task(
+        broadcast_idea_update,
+        str(team_id),
+        str(idea_id),
+        {
+            "action": "deleted"
+        }
+    )
+
 
 @router.post("/{idea_id}/convert", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 async def convert_idea_to_project(
     idea_id: UUID,
     convert_data: IdeaConvertRequest,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -212,6 +263,9 @@ async def convert_idea_to_project(
             detail="Only team leaders can convert ideas to projects",
         )
     
+    # Store team_id before conversion for broadcast
+    team_id = idea.team_id
+    
     project = idea_service.convert_idea_to_project(
         db=db,
         idea_id=idea_id,
@@ -226,4 +280,29 @@ async def convert_idea_to_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Idea not found",
         )
+    
+    # Broadcast idea conversion (idea deleted + project created)
+    background_tasks.add_task(
+        broadcast_idea_update,
+        str(team_id),
+        str(idea_id),
+        {
+            "action": "converted",
+            "project_id": str(project.id)
+        }
+    )
+    
+    # Also broadcast project creation
+    background_tasks.add_task(
+        broadcast_project_update,
+        str(project.id),
+        {
+            "action": "created",
+            "name": project.name,
+            "status": project.status,
+            "team_id": str(project.team_id),
+            "converted_from_idea_id": str(idea_id)
+        }
+    )
+    
     return project

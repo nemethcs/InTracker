@@ -3,6 +3,7 @@ import { useIdeas } from '@/hooks/useIdeas'
 import { useIdeaStore } from '@/stores/ideaStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { adminService, type Team } from '@/services/adminService'
+import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
@@ -38,6 +39,58 @@ export function Ideas() {
   useEffect(() => {
     loadTeams()
   }, [])
+
+  // Subscribe to SignalR real-time updates for ideas
+  useEffect(() => {
+    const { fetchIdeaSilently } = useIdeaStore.getState()
+    
+    const handleIdeaUpdate = (data: { ideaId: string; teamId: string; changes: any }) => {
+      const { ideas } = useIdeaStore.getState()
+      
+      // Handle different update actions efficiently without triggering loading states
+      if (data.changes?.action === 'created') {
+        // New idea created - fetch it silently if not already in store
+        const existingIndex = ideas.findIndex(i => i.id === data.ideaId)
+        if (existingIndex === -1) {
+          // Idea not in store, fetch it silently (without loading state)
+          fetchIdeaSilently(data.ideaId).catch(error => {
+            console.error('Failed to fetch new idea:', error)
+          })
+        }
+      } else if (data.changes?.action === 'deleted') {
+        // Idea deleted - remove from local state
+        useIdeaStore.setState({ 
+          ideas: ideas.filter(i => i.id !== data.ideaId) 
+        })
+      } else {
+        // Idea updated - update the idea in store directly from changes or fetch silently
+        const existingIndex = ideas.findIndex(i => i.id === data.ideaId)
+        if (existingIndex >= 0) {
+          // Update existing idea with changes directly (no API call needed)
+          const updatedIdeas = [...ideas]
+          updatedIdeas[existingIndex] = {
+            ...updatedIdeas[existingIndex],
+            ...data.changes,
+            updated_at: new Date().toISOString() // Update timestamp
+          }
+          useIdeaStore.setState({ ideas: updatedIdeas })
+        } else {
+          // Idea not in store, fetch it silently (without loading state)
+          fetchIdeaSilently(data.ideaId).catch(error => {
+            console.error('Failed to fetch updated idea:', error)
+          })
+        }
+      }
+    }
+
+    // Subscribe to idea updates
+    signalrService.on('ideaUpdated', handleIdeaUpdate)
+
+    // Cleanup: unsubscribe when component unmounts
+    return () => {
+      signalrService.off('ideaUpdated', handleIdeaUpdate)
+    }
+  }, []) // No dependencies - handler is stable
 
   const loadTeams = async () => {
     setIsLoadingTeams(true)

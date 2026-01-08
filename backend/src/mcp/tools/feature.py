@@ -56,6 +56,17 @@ async def handle_create_feature(
         cache_service.clear_pattern(f"project:{project_id}:*")
         cache_service.delete(f"feature:{feature.id}")
 
+        # Broadcast SignalR update (fire and forget)
+        import asyncio
+        asyncio.create_task(
+            broadcast_feature_update(
+                project_id,
+                str(feature.id),
+                feature.progress_percentage,
+                feature.status
+            )
+        )
+
         return {
             "id": str(feature.id),
             "name": feature.name,
@@ -394,6 +405,11 @@ async def handle_link_element_to_feature(feature_id: str, element_id: str) -> di
     """Handle link element to feature tool call."""
     db = SessionLocal()
     try:
+        # Get feature before linking to get project_id
+        feature = FeatureService.get_feature_by_id(db, UUID(feature_id))
+        if not feature:
+            return {"error": "Feature not found"}
+        
         # Use FeatureService to link element to feature
         success = FeatureService.link_element_to_feature(
             db=db,
@@ -404,9 +420,25 @@ async def handle_link_element_to_feature(feature_id: str, element_id: str) -> di
         if not success:
             return {"error": "Element already linked to feature"}
 
+        # Refresh feature to get updated progress after linking element
+        db.refresh(feature)
+        updated_feature = FeatureService.get_feature_by_id(db, UUID(feature_id))
+        
         # Invalidate cache
         cache_service.delete(f"feature:{feature_id}")
         cache_service.delete(f"feature:{feature_id}:elements")
+
+        # Broadcast SignalR update (fire and forget) - element linked may affect progress
+        if updated_feature:
+            import asyncio
+            asyncio.create_task(
+                broadcast_feature_update(
+                    str(updated_feature.project_id),
+                    feature_id,
+                    updated_feature.progress_percentage,
+                    updated_feature.status
+                )
+            )
 
         return {"success": True, "message": "Element linked to feature"}
     finally:

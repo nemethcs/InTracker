@@ -296,6 +296,7 @@ async def update_todo(
 @router.delete("/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_todo(
     todo_id: UUID,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -322,12 +323,40 @@ async def delete_todo(
                 detail="You don't have permission to delete this todo",
             )
 
+    # Store feature_id before deletion for broadcast
+    feature_id = todo.feature_id
+
     success = todo_service.delete_todo(db=db, todo_id=todo_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Todo not found",
         )
+
+    # Broadcast todo deletion via SignalR
+    if element:
+        background_tasks.add_task(
+            broadcast_todo_update,
+            str(element.project_id),
+            str(todo_id),
+            UUID(current_user["user_id"]),
+            {
+                "action": "deleted",
+                "todoId": str(todo_id)
+            }
+        )
+        
+        # Update feature progress if todo was linked to a feature
+        if feature_id:
+            progress = feature_service.calculate_feature_progress(db=db, feature_id=feature_id)
+            feature = feature_service.get_feature_by_id(db=db, feature_id=feature_id)
+            background_tasks.add_task(
+                broadcast_feature_update,
+                str(element.project_id),
+                str(feature_id),
+                progress["percentage"],
+                feature.status if feature else None
+            )
 
 
 @router.put("/{todo_id}/status", response_model=TodoResponse)
@@ -416,6 +445,7 @@ async def update_todo_status(
 async def assign_todo(
     todo_id: UUID,
     user_id: UUID = Query(..., alias="user_id"),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -453,6 +483,18 @@ async def assign_todo(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Todo not found",
+        )
+
+    # Broadcast todo assignment via SignalR
+    if element:
+        background_tasks.add_task(
+            broadcast_todo_update,
+            str(element.project_id),
+            str(updated_todo.id),
+            UUID(current_user["user_id"]),
+            {
+                "assigned_to": str(user_id)
+            }
         )
 
     return updated_todo

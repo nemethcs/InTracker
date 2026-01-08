@@ -9,6 +9,7 @@ from src.services.document_service import DocumentService
 from src.services.project_service import ProjectService
 from src.services.todo_service import TodoService
 from src.services.element_service import ElementService
+from src.services.signalr_hub import broadcast_project_update
 
 
 def get_get_document_tool() -> MCPTool:
@@ -192,6 +193,21 @@ async def handle_create_document(
         # Invalidate cache
         cache_service.delete(f"project:{project_id}:documents")
         cache_service.delete(f"document:{document.id}")
+
+        # Broadcast SignalR update (fire and forget)
+        import asyncio
+        asyncio.create_task(
+            broadcast_project_update(
+                project_id,
+                {
+                    "action": "document_created",
+                    "document_id": str(document.id),
+                    "document_type": document.type,
+                    "document_title": document.title,
+                    "element_id": str(document.element_id) if document.element_id else None
+                }
+            )
+        )
 
         return {
             "id": str(document.id),

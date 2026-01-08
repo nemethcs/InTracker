@@ -1,12 +1,13 @@
 """Project controller."""
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from src.database.base import get_db
 from src.api.middleware.auth import get_current_user
 from src.services.project_service import project_service
 from src.services.team_service import TeamService
+from src.services.signalr_hub import broadcast_project_update
 from src.api.schemas.project import (
     ProjectCreate,
     ProjectUpdate,
@@ -20,6 +21,7 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 async def create_project(
     project_data: ProjectCreate,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -55,6 +57,19 @@ async def create_project(
         github_repo_url=project_data.github_repo_url,
         github_repo_id=project_data.github_repo_id,
     )
+    
+    # Broadcast project creation via SignalR
+    background_tasks.add_task(
+        broadcast_project_update,
+        str(project.id),
+        {
+            "action": "created",
+            "name": project.name,
+            "status": project.status,
+            "team_id": str(project.team_id)
+        }
+    )
+    
     return project
 
 
@@ -157,6 +172,7 @@ async def get_project(
 async def update_project(
     project_id: UUID,
     project_data: ProjectUpdate,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -216,12 +232,39 @@ async def update_project(
             detail="Project not found",
         )
 
+    # Broadcast project update via SignalR
+    changes = {}
+    if project_data.name is not None:
+        changes["name"] = project_data.name
+    if project_data.description is not None:
+        changes["description"] = project_data.description
+    if project_data.status is not None:
+        changes["status"] = project_data.status
+    if project_data.tags is not None:
+        changes["tags"] = project_data.tags
+    if project_data.technology_tags is not None:
+        changes["technology_tags"] = project_data.technology_tags
+    if project_data.cursor_instructions is not None:
+        changes["cursor_instructions"] = project_data.cursor_instructions
+    if project_data.github_repo_url is not None:
+        changes["github_repo_url"] = project_data.github_repo_url
+    if project_data.team_id is not None:
+        changes["team_id"] = str(project_data.team_id)
+    
+    if changes:
+        background_tasks.add_task(
+            broadcast_project_update,
+            str(project_id),
+            changes
+        )
+
     return project
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project(
     project_id: UUID,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -251,6 +294,15 @@ async def delete_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found",
         )
+
+    # Broadcast project deletion via SignalR
+    background_tasks.add_task(
+        broadcast_project_update,
+        str(project_id),
+        {
+            "action": "deleted"
+        }
+    )
 
 
 @router.get("/{project_id}/active-users")

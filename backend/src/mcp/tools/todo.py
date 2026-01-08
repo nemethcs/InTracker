@@ -414,6 +414,25 @@ async def handle_assign_todo(todo_id: str, user_id: Optional[str] = None) -> dic
         element = db.query(ProjectElement).filter(ProjectElement.id == todo.element_id).first()
         if element:
             cache_service.clear_pattern(f"project:{element.project_id}:*")
+            
+            # Broadcast SignalR update (fire and forget)
+            if user_id:  # Only broadcast if assignment changed
+                import asyncio
+                # Get user_id from todo (assigned_to or created_by)
+                broadcast_user_id = todo.assigned_to or todo.created_by
+                if not broadcast_user_id:
+                    # Use system user ID for MCP updates
+                    broadcast_user_id = UUID("00000000-0000-0000-0000-000000000000")
+                asyncio.create_task(
+                    broadcast_todo_update(
+                        str(element.project_id),
+                        str(todo.id),
+                        broadcast_user_id,
+                        {
+                            "assigned_to": str(user_id) if user_id else None
+                        }
+                    )
+                )
 
         return {
             "id": str(todo.id),
@@ -471,6 +490,65 @@ async def handle_link_todo_to_feature(
 
         if not updated_todo:
             return {"error": "Todo not found or version conflict"}
+
+        # Get element for project_id and broadcast
+        element = db.query(ProjectElement).filter(ProjectElement.id == updated_todo.element_id).first()
+        
+        # Invalidate cache
+        if element:
+            cache_service.clear_pattern(f"project:{element.project_id}:*")
+        if updated_todo.feature_id:
+            cache_service.delete(f"feature:{updated_todo.feature_id}")
+        if todo.feature_id:  # Old feature_id
+            cache_service.delete(f"feature:{todo.feature_id}")
+
+        # Broadcast SignalR update (fire and forget)
+        if element:
+            import asyncio
+            # Get user_id from todo (assigned_to or created_by)
+            user_id = updated_todo.assigned_to or updated_todo.created_by
+            if not user_id:
+                # Use system user ID for MCP updates
+                user_id = UUID("00000000-0000-0000-0000-000000000000")
+            
+            asyncio.create_task(
+                broadcast_todo_update(
+                    str(element.project_id),
+                    str(updated_todo.id),
+                    user_id,
+                    {
+                        "feature_id": str(feature_id) if feature_id else None
+                    }
+                )
+            )
+            
+            # Broadcast feature progress update for both old and new features
+            if updated_todo.feature_id:
+                feature = FeatureService.get_feature_by_id(db, updated_todo.feature_id)
+                if feature:
+                    progress = FeatureService.calculate_feature_progress(db, updated_todo.feature_id)
+                    asyncio.create_task(
+                        broadcast_feature_update(
+                            str(element.project_id),
+                            str(updated_todo.feature_id),
+                            progress["percentage"],
+                            feature.status
+                        )
+                    )
+            
+            # Also update old feature if it was unlinked
+            if todo.feature_id and not updated_todo.feature_id:
+                old_feature = FeatureService.get_feature_by_id(db, todo.feature_id)
+                if old_feature:
+                    progress = FeatureService.calculate_feature_progress(db, todo.feature_id)
+                    asyncio.create_task(
+                        broadcast_feature_update(
+                            str(element.project_id),
+                            str(todo.feature_id),
+                            progress["percentage"],
+                            old_feature.status
+                        )
+                    )
 
         return {
             "id": str(updated_todo.id),

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from src.database.base import SessionLocal
 from src.mcp.services.cache import cache_service
 from src.services.session_service import SessionService
+from src.services.signalr_hub import broadcast_session_start, broadcast_session_end
 
 
 def get_start_session_tool() -> MCPTool:
@@ -61,6 +62,15 @@ async def handle_start_session(
 
         # Invalidate cache
         cache_service.clear_pattern(f"project:{project_id}:*")
+        
+        # Broadcast SignalR update (fire and forget)
+        import asyncio
+        asyncio.create_task(
+            broadcast_session_start(
+                project_id,
+                str(user_id) if user_id else None
+            )
+        )
         
         # Auto-enforce workflow if requested (default: True)
         workflow_info = None
@@ -249,6 +259,15 @@ async def handle_end_session(session_id: str, summary: Optional[str] = None) -> 
         # Invalidate cache
         cache_service.clear_pattern(f"project:{session.project_id}:*")
         cache_service.delete(f"project:{session.project_id}:resume")
+
+        # Broadcast SignalR update (fire and forget)
+        import asyncio
+        asyncio.create_task(
+            broadcast_session_end(
+                str(session.project_id),
+                str(session.user_id)
+            )
+        )
 
         return {
             "id": str(session.id),

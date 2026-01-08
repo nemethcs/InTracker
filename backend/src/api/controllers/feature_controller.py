@@ -21,6 +21,7 @@ router = APIRouter(prefix="/features", tags=["features"])
 @router.post("", response_model=FeatureResponse, status_code=status.HTTP_201_CREATED)
 async def create_feature(
     feature_data: FeatureCreate,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -47,6 +48,16 @@ async def create_feature(
         assigned_to=feature_data.assigned_to,
         element_ids=feature_data.element_ids,
     )
+    
+    # Broadcast feature creation via SignalR
+    background_tasks.add_task(
+        broadcast_feature_update,
+        str(feature.project_id),
+        str(feature.id),
+        feature.progress_percentage,
+        feature.status
+    )
+    
     return feature
 
 
@@ -161,6 +172,7 @@ async def update_feature(
 @router.delete("/{feature_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_feature(
     feature_id: UUID,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -184,12 +196,25 @@ async def delete_feature(
             detail="Only project owner can delete features",
         )
 
+    # Store project_id before deletion for broadcast
+    project_id = feature.project_id
+
     success = feature_service.delete_feature(db=db, feature_id=feature_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Feature not found",
         )
+
+    # Broadcast feature deletion via SignalR
+    # Send a broadcast with action: "deleted" to notify clients
+    background_tasks.add_task(
+        broadcast_feature_update,
+        str(project_id),
+        str(feature_id),
+        0,  # progress is 0 for deleted features
+        "deleted"  # status indicates deletion
+    )
 
 
 @router.get("/{feature_id}/todos")
@@ -261,6 +286,7 @@ async def get_feature_elements(
 async def link_element_to_feature(
     feature_id: UUID,
     element_id: UUID,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -294,6 +320,18 @@ async def link_element_to_feature(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Element is already linked to this feature",
+        )
+
+    # Refresh feature to get updated progress after linking element
+    updated_feature = feature_service.get_feature_by_id(db=db, feature_id=feature_id)
+    if updated_feature:
+        # Broadcast feature update via SignalR (element linked may affect progress)
+        background_tasks.add_task(
+            broadcast_feature_update,
+            str(updated_feature.project_id),
+            str(updated_feature.id),
+            updated_feature.progress_percentage,
+            updated_feature.status
         )
 
     return {"message": "Element linked to feature successfully"}

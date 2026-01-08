@@ -149,6 +149,17 @@ class ConnectionManager:
         for connection_id in connections_to_remove:
             self.disconnect(connection_id)
     
+    async def broadcast_to_team(self, team_id: str, message: dict, exclude_connection: Optional[str] = None):
+        """Broadcast message to all connections in projects that belong to a team.
+        
+        Since ideas are team-level, we need to broadcast to all users who have
+        access to projects in that team. We'll broadcast to all connections and
+        let the frontend filter by team_id.
+        """
+        # For now, broadcast to all (frontend will filter by team_id)
+        # TODO: Implement team_groups for more efficient broadcasting
+        await self.broadcast_to_all(message, exclude_connection)
+    
     async def broadcast_to_all(self, message: dict, exclude_connection: Optional[str] = None):
         """Broadcast message to all connected clients."""
         connections_to_remove = []
@@ -583,3 +594,22 @@ async def broadcast_session_end(project_id: str, user_id: str):
         }]
     }
     await connection_manager.broadcast_to_project(project_id, message)
+
+
+async def broadcast_idea_update(team_id: str, idea_id: str, changes: dict):
+    """Broadcast idea update to team members.
+    
+    Ideas are team-level, so we broadcast to all connections and let the
+    frontend filter by team_id.
+    """
+    # SignalR message format
+    message = {
+        "type": 1,  # SignalR invocation
+        "target": "ideaUpdated",
+        "arguments": [{
+            "ideaId": idea_id,
+            "teamId": team_id,
+            "changes": changes
+        }]
+    }
+    await connection_manager.broadcast_to_team(team_id, message)

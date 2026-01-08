@@ -7,6 +7,7 @@ from src.database.base import SessionLocal
 from src.mcp.services.cache import cache_service
 from src.services.idea_service import IdeaService
 from src.services.project_service import ProjectService
+from src.services.signalr_hub import broadcast_idea_update, broadcast_project_update
 from src.database.models import User
 
 
@@ -59,6 +60,20 @@ async def handle_create_idea(
 
         # Invalidate cache
         cache_service.clear_pattern("ideas:*")
+
+        # Broadcast SignalR update (fire and forget)
+        import asyncio
+        asyncio.create_task(
+            broadcast_idea_update(
+                team_id,
+                str(idea.id),
+                {
+                    "action": "created",
+                    "title": idea.title,
+                    "status": idea.status
+                }
+            )
+        )
 
         return {
             "id": str(idea.id),
@@ -287,6 +302,27 @@ async def handle_update_idea(
         cache_service.delete(f"idea:{idea_id}")
         cache_service.clear_pattern("ideas:*")
 
+        # Broadcast SignalR update (fire and forget)
+        changes = {}
+        if title is not None:
+            changes["title"] = title
+        if description is not None:
+            changes["description"] = description
+        if status is not None:
+            changes["status"] = status
+        if tags is not None:
+            changes["tags"] = tags
+        
+        if changes:
+            import asyncio
+            asyncio.create_task(
+                broadcast_idea_update(
+                    str(idea.team_id),
+                    idea_id,
+                    changes
+                )
+            )
+
         return {
             "id": str(idea.id),
             "title": idea.title,
@@ -393,6 +429,32 @@ async def handle_convert_idea_to_project(
         cache_service.delete(f"idea:{idea_id}")
         cache_service.clear_pattern("ideas:*")
         cache_service.clear_pattern(f"project:{project.id}:*")
+
+        # Broadcast SignalR updates (fire and forget)
+        import asyncio
+        # Broadcast idea update (converted status)
+        asyncio.create_task(
+            broadcast_idea_update(
+                str(idea.team_id),
+                idea_id,
+                {
+                    "action": "converted_to_project",
+                    "converted_to_project_id": str(project.id)
+                }
+            )
+        )
+        # Broadcast project creation
+        asyncio.create_task(
+            broadcast_project_update(
+                str(project.id),
+                {
+                    "action": "created",
+                    "name": project.name,
+                    "status": project.status,
+                    "converted_from_idea_id": idea_id
+                }
+            )
+        )
 
         return {
             "id": str(project.id),
