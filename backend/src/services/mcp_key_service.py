@@ -42,13 +42,30 @@ class McpKeyService:
         user_id: UUID,
         name: Optional[str] = None,
         expires_in_days: Optional[int] = None,
+        revoke_existing: bool = True,
     ) -> tuple[McpApiKey, str]:
         """Create a new MCP API key for a user.
+        
+        If revoke_existing is True (default), automatically revokes any existing active keys.
+        This ensures a user has only one active MCP key at a time.
         
         Returns:
             Tuple of (McpApiKey model, plain_text_key)
             The plain_text_key should be shown to the user once and never stored.
         """
+        # Revoke existing active keys if requested
+        if revoke_existing:
+            existing_keys = (
+                db.query(McpApiKey)
+                .filter(
+                    McpApiKey.user_id == user_id,
+                    McpApiKey.is_active == True,
+                )
+                .all()
+            )
+            for key in existing_keys:
+                key.is_active = False
+        
         # Generate new key
         plain_text_key = McpKeyService.generate_key()
         key_hash = McpKeyService.hash_key(plain_text_key)
@@ -164,6 +181,22 @@ class McpKeyService:
                 McpApiKey.id == key_id,
                 McpApiKey.user_id == user_id,
             )
+            .first()
+        )
+
+    @staticmethod
+    def get_current_key(db: Session, user_id: UUID) -> Optional[McpApiKey]:
+        """Get the current active MCP API key for a user.
+        
+        Returns the most recently created active key, or None if no active key exists.
+        """
+        return (
+            db.query(McpApiKey)
+            .filter(
+                McpApiKey.user_id == user_id,
+                McpApiKey.is_active == True,
+            )
+            .order_by(McpApiKey.created_at.desc())
             .first()
         )
 

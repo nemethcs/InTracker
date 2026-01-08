@@ -16,14 +16,46 @@ from src.api.schemas.mcp_key import (
 router = APIRouter(prefix="/mcp-keys", tags=["mcp-keys"])
 
 
-@router.post("", response_model=McpApiKeyCreateResponse, status_code=status.HTTP_201_CREATED)
-async def create_mcp_key(
+@router.get("/current", response_model=McpApiKeyResponse)
+async def get_current_mcp_key(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get the current active MCP API key for the current user.
+    
+    Returns the key metadata (without the plain text key, which cannot be retrieved).
+    """
+    user_id = UUID(current_user["user_id"])
+    
+    api_key = mcp_key_service.get_current_key(db=db, user_id=user_id)
+    
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active MCP API key found. Generate a new one to get started.",
+        )
+
+    return McpApiKeyResponse(
+        id=api_key.id,
+        user_id=api_key.user_id,
+        name=api_key.name,
+        last_used_at=api_key.last_used_at,
+        expires_at=api_key.expires_at,
+        is_active=api_key.is_active,
+        created_at=api_key.created_at,
+        updated_at=api_key.updated_at,
+    )
+
+
+@router.post("/regenerate", response_model=McpApiKeyCreateResponse, status_code=status.HTTP_201_CREATED)
+async def regenerate_mcp_key(
     key_data: McpApiKeyCreate,
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a new MCP API key for the current user.
+    """Regenerate (create new) MCP API key for the current user.
     
+    This will automatically revoke any existing active keys and create a new one.
     The plain_text_key is returned only once and should be shown to the user.
     It cannot be retrieved again after creation.
     """
@@ -34,6 +66,44 @@ async def create_mcp_key(
         user_id=user_id,
         name=key_data.name,
         expires_in_days=key_data.expires_in_days,
+        revoke_existing=True,  # Automatically revoke existing keys
+    )
+
+    return McpApiKeyCreateResponse(
+        key=McpApiKeyResponse(
+            id=api_key.id,
+            user_id=api_key.user_id,
+            name=api_key.name,
+            last_used_at=api_key.last_used_at,
+            expires_at=api_key.expires_at,
+            is_active=api_key.is_active,
+            created_at=api_key.created_at,
+            updated_at=api_key.updated_at,
+        ),
+        plain_text_key=plain_text_key,
+    )
+
+
+@router.post("", response_model=McpApiKeyCreateResponse, status_code=status.HTTP_201_CREATED)
+async def create_mcp_key(
+    key_data: McpApiKeyCreate,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create a new MCP API key for the current user.
+    
+    This will automatically revoke any existing active keys (user can only have one active key).
+    The plain_text_key is returned only once and should be shown to the user.
+    It cannot be retrieved again after creation.
+    """
+    user_id = UUID(current_user["user_id"])
+    
+    api_key, plain_text_key = mcp_key_service.create_key(
+        db=db,
+        user_id=user_id,
+        name=key_data.name,
+        expires_in_days=key_data.expires_in_days,
+        revoke_existing=True,  # Automatically revoke existing keys
     )
 
     return McpApiKeyCreateResponse(
