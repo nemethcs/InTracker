@@ -369,6 +369,8 @@ export function Settings() {
             <DialogDescription>
               {newKey ? (
                 <>Click the button below to automatically add InTracker to Cursor, or copy the configuration manually.</>
+              ) : mcpKey ? (
+                <>You have an active MCP API key, but the key value cannot be retrieved. Please regenerate your key to get the configuration.</>
               ) : (
                 <>Generate a new MCP API key first to get the configuration.</>
               )}
