@@ -199,6 +199,46 @@ class SessionService:
 
         return " | ".join(parts)
 
+    @staticmethod
+    def get_active_users_for_project(db: Session, project_id: UUID) -> List[dict]:
+        """Get active users for a project (users with open sessions).
+        
+        Active user = user with open session (ended_at IS NULL) on the project.
+        Returns list of user info dicts with id, name, email, avatar_url.
+        """
+        from src.database.models import User
+        
+        # Get distinct user_ids from active sessions (ended_at IS NULL)
+        active_sessions = (
+            db.query(Session)
+            .filter(
+                Session.project_id == project_id,
+                Session.ended_at.is_(None),
+                Session.user_id.isnot(None),
+            )
+            .all()
+        )
+        
+        # Get unique user IDs
+        user_ids = list(set(session.user_id for session in active_sessions if session.user_id))
+        
+        if not user_ids:
+            return []
+        
+        # Get user details
+        users = db.query(User).filter(User.id.in_(user_ids)).all()
+        
+        # Return user info
+        return [
+            {
+                "id": str(user.id),
+                "name": user.name,
+                "email": user.email,
+                "avatar_url": user.avatar_url,
+            }
+            for user in users
+        ]
+
 
 # Global instance
 session_service = SessionService()

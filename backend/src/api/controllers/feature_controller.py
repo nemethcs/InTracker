@@ -54,10 +54,11 @@ async def create_feature(
 async def list_features(
     project_id: UUID,
     status_filter: Optional[str] = Query(None, alias="status"),
+    sort: Optional[str] = Query("updated_at_desc", description="Sort order: updated_at_desc (default), updated_at_asc, created_at_desc, created_at_asc, name_asc, name_desc"),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List features for a project."""
+    """List features for a project. Default sort: updated_at DESC (newest first)."""
     # Check project access
     if not project_service.check_user_access(
         db=db,
@@ -73,6 +74,7 @@ async def list_features(
         db=db,
         project_id=project_id,
         status=status_filter,
+        sort=sort,
     )
 
     return FeatureListResponse(features=features, total=total)
