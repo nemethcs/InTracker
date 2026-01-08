@@ -10,8 +10,10 @@ export interface Todo {
   priority?: 'low' | 'medium' | 'high' | 'critical'
   assigned_to?: string
   version: number
+  position?: number
   created_at: string
   updated_at: string
+  completed_at?: string
 }
 
 export interface TodoCreate {

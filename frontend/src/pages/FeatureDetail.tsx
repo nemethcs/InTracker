@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useFeatures } from '@/hooks/useFeatures'
 import { useTodos } from '@/hooks/useTodos'
@@ -47,6 +47,31 @@ export function FeatureDetail() {
   
   // Get first element ID for new todos (we'll improve this later)
   const elementId = '40447518-f6da-4e7a-9857-d42dbd1ca352' // Real-time Sync & WebSocket element
+
+  // Sort todos by position (if available), then by created_at
+  // IMPORTANT: This must be before any early returns to maintain hook order
+  const sortedTodos = useMemo(() => {
+    return [...todos].sort((a, b) => {
+      // First sort by position (if both have position)
+      if (a.position !== undefined && b.position !== undefined) {
+        if (a.position !== b.position) {
+          return a.position - b.position
+        }
+      } else if (a.position !== undefined) {
+        return -1 // a has position, b doesn't - a comes first
+      } else if (b.position !== undefined) {
+        return 1 // b has position, a doesn't - b comes first
+      }
+      // If positions are equal or both null, sort by created_at
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    })
+  }, [todos])
+
+  const todosByStatus = {
+    new: sortedTodos.filter(t => t.status === 'new'),
+    in_progress: sortedTodos.filter(t => t.status === 'in_progress'),
+    done: sortedTodos.filter(t => t.status === 'done'),
+  }
 
   // Subscribe to SignalR real-time updates
   useEffect(() => {
@@ -120,12 +145,6 @@ export function FeatureDetail() {
         </Card>
       </div>
     )
-  }
-
-  const todosByStatus = {
-    new: todos.filter(t => t.status === 'new'),
-    in_progress: todos.filter(t => t.status === 'in_progress'),
-    done: todos.filter(t => t.status === 'done'),
   }
 
   return (
@@ -253,37 +272,43 @@ export function FeatureDetail() {
                     <Badge variant="outline" className="ml-2">{statusTodos.length}</Badge>
                   </div>
                   <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-                    {statusTodos.map((todo) => (
-                      <TodoCard
-                        key={todo.id}
-                        todo={todo}
-                        onEdit={(todo) => {
-                          setEditingTodo(todo)
-                          setTodoEditorOpen(true)
-                        }}
-                        onDelete={async (todo) => {
-                          if (confirm('Are you sure you want to delete this todo?')) {
-                            await deleteTodo(todo.id)
-                            refetchTodos()
-                          }
-                        }}
-                        onStatusChange={async (todo, newStatus) => {
-                          try {
-                            await updateTodoStatus(todo.id, newStatus, todo.version)
-                            refetchTodos()
-                          } catch (error: any) {
-                            if (error.isConflict) {
-                              // Show conflict warning
-                              alert(`Conflict: ${error.message}\n\nPlease refresh the page to get the latest version.`)
-                              // Refresh todos to get latest data
+                    {statusTodos.map((todo, todoIndex) => {
+                      // Calculate todo number: find position in sorted todos
+                      const todoNumber = sortedTodos.findIndex(t => t.id === todo.id) + 1
+                      
+                      return (
+                        <TodoCard
+                          key={todo.id}
+                          todo={todo}
+                          number={todoNumber}
+                          onEdit={(todo) => {
+                            setEditingTodo(todo)
+                            setTodoEditorOpen(true)
+                          }}
+                          onDelete={async (todo) => {
+                            if (confirm('Are you sure you want to delete this todo?')) {
+                              await deleteTodo(todo.id)
                               refetchTodos()
-                            } else {
-                              alert(`Failed to update todo: ${error.message}`)
                             }
-                          }
-                        }}
-                      />
-                    ))}
+                          }}
+                          onStatusChange={async (todo, newStatus) => {
+                            try {
+                              await updateTodoStatus(todo.id, newStatus, todo.version)
+                              refetchTodos()
+                            } catch (error: any) {
+                              if (error.isConflict) {
+                                // Show conflict warning
+                                alert(`Conflict: ${error.message}\n\nPlease refresh the page to get the latest version.`)
+                                // Refresh todos to get latest data
+                                refetchTodos()
+                              } else {
+                                alert(`Failed to update todo: ${error.message}`)
+                              }
+                            }
+                          }}
+                        />
+                      )
+                    })}
                   </div>
                 </div>
               )
