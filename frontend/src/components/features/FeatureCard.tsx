@@ -22,7 +22,18 @@ export function FeatureCard({ feature, projectId, onEdit, number }: FeatureCardP
             </Badge>
           </div>
         )}
-        <CardHeader className={number !== undefined ? "pt-10" : ""}>
+        <div className="absolute top-2 right-2 z-10">
+          <Badge 
+            variant={
+              feature.status === 'done' ? 'default' :
+              feature.status === 'tested' ? 'secondary' :
+              feature.status === 'in_progress' ? 'secondary' : 'outline'
+            }
+          >
+            {feature.status}
+          </Badge>
+        </div>
+        <CardHeader className="pt-10">
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <CardTitle className="mb-1">
@@ -34,15 +45,6 @@ export function FeatureCard({ feature, projectId, onEdit, number }: FeatureCardP
                 </CardDescription>
               )}
             </div>
-            <Badge 
-              variant={
-                feature.status === 'done' ? 'default' :
-                feature.status === 'tested' ? 'secondary' :
-                feature.status === 'in_progress' ? 'secondary' : 'outline'
-              }
-            >
-              {feature.status}
-            </Badge>
           </div>
         </CardHeader>
         <CardContent>
