@@ -400,12 +400,6 @@ export function Settings() {
               </>
             )}
 
-                <div className="border-t pt-4">
-                  <Label className="text-sm text-muted-foreground">Manual Configuration (Alternative)</Label>
-                </div>
-              </>
-            )}
-
             {/* Manual configuration */}
             <div className="space-y-2">
               <Label>Cursor MCP Configuration (JSON)</Label>
