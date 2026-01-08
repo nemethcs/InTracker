@@ -248,27 +248,29 @@ export function ProjectDetail() {
         </Button>
       </div>
 
+      {/* Resume Context - Most important: what was done, what's next */}
       {currentProject.resume_context && (
         <Card>
           <CardHeader>
             <CardTitle>Resume Context</CardTitle>
+            <CardDescription>Quick overview of recent work and next steps</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {currentProject.resume_context.last && (
               <div>
-                <h3 className="font-semibold mb-1">Last</h3>
+                <h3 className="font-semibold mb-1 text-sm">Last</h3>
                 <p className="text-sm text-muted-foreground">{currentProject.resume_context.last}</p>
               </div>
             )}
             {currentProject.resume_context.now && (
               <div>
-                <h3 className="font-semibold mb-1">Now</h3>
+                <h3 className="font-semibold mb-1 text-sm">Now</h3>
                 <p className="text-sm text-muted-foreground">{currentProject.resume_context.now}</p>
               </div>
             )}
             {currentProject.resume_context.next && (
               <div>
-                <h3 className="font-semibold mb-1">Next</h3>
+                <h3 className="font-semibold mb-1 text-sm">Next</h3>
                 <p className="text-sm text-muted-foreground">{currentProject.resume_context.next}</p>
               </div>
             )}
@@ -276,50 +278,37 @@ export function ProjectDetail() {
         </Card>
       )}
 
-      {/* Element Tree Section */}
+      {/* Open Todos Section - Next tasks (most important after resume context) */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Project Structure</h2>
-          {elementTree && elementTree.elements.length > 0 && (
-            <div className="text-sm text-muted-foreground">
-              {elementTree.elements.length} {elementTree.elements.length === 1 ? 'element' : 'elements'}
-            </div>
+          <h2 className="text-2xl font-bold">Next Tasks</h2>
+          {features.length > 0 && (
+            <Link to={`/projects/${id}/features/${features[0]?.id}`}>
+              <Button variant="outline" size="sm">
+                <CheckSquare className="mr-2 h-4 w-4" />
+                View by Feature
+              </Button>
+            </Link>
           )}
         </div>
-        {isLoadingElements ? (
+        {isLoadingTodos ? (
+          <LoadingSpinner />
+        ) : todos.length === 0 ? (
           <Card>
-            <CardContent className="py-8">
-              <LoadingSpinner />
-            </CardContent>
-          </Card>
-        ) : elementTree && elementTree.elements.length > 0 ? (
-          <Card className="overflow-hidden">
-            <CardHeader className="pb-3">
-              <CardDescription>
-                Click on an element to view details. Use the chevron icons to expand/collapse folders.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="max-h-[600px] overflow-y-auto">
-                <ElementTree
-                  elements={elementTree.elements}
-                  onElementClick={(element) => {
-                    setSelectedElement(element)
-                    setElementDetailOpen(true)
-                  }}
-                />
-              </div>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              No open todos. All tasks are completed!
             </CardContent>
           </Card>
         ) : (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No elements yet. Project structure will appear here.
-            </CardContent>
-          </Card>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {todos.map((todo) => (
+              <TodoCard key={todo.id} todo={todo} />
+            ))}
+          </div>
         )}
       </div>
 
+      {/* Features Section - Active features (sorted by last update) */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold">Features</h2>
@@ -352,35 +341,53 @@ export function ProjectDetail() {
         )}
       </div>
 
-      {/* Todos Section - Open todos only */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Open Todos</h2>
-          {features.length > 0 && (
-            <Link to={`/projects/${id}/features/${features[0]?.id}`}>
-              <Button variant="outline" size="sm">
-                <CheckSquare className="mr-2 h-4 w-4" />
-                View by Feature
-              </Button>
-            </Link>
-          )}
-        </div>
-        {isLoadingTodos ? (
-          <LoadingSpinner />
-        ) : todos.length === 0 ? (
+      {/* Element Tree Section - Moved down, less important for daily work */}
+      <details className="group">
+        <summary className="flex items-center justify-between mb-4 cursor-pointer list-none">
+          <h2 className="text-2xl font-bold">Project Structure</h2>
+          <div className="flex items-center gap-2">
+            {elementTree && elementTree.elements.length > 0 && (
+              <div className="text-sm text-muted-foreground">
+                {elementTree.elements.length} {elementTree.elements.length === 1 ? 'element' : 'elements'}
+              </div>
+            )}
+            <span className="text-sm text-muted-foreground group-open:hidden">Click to expand</span>
+            <span className="text-sm text-muted-foreground hidden group-open:inline">Click to collapse</span>
+          </div>
+        </summary>
+        {isLoadingElements ? (
           <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No open todos. All tasks are completed!
+            <CardContent className="py-8">
+              <LoadingSpinner />
+            </CardContent>
+          </Card>
+        ) : elementTree && elementTree.elements.length > 0 ? (
+          <Card className="overflow-hidden">
+            <CardHeader className="pb-3">
+              <CardDescription>
+                Click on an element to view details. Use the chevron icons to expand/collapse folders.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="max-h-[400px] overflow-y-auto">
+                <ElementTree
+                  elements={elementTree.elements}
+                  onElementClick={(element) => {
+                    setSelectedElement(element)
+                    setElementDetailOpen(true)
+                  }}
+                />
+              </div>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {todos.map((todo) => (
-              <TodoCard key={todo.id} todo={todo} />
-            ))}
-          </div>
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              No elements yet. Project structure will appear here.
+            </CardContent>
+          </Card>
         )}
-      </div>
+      </details>
 
       {/* Documents Section */}
       <div>
