@@ -18,8 +18,13 @@ class SessionService:
         title: Optional[str] = None,
         goal: Optional[str] = None,
         feature_ids: Optional[List[UUID]] = None,
+        broadcast_start: bool = True,
     ) -> Session:
-        """Create a new session."""
+        """Create a new session.
+        
+        If broadcast_start is True (default), broadcasts a SignalR event
+        to notify clients that a user has started working on the project.
+        """
         session = Session(
             project_id=project_id,
             user_id=user_id,
@@ -33,6 +38,24 @@ class SessionService:
         db.add(session)
         db.commit()
         db.refresh(session)
+        
+        # Broadcast session start event via SignalR (async, fire and forget)
+        if broadcast_start and user_id:
+            try:
+                import asyncio
+                from src.services.signalr_hub import broadcast_session_start
+                # Run async function in background
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # If loop is already running, create a task
+                    asyncio.create_task(broadcast_session_start(str(project_id), str(user_id)))
+                else:
+                    # If no loop is running, run it
+                    loop.run_until_complete(broadcast_session_start(str(project_id), str(user_id)))
+            except Exception as e:
+                # Don't fail session creation if broadcast fails
+                print(f"Failed to broadcast session start: {e}")
+        
         return session
 
     @staticmethod
@@ -172,6 +195,31 @@ class SessionService:
 
         db.commit()
         db.refresh(session)
+        
+        # Broadcast session end event via SignalR (async, fire and forget)
+        if session.user_id:
+            try:
+                import asyncio
+                import threading
+                from src.services.signalr_hub import broadcast_session_end
+                
+                def run_broadcast():
+                    """Run async broadcast in a new event loop."""
+                    try:
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        loop.run_until_complete(broadcast_session_end(str(session.project_id), str(session.user_id)))
+                        loop.close()
+                    except Exception as e:
+                        print(f"Error in broadcast thread: {e}")
+                
+                # Run broadcast in a separate thread to avoid blocking
+                thread = threading.Thread(target=run_broadcast, daemon=True)
+                thread.start()
+            except Exception as e:
+                # Don't fail session end if broadcast fails
+                print(f"Failed to broadcast session end: {e}")
+        
         return session
 
     @staticmethod

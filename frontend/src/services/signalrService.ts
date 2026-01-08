@@ -9,6 +9,8 @@ export interface SignalREvents {
   userLeft: (data: { userId: string; projectId: string }) => void
   joinedProject: (data: { projectId: string }) => void
   leftProject: (data: { projectId: string }) => void
+  sessionStarted: (data: { userId: string; projectId: string }) => void
+  sessionEnded: (data: { userId: string; projectId: string }) => void
   connected: (data: { connectionId: string | null }) => void
   reconnected: (data: { connectionId: string | null }) => void
 }
@@ -172,6 +174,17 @@ class SignalRService {
     this.connection.on('leftProject', (data: any) => {
       const eventData = Array.isArray(data) ? data[0] : (data?.arguments?.[0] || data)
       this.emit('leftProject', eventData)
+    })
+
+    // Session start/end events
+    this.connection.on('sessionStarted', (data: any) => {
+      const eventData = Array.isArray(data) ? data[0] : (data?.arguments?.[0] || data)
+      this.emit('sessionStarted', eventData)
+    })
+
+    this.connection.on('sessionEnded', (data: any) => {
+      const eventData = Array.isArray(data) ? data[0] : (data?.arguments?.[0] || data)
+      this.emit('sessionEnded', eventData)
     })
   }
 

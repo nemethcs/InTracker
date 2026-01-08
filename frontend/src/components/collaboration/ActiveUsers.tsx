@@ -51,7 +51,7 @@ export function ActiveUsers({ projectId }: ActiveUsersProps) {
 
     initializeActiveUsers()
 
-    // Handle user joined/left events
+    // Handle user joined/left events (WebSocket connection events)
     const handleUserJoined = (data: { userId: string; projectId: string }) => {
       if (data.projectId === projectId) {
         // Refresh active users list after a short delay
@@ -68,9 +68,28 @@ export function ActiveUsers({ projectId }: ActiveUsersProps) {
       }
     }
 
+    // Handle session start/end events (MCP session events - these are what define "active users")
+    const handleSessionStarted = (data: { userId: string; projectId: string }) => {
+      if (data.projectId === projectId) {
+        // Refresh active users list when a session starts
+        setTimeout(() => fetchActiveUsers(), 200)
+      }
+    }
+
+    const handleSessionEnded = (data: { userId: string; projectId: string }) => {
+      if (data.projectId === projectId) {
+        // Remove user from list immediately when session ends
+        setActiveUsers(prev => prev.filter(user => user.id !== data.userId))
+        // Also refresh to ensure consistency
+        setTimeout(() => fetchActiveUsers(), 200)
+      }
+    }
+
     // Subscribe to SignalR events
     signalrService.on('userJoined', handleUserJoined)
     signalrService.on('userLeft', handleUserLeft)
+    signalrService.on('sessionStarted', handleSessionStarted)
+    signalrService.on('sessionEnded', handleSessionEnded)
 
     // Listen for joinedProject confirmation to refresh
     const handleJoinedProject = (data: { projectId: string }) => {
@@ -86,6 +105,8 @@ export function ActiveUsers({ projectId }: ActiveUsersProps) {
     return () => {
       signalrService.off('userJoined', handleUserJoined)
       signalrService.off('userLeft', handleUserLeft)
+      signalrService.off('sessionStarted', handleSessionStarted)
+      signalrService.off('sessionEnded', handleSessionEnded)
       signalrService.off('joinedProject', handleJoinedProject)
     }
   }, [projectId])
