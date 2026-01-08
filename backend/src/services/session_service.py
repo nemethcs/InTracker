@@ -176,7 +176,7 @@ class SessionService:
 
     @staticmethod
     def generate_session_summary(db: Session, session: Session) -> str:
-        """Generate automatic session summary."""
+        """Generate automatic session summary with workflow reminders."""
         parts = []
 
         if session.goal:
@@ -195,9 +195,39 @@ class SessionService:
             parts.append(f"Updated {element_count} element(s)")
 
         if not parts:
-            return "Session completed with no changes recorded."
+            summary_base = "Session completed with no changes recorded."
+        else:
+            summary_base = " | ".join(parts)
 
-        return " | ".join(parts)
+        # Add workflow reminder for next session
+        workflow_reminder = """
+
+⚠️ WORKFLOW REMINDER FOR NEXT SESSION:
+
+MANDATORY: Follow this workflow at the start of the next session:
+
+1. Call `mcp_enforce_workflow()` - This automatically:
+   - Identifies the project
+   - Loads resume context
+   - Loads cursor rules
+   - Returns workflow checklist
+
+2. Check the workflow checklist - All items must be ✅
+
+3. Work on todos from `resume_context.now.todos`
+
+4. ALWAYS update todo status:
+   - Start work: `mcp_update_todo_status(todoId, "in_progress")`
+   - After implementation: `mcp_update_todo_status(todoId, "tested")` (only if tested!)
+   - After merge: `mcp_update_todo_status(todoId, "done")` (only if tested AND merged!)
+
+5. ALWAYS follow git workflow:
+   - `git status` → `git diff` → `git add -A` → `git commit -m "..."` → `git push`
+   - Commit format: `{type}({scope}): {description} [feature:{featureId}]`
+
+NEVER skip these steps!"""
+
+        return summary_base + workflow_reminder
 
     @staticmethod
     def get_active_users_for_project(db: Session, project_id: UUID) -> List[dict]:

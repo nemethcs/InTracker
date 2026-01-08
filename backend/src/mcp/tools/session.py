@@ -33,8 +33,13 @@ async def handle_start_session(
     project_id: str,
     goal: Optional[str] = None,
     feature_ids: Optional[List[str]] = None,
+    auto_enforce_workflow: bool = True,
 ) -> dict:
-    """Handle start session tool call."""
+    """Handle start session tool call.
+    
+    If auto_enforce_workflow is True (default), automatically enforces the workflow
+    by calling mcp_enforce_workflow to ensure proper project setup.
+    """
     db = SessionLocal()
     try:
         # Use SessionService to create session
@@ -48,13 +53,37 @@ async def handle_start_session(
 
         # Invalidate cache
         cache_service.clear_pattern(f"project:{project_id}:*")
+        
+        # Auto-enforce workflow if requested (default: True)
+        workflow_info = None
+        if auto_enforce_workflow:
+            try:
+                from src.mcp.tools.project import handle_enforce_workflow
+                workflow_info = await handle_enforce_workflow(None)
+            except Exception as e:
+                # Don't fail session creation if workflow enforcement fails
+                workflow_info = {
+                    "error": f"Failed to enforce workflow: {str(e)}",
+                    "workflow_enforced": False
+                }
 
-        return {
+        result = {
             "id": str(session.id),
             "project_id": str(session.project_id),
             "goal": session.goal,
             "started_at": session.started_at.isoformat(),
+            "workflow_enforced": workflow_info.get("workflow_enforced", False) if workflow_info else False,
         }
+        
+        # Include workflow info if available
+        if workflow_info and workflow_info.get("workflow_enforced"):
+            result["workflow"] = {
+                "checklist": workflow_info.get("workflow_checklist", []),
+                "next_todos": workflow_info.get("next_todos", []),
+                "reminder": workflow_info.get("reminder", ""),
+            }
+        
+        return result
     finally:
         db.close()
 

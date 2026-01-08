@@ -977,3 +977,121 @@ async def handle_load_cursor_rules(project_id: str, project_path: Optional[str] 
             "error": str(e),
             "traceback": traceback.format_exc(),
         }
+
+
+def get_enforce_workflow_tool() -> MCPTool:
+    """Get enforce workflow tool definition."""
+    return MCPTool(
+        name="mcp_enforce_workflow",
+        description="""MANDATORY: Call this at the START of EVERY session to ensure proper workflow.
+        
+        This tool automatically:
+        1. Identifies the current project (by path or auto-detection)
+        2. Loads resume context (Last/Now/Blockers/Constraints)
+        3. Loads cursor rules (project-specific rules)
+        4. Returns a workflow checklist of what you MUST do
+        
+        ALWAYS call this first before doing any work! This ensures you never forget the workflow.
+        
+        If no project is found, it will return instructions to create one first.""",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Current working directory path (optional, auto-detected if not provided)",
+                },
+            },
+        },
+    )
+
+
+async def handle_enforce_workflow(path: Optional[str] = None) -> dict:
+    """Handle enforce workflow tool call.
+    
+    This function enforces the InTracker workflow by:
+    1. Identifying the project
+    2. Loading resume context
+    3. Loading cursor rules
+    4. Returning a workflow checklist
+    """
+    # Step 1: Identify project
+    project_info = await handle_identify_project_by_path(path)
+    
+    if not project_info.get("project_id"):
+        return {
+            "error": "No project found",
+            "message": "No project found in current directory. Create one first with mcp_create_project",
+            "workflow": [
+                "1. Create project: mcp_create_project(name, teamId, description?, ...)",
+                "2. Call mcp_enforce_workflow() again after project creation"
+            ],
+            "workflow_enforced": False
+        }
+    
+    project_id = project_info["project_id"]
+    
+    # Step 2: Get resume context
+    resume_context = await handle_get_resume_context(project_id, None)
+    
+    # Step 3: Load cursor rules (try to load, but don't fail if it doesn't exist)
+    cursor_rules_loaded = False
+    cursor_rules_error = None
+    try:
+        cursor_rules_result = await handle_load_cursor_rules(project_id, path)
+        cursor_rules_loaded = bool(cursor_rules_result.get("rules") or cursor_rules_result.get("content"))
+    except Exception as e:
+        cursor_rules_error = str(e)
+        # Don't fail if cursor rules can't be loaded
+    
+    # Step 4: Build workflow checklist
+    workflow_checklist = [
+        "✅ Project identified",
+        "✅ Resume context loaded",
+        f"{'✅' if cursor_rules_loaded else '⚠️'} Cursor rules {'loaded' if cursor_rules_loaded else 'not found (will be generated if needed)'}",
+        "📋 Next: Work on todos from resume_context.now.todos",
+        "📋 Next: Update todo status with mcp_update_todo_status(todoId, 'in_progress') when starting",
+        "📋 Next: Follow git workflow before committing (git status → git diff → git add → git commit → git push)",
+        "📋 Next: Update todo status after commit: mcp_update_todo_status(todoId, 'tested') (only if tested!)",
+        "📋 Next: Update todo status after merge: mcp_update_todo_status(todoId, 'done') (only if tested AND merged!)",
+        "📋 Next: Use commit message format: {type}({scope}): {description} [feature:{featureId}]"
+    ]
+    
+    # Extract next todos from resume context
+    next_todos = []
+    if isinstance(resume_context, dict):
+        now = resume_context.get("now", {})
+        if isinstance(now, dict):
+            todos = now.get("todos", [])
+            if isinstance(todos, list):
+                next_todos = todos[:5]  # Get first 5 todos
+    
+    return {
+        "workflow_enforced": True,
+        "project": {
+            "id": project_id,
+            "name": project_info.get("name"),
+            "description": project_info.get("description"),
+            "status": project_info.get("status"),
+        },
+        "resume_context": resume_context,
+        "cursor_rules_loaded": cursor_rules_loaded,
+        "cursor_rules_error": cursor_rules_error,
+        "workflow_checklist": workflow_checklist,
+        "next_todos": next_todos,
+        "active_elements": resume_context.get("now", {}).get("active_elements", []) if isinstance(resume_context, dict) else [],
+        "blockers": resume_context.get("blockers", []) if isinstance(resume_context, dict) else [],
+        "constraints": resume_context.get("constraints", []) if isinstance(resume_context, dict) else [],
+        "reminder": """⚠️ WORKFLOW REMINDER:
+        
+        MANDATORY steps for this session:
+        1. ✅ Project identified - DONE
+        2. ✅ Resume context loaded - DONE
+        3. ✅ Cursor rules loaded - DONE
+        4. 📋 Work on todos from resume_context.now.todos
+        5. 📋 Update todo status: in_progress → tested → done
+        6. 📋 Follow git workflow: status → diff → add → commit → push
+        7. 📋 Use commit format: {type}({scope}): {description} [feature:{featureId}]
+        
+        NEVER skip these steps!"""
+    }
