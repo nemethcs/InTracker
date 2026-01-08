@@ -1,13 +1,25 @@
-# Development Dockerfile for Frontend
-FROM node:20-alpine
+FROM node:20-alpine as builder
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (including class-variance-authority)
-RUN npm install
+# Install dependencies
+RUN npm ci --only=production --legacy-peer-deps && \
+    npm cache clean --force
+
+# Copy source code
+COPY . .
+
+# Final stage - minimal runtime image
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy dependencies from builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
 
 # Copy source code
 COPY . .
@@ -16,4 +28,4 @@ COPY . .
 EXPOSE 5173
 
 # Start Vite dev server
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
