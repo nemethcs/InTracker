@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useProject } from '@/hooks/useProject'
 import { useFeatures } from '@/hooks/useFeatures'
@@ -30,19 +30,22 @@ export function ProjectDetail() {
   const { todos: allTodos, isLoading: isLoadingTodos, fetchTodos } = useTodoStore()
   // Filter todos: only open todos (exclude "done" status) for this project
   // Filter by project using element tree - only show todos whose elements belong to this project
-  const todos = allTodos.filter(todo => {
-    if (todo.status === 'done') return false // Only show open todos
-    if (!id || !elementTree) return true // If no project or element tree not loaded yet, show all
-    // Check if todo's element belongs to this project by searching in element tree
-    const findElementInTree = (elements: any[]): boolean => {
-      for (const el of elements) {
-        if (el.id === todo.element_id) return true
-        if (el.children && findElementInTree(el.children)) return true
+  // Use useMemo to avoid recalculating on every render and to handle elementTree initialization
+  const todos = useMemo(() => {
+    return allTodos.filter(todo => {
+      if (todo.status === 'done') return false // Only show open todos
+      if (!id || !elementTree) return true // If no project or element tree not loaded yet, show all
+      // Check if todo's element belongs to this project by searching in element tree
+      const findElementInTree = (elements: any[]): boolean => {
+        for (const el of elements) {
+          if (el.id === todo.element_id) return true
+          if (el.children && findElementInTree(el.children)) return true
+        }
+        return false
       }
-      return false
-    }
-    return findElementInTree(elementTree.elements)
-  })
+      return findElementInTree(elementTree.elements)
+    })
+  }, [allTodos, id, elementTree])
   const { createFeature, updateFeature } = useFeatureStore()
   const { updateProject, fetchProject } = useProjectStore()
   const [featureEditorOpen, setFeatureEditorOpen] = useState(false)
