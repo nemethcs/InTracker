@@ -161,9 +161,21 @@ async def handle_update_todo_status(
     status: str,
     expected_version: Optional[int] = None,
 ) -> dict:
-    """Handle update todo status tool call."""
+    """Handle update todo status tool call with validation."""
+    from src.mcp.utils.validation import validate_todo_status_transition, ValidationError
+    
     db = SessionLocal()
     try:
+        # Validate the status transition before updating
+        try:
+            validate_todo_status_transition(
+                db=db,
+                todo_id=UUID(todo_id),
+                new_status=status,
+            )
+        except ValidationError as e:
+            return {"error": str(e)}
+        
         # Use TodoService to update todo status
         updated_todo = TodoService.update_todo_status(
             db=db,

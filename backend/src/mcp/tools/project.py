@@ -678,9 +678,28 @@ async def handle_update_project(
     cursor_instructions: Optional[str] = None,
     github_repo_url: Optional[str] = None,
 ) -> dict:
-    """Handle update project tool call."""
+    """Handle update project tool call with validation."""
+    from src.database.models import Feature
+    
     db = SessionLocal()
     try:
+        # Validate status change: cannot archive project with active features
+        if status == "archived":
+            # Check if there are active features (in_progress, done, tested, merged)
+            active_features = (
+                db.query(Feature)
+                .filter(
+                    Feature.project_id == UUID(project_id),
+                    Feature.status.in_(["in_progress", "done", "tested", "merged"])
+                )
+                .count()
+            )
+            if active_features > 0:
+                return {
+                    "error": f"Cannot archive project: {active_features} active feature(s) found. "
+                    f"Complete or remove all active features before archiving the project."
+                }
+        
         # Use ProjectService to update project
         project = ProjectService.update_project(
             db=db,
