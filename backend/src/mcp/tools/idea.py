@@ -340,9 +340,38 @@ async def handle_convert_idea_to_project(
     project_tags: Optional[List[str]] = None,
     technology_tags: Optional[List[str]] = None,
 ) -> dict:
-    """Handle convert idea to project tool call. The project will belong to the same team as the idea."""
+    """Handle convert idea to project tool call with validation. The project will belong to the same team as the idea."""
     db = SessionLocal()
     try:
+        # Get idea first to validate
+        idea = IdeaService.get_idea_by_id(db, UUID(idea_id))
+        if not idea:
+            return {"error": "Idea not found"}
+        
+        # Validate: cannot convert idea that has already been converted
+        if idea.converted_to_project_id:
+            existing_project = ProjectService.get_project_by_id(db, idea.converted_to_project_id)
+            if existing_project:
+                return {
+                    "id": str(existing_project.id),
+                    "name": existing_project.name,
+                    "description": existing_project.description,
+                    "status": existing_project.status,
+                    "team_id": str(existing_project.team_id),
+                    "message": "Idea was already converted to this project",
+                }
+            return {
+                "error": f"Cannot convert idea to project: idea has already been converted. "
+                f"Project ID: {idea.converted_to_project_id}"
+            }
+        
+        # Validate: idea should be 'active' or 'draft' status to convert
+        if idea.status == "archived":
+            return {
+                "error": f"Cannot convert idea to project: idea is 'archived'. "
+                f"Change idea status to 'active' or 'draft' before converting."
+            }
+        
         # Use IdeaService to convert idea to project (team_id comes from idea)
         project = IdeaService.convert_idea_to_project(
             db=db,
@@ -355,12 +384,7 @@ async def handle_convert_idea_to_project(
         )
         
         if not project:
-            # Check if idea exists
-            idea = IdeaService.get_idea_by_id(db, UUID(idea_id))
-            if not idea:
-                return {"error": "Idea not found"}
-            # Idea exists but conversion failed - might be already converted
-            if idea.converted_to_project_id:
+            return {"error": "Failed to convert idea to project"}
                 existing_project = ProjectService.get_project_by_id(db, idea.converted_to_project_id)
                 if existing_project:
                     return {
