@@ -30,6 +30,7 @@ export function Teams() {
   // Check if user is admin or team leader
   const isAdmin = user?.role === 'admin'
   const isTeamLeader = user?.role === 'team_leader' || isAdmin
+  const isRegularUser = user?.role !== 'admin' && user?.role !== 'team_leader'
   
   // Check if current user is team leader of selected team
   const isTeamLeaderOfSelectedTeam = selectedTeam && teamMembers.length > 0 && user
@@ -277,6 +278,14 @@ export function Teams() {
                   <Label>Team Name</Label>
                   <p className="text-sm font-medium">{selectedTeam.name}</p>
                 </div>
+                {selectedTeam.language && (
+                  <div>
+                    <Label>Language</Label>
+                    <p className="text-sm font-medium">
+                      {selectedTeam.language === 'hu' ? 'Hungarian (Magyar)' : selectedTeam.language === 'en' ? 'English' : selectedTeam.language}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <Label>Created</Label>
                   <p className="text-sm text-muted-foreground">
@@ -294,7 +303,7 @@ export function Teams() {
                     <CardTitle>Members</CardTitle>
                     <CardDescription>Team members and their roles</CardDescription>
                   </div>
-                  {isAdmin && (
+                  {isTeamLeaderOfSelectedTeam && (
                     <Button
                       size="sm"
                       onClick={() => handleAddMember(selectedTeam)}

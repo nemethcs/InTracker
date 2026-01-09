@@ -16,6 +16,7 @@ export interface Team {
   id: string
   name: string
   description?: string
+  language?: string // 'hu' (Hungarian) or 'en' (English)
   created_by: string
   created_at: string
   updated_at: string
