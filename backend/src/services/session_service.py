@@ -52,8 +52,8 @@ class SessionService:
             if broadcast_start and user_id:
                 try:
                     import asyncio
-                import threading
-                from src.services.signalr_hub import broadcast_session_start
+                    import threading
+                    from src.services.signalr_hub import broadcast_session_start
                 
                 def run_broadcast():
                     """Run async broadcast in a new event loop."""
