@@ -49,6 +49,7 @@ async def create_idea(
             detail="You are not a member of this team",
         )
     
+    user_id = UUID(current_user["user_id"])
     idea = idea_service.create_idea(
         db=db,
         team_id=team_id,
@@ -56,6 +57,7 @@ async def create_idea(
         description=idea_data.description,
         status=idea_data.status,
         tags=idea_data.tags,
+        current_user_id=user_id,
     )
     
     # Broadcast idea creation via SignalR
@@ -160,6 +162,7 @@ async def update_idea(
             detail="Only team leaders can edit ideas",
         )
     
+    user_id = UUID(current_user["user_id"])
     idea = idea_service.update_idea(
         db=db,
         idea_id=idea_id,
@@ -167,6 +170,7 @@ async def update_idea(
         description=idea_data.description,
         status=idea_data.status,
         tags=idea_data.tags,
+        current_user_id=user_id,
     )
     
     # Broadcast idea update via SignalR

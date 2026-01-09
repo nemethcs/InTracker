@@ -38,15 +38,17 @@ async def create_feature(
             detail="You don't have permission to create features in this project",
         )
 
+    user_id = UUID(current_user["user_id"])
     feature = feature_service.create_feature(
         db=db,
         project_id=feature_data.project_id,
         name=feature_data.name,
         description=feature_data.description,
         status=feature_data.status,
-        created_by=UUID(current_user["user_id"]),
+        created_by=user_id,
         assigned_to=feature_data.assigned_to,
         element_ids=feature_data.element_ids,
+        current_user_id=user_id,
     )
     
     # Broadcast feature creation via SignalR
@@ -147,6 +149,7 @@ async def update_feature(
             detail="You don't have permission to edit this feature",
         )
 
+    user_id = UUID(current_user["user_id"])
     updated_feature = feature_service.update_feature(
         db=db,
         feature_id=feature_id,
@@ -154,6 +157,7 @@ async def update_feature(
         description=feature_data.description,
         status=feature_data.status,
         assigned_to=feature_data.assigned_to,
+        current_user_id=user_id,
     )
     
     # Broadcast feature update via SignalR

@@ -38,6 +38,7 @@ async def create_document(
             detail="You don't have permission to create documents in this project",
         )
 
+    user_id = UUID(current_user["user_id"])
     document = document_service.create_document(
         db=db,
         project_id=document_data.project_id,
@@ -46,6 +47,7 @@ async def create_document(
         content=document_data.content,
         element_id=document_data.element_id,
         tags=document_data.tags,
+        current_user_id=user_id,
     )
     
     # Broadcast document creation via SignalR
@@ -196,12 +198,14 @@ async def update_document(
             detail="You don't have permission to edit this document",
         )
 
+    user_id = UUID(current_user["user_id"])
     updated_document = document_service.update_document(
         db=db,
         document_id=document_id,
         title=document_data.title,
         content=document_data.content,
         tags=document_data.tags,
+        current_user_id=user_id,
     )
 
     if not updated_document:

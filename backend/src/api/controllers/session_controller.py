@@ -38,13 +38,15 @@ async def create_session(
             detail="You don't have access to this project",
         )
 
+    user_id = UUID(current_user["user_id"])
     session = session_service.create_session(
         db=db,
         project_id=session_data.project_id,
-        user_id=UUID(current_user["user_id"]),
+        user_id=user_id,
         title=session_data.title,
         goal=session_data.goal,
         feature_ids=session_data.feature_ids,
+        current_user_id=user_id,
     )
     
     # Broadcast session start via SignalR (active users list update)
@@ -151,6 +153,7 @@ async def update_session(
             detail="You don't have permission to edit this session",
         )
 
+    user_id = UUID(current_user["user_id"])
     updated_session = session_service.update_session(
         db=db,
         session_id=session_id,
@@ -160,6 +163,7 @@ async def update_session(
         todos_completed=session_data.todos_completed,
         features_completed=session_data.features_completed,
         elements_updated=session_data.elements_updated,
+        current_user_id=user_id,
     )
 
     if not updated_session:

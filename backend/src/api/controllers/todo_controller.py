@@ -28,6 +28,7 @@ async def create_todo(
     db: Session = Depends(get_db),
 ):
     """Create a new todo."""
+    user_id = UUID(current_user["user_id"])
     try:
         todo = todo_service.create_todo(
             db=db,
@@ -38,8 +39,9 @@ async def create_todo(
             feature_id=todo_data.feature_id,
             position=todo_data.position,
             priority=todo_data.priority,
-            created_by=UUID(current_user["user_id"]),
+            created_by=user_id,
             assigned_to=todo_data.assigned_to,
+            current_user_id=user_id,
         )
         
         # Broadcast todo creation via SignalR
@@ -391,12 +393,14 @@ async def update_todo_status(
                 detail="You don't have permission to update this todo",
             )
 
+    user_id = UUID(current_user["user_id"])
     try:
-        updated_todo = todo_service.update_todo_status(
+        updated_todo = todo_service.update_todo(
             db=db,
             todo_id=todo_id,
             status=status,
             expected_version=expected_version or todo.version,
+            current_user_id=user_id,
         )
 
         if not updated_todo:
@@ -477,6 +481,7 @@ async def assign_todo(
         todo_id=todo_id,
         assigned_to=user_id,
         expected_version=todo.version,
+        current_user_id=user_id,
     )
 
     if not updated_todo:

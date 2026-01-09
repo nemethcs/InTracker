@@ -41,6 +41,7 @@ async def create_element(
             detail="You don't have permission to create elements in this project",
         )
 
+    user_id = UUID(current_user["user_id"])
     try:
         element = element_service.create_element(
             db=db,
@@ -52,6 +53,7 @@ async def create_element(
             parent_id=element_data.parent_id,
             position=element_data.position,
             definition_of_done=element_data.definition_of_done,
+            current_user_id=user_id,
         )
         
         # Broadcast element creation via SignalR (project structure changed)
@@ -185,6 +187,7 @@ async def update_element(
             detail="You don't have permission to edit this element",
         )
 
+    user_id = UUID(current_user["user_id"])
     try:
         updated_element = element_service.update_element(
             db=db,
@@ -195,6 +198,7 @@ async def update_element(
             position=element_data.position,
             definition_of_done=element_data.definition_of_done,
             parent_id=element_data.parent_id,
+            current_user_id=user_id,
         )
 
         if not updated_element:
