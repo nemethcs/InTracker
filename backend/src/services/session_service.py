@@ -47,9 +47,9 @@ class SessionService:
             db.add(session)
             db.commit()
             db.refresh(session)
-        
-        # Broadcast session start event via SignalR (async, fire and forget)
-        if broadcast_start and user_id:
+            
+            # Broadcast session start event via SignalR (async, fire and forget)
+            if broadcast_start and user_id:
             try:
                 import asyncio
                 import threading
