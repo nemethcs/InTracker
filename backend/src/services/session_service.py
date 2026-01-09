@@ -51,7 +51,7 @@ class SessionService:
             # Broadcast session start event via SignalR (async, fire and forget)
             if broadcast_start and user_id:
                 try:
-                import asyncio
+                    import asyncio
                 import threading
                 from src.services.signalr_hub import broadcast_session_start
                 
