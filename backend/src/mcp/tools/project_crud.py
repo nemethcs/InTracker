@@ -328,23 +328,30 @@ def get_identify_project_by_path_tool() -> MCPTool:
     """Get identify project by path tool definition."""
     return MCPTool(
         name="mcp_identify_project_by_path",
-        description="Identify project by working directory path. Checks for .intracker/config.json, GitHub repo URL, or project name in path",
+        description="Identify project by working directory path. Checks for .intracker/config.json, GitHub repo URL, or project name in path. NOTE: In Docker environment, path parameter is REQUIRED.",
         inputSchema={
             "type": "object",
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "Working directory path (defaults to current working directory if not provided)",
+                    "description": "Working directory path (REQUIRED in Docker environment)",
                 },
             },
+            "required": ["path"],
         },
     )
 
 
 async def handle_identify_project_by_path(path: Optional[str] = None) -> dict:
-    """Handle identify project by path tool call."""
+    """Handle identify project by path tool call.
+    
+    NOTE: In Docker environment, path parameter is REQUIRED as os.getcwd() 
+    returns container working directory, not local project directory.
+    """
     if not path:
-        path = os.getcwd()
+        return {
+            "error": "Path parameter is required. In Docker environment, MCP server cannot access local file system without explicit path. Please provide the project directory path."
+        }
     
     path_obj = Path(path).resolve()
     

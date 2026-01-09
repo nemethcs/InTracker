@@ -8,7 +8,11 @@ Ez a dokumentum röviden és közérthetően leírja az összes elérhető MCP t
 - **Lokális git műveletek** (pl. `git status`, `git branch --show-current`, `git commit`, `git push`) **nem** MCP toolok, hanem **Cursor terminal parancsok**.
 - Az MCP szerver Docker container-ben fut, **nem fér hozzá a lokális git repository-hoz**.
 - A GitHub toolok **GitHub API-t** használnak (pl. branch létrehozás, PR kezelés, issue kezelés), **nem lokális git-et**.
-- A `mcp_get_active_branch` tool a GitHub repository **default branch-ét** adja vissza, **nem a lokális aktív branch-et**.
+
+### Lokális fájlrendszer hozzáférés
+- **Fájlrendszer toolok** (pl. `mcp_identify_project_by_path`, `mcp_parse_file_structure`, `mcp_analyze_codebase`) **kötelező path paramétert igényelnek** Docker környezetben.
+- Az MCP szerver Docker container-ben fut, **nem fér hozzá a lokális fájlrendszerhez** `os.getcwd()` nélkül.
+- Ha path paraméter nélkül hívod ezeket a toolokat, hibaüzenetet kapsz.
 
 ### Workflow
 - **Branch ellenőrzés:** `git branch --show-current` (Cursor terminal)
@@ -68,7 +72,8 @@ Ez a dokumentum röviden és közérthetően leírja az összes elérhető MCP t
 ### `mcp_identify_project_by_path`
 **Mit csinál:** Projekt azonosítása working directory alapján (.intracker/config.json, GitHub repo URL, vagy projekt név alapján).  
 **Mikor használd:** Amikor automatikusan szeretnéd azonosítani a projektet a jelenlegi munkakönyvtárból.  
-**Paraméterek:** `path` (opcionális, alapértelmezett: aktuális könyvtár)
+**Paraméterek:** `path` (kötelező Docker környezetben)  
+**⚠️ FONTOS:** Docker környezetben a `path` paraméter **kötelező**, mert az MCP szerver nem fér hozzá a lokális fájlrendszerhez `os.getcwd()` nélkül.
 
 ### `mcp_load_cursor_rules`
 **Mit csinál:** Cursor rules automatikus generálása és betöltése a projekt `.cursor/rules/intracker-project-rules.mdc` fájlba.  
@@ -309,7 +314,8 @@ Ez a dokumentum röviden és közérthetően leírja az összes elérhető MCP t
 ### `mcp_parse_file_structure`
 **Mit csinál:** Projekt fájl struktúra elemzése és automatikus projekt elemek létrehozása hierarchikus struktúrában (modulok, komponensek).  
 **Mikor használd:** Új projekteknél, amikor a könyvtár struktúrából szeretnél automatikusan projekt elemeket létrehozni. Csak akkor működik, ha nincsenek még elemek.  
-**Paraméterek:** `projectId` (kötelező), `projectPath` (opcionális), `maxDepth` (alapértelmezett: 3), `ignorePatterns` (opcionális)
+**Paraméterek:** `projectId`, `projectPath` (kötelező Docker környezetben), `maxDepth` (alapértelmezett: 3), `ignorePatterns` (opcionális)  
+**⚠️ FONTOS:** Docker környezetben a `projectPath` paraméter **kötelező**, mert az MCP szerver nem fér hozzá a lokális fájlrendszerhez.
 
 ### `mcp_import_github_issues`
 **Mit csinál:** GitHub issue-k importálása todo-kként egy projekthez. Opcionálisan létrehozhat elemeket issue-khoz, ha nincs megfelelő elem.  
@@ -324,7 +330,8 @@ Ez a dokumentum röviden és közérthetően leírja az összes elérhető MCP t
 ### `mcp_analyze_codebase`
 **Mit csinál:** Meglévő codebase elemzése és kezdeti projekt struktúra javaslat. Azonosítja a modulokat, komponenseket és javasol hierarchikus struktúrát.  
 **Mikor használd:** Meglévő projekteknél, amikor InTracker-be szeretnéd beállítani a projektet.  
-**Paraméterek:** `projectId` (kötelező), `projectPath` (opcionális)
+**Paraméterek:** `projectId`, `projectPath` (kötelező Docker környezetben)  
+**⚠️ FONTOS:** Docker környezetben a `projectPath` paraméter **kötelező**, mert az MCP szerver nem fér hozzá a lokális fájlrendszerhez.
 
 ---
 

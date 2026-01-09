@@ -81,6 +81,8 @@ class MCPSSEASGIApp:
                 from src.mcp.middleware.auth import set_mcp_api_key
                 set_mcp_api_key(api_key)  # This will extract and set user_id
         except HTTPException as e:
+            # Return error response and stop processing
+            # Don't re-raise to avoid global exception handler duplicate response
             response = JSONResponse(
                 content={"detail": e.detail},
                 status_code=e.status_code
@@ -92,14 +94,21 @@ class MCPSSEASGIApp:
         # connect_sse returns an async context manager
         # When entered, it returns (read_stream, write_stream)
         # We need to run the MCP server with these streams
-        cm = sse_transport.connect_sse(scope, receive, send)
-        async with cm as streams:
-            read_stream, write_stream = streams
-            await mcp_server.run(
-                read_stream,
-                write_stream,
-                mcp_server.create_initialization_options(),
-            )
+        try:
+            cm = sse_transport.connect_sse(scope, receive, send)
+            async with cm as streams:
+                read_stream, write_stream = streams
+                await mcp_server.run(
+                    read_stream,
+                    write_stream,
+                    mcp_server.create_initialization_options(),
+                )
+        except Exception as e:
+            # If MCP server fails, don't let global exception handler catch it
+            # as it may have already sent a response
+            import logging
+            logging.error(f"MCP SSE connection error: {e}", exc_info=True)
+            # Don't re-raise - response may have already been sent
 
 
 class MCPMessagesASGIApp:
@@ -126,6 +135,8 @@ class MCPMessagesASGIApp:
                 from src.mcp.middleware.auth import set_mcp_api_key
                 set_mcp_api_key(api_key)  # This will extract and set user_id
         except HTTPException as e:
+            # Return error response and stop processing
+            # Don't re-raise to avoid global exception handler duplicate response
             response = JSONResponse(
                 content={"detail": e.detail},
                 status_code=e.status_code
@@ -134,7 +145,15 @@ class MCPMessagesASGIApp:
             return
         
         # Use the SSE transport's handle_post_message ASGI app
-        await sse_transport.handle_post_message(scope, receive, send)
+        # This will send its own response (202 Accepted), so we don't need to handle it
+        try:
+            await sse_transport.handle_post_message(scope, receive, send)
+        except Exception as e:
+            # If handle_post_message fails, don't let global exception handler catch it
+            # as it may have already sent a response
+            import logging
+            logging.error(f"MCP handle_post_message error: {e}", exc_info=True)
+            # Don't re-raise - response may have already been sent
 
 
 @router.get("/sse")
@@ -142,9 +161,18 @@ async def mcp_sse_endpoint(request: Request):
     """
     MCP Server SSE (Server-Sent Events) endpoint for Cursor integration.
     Supports both local development and Azure deployment.
+    
+    NOTE: This endpoint uses a custom ASGI app that handles its own responses.
+    We don't return anything to avoid FastAPI trying to send a response.
     """
     app = MCPSSEASGIApp()
-    await app(request.scope, request.receive, request._send)
+    try:
+        await app(request.scope, request.receive, request._send)
+    except Exception as e:
+        # Log but don't raise - ASGI app may have already sent response
+        import logging
+        logging.error(f"MCP SSE endpoint error: {e}", exc_info=True)
+    # Don't return anything - ASGI app already handled the response
 
 
 @router.post("/messages/{path:path}")
@@ -152,6 +180,15 @@ async def mcp_messages_endpoint(path: str, request: Request):
     """
     MCP Server messages endpoint for POST requests.
     Used by Cursor to send messages to the MCP server.
+    
+    NOTE: This endpoint uses a custom ASGI app that handles its own responses.
+    We don't return anything to avoid FastAPI trying to send a response.
     """
     app = MCPMessagesASGIApp()
-    await app(request.scope, request.receive, request._send)
+    try:
+        await app(request.scope, request.receive, request._send)
+    except Exception as e:
+        # Log but don't raise - ASGI app may have already sent response
+        import logging
+        logging.error(f"MCP messages endpoint error: {e}", exc_info=True)
+    # Don't return anything - ASGI app already handled the response
