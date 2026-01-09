@@ -153,7 +153,14 @@ async def api_info():
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
-    """Global exception handler."""
+    """Global exception handler. Skips HTTPException as FastAPI handles those."""
+    from fastapi import HTTPException
+    
+    # Don't handle HTTPException - FastAPI already handles those
+    if isinstance(exc, HTTPException):
+        raise exc
+    
+    # Handle all other exceptions
     return JSONResponse(
         status_code=500,
         content={
