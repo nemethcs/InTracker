@@ -73,10 +73,25 @@ export function Teams() {
       const members = await adminService.getTeamMembers(teamId)
       setTeamMembers(members)
 
-      // Load team invitations - filter admin invitations to show only team invitations for this team
-      const allInvitations = await adminService.getInvitations({ type: 'team' })
-      const teamInvites = allInvitations.invitations.filter(inv => inv.team_id === teamId)
-      setTeamInvitations(teamInvites)
+      // Load team invitations - only admins can access the admin invitations endpoint
+      // For team leaders, we'll skip loading invitations if not admin
+      // Team leaders can create invitations but don't need to see all invitations via admin endpoint
+      if (isAdmin) {
+        try {
+          const allInvitations = await adminService.getInvitations({ type: 'team' })
+          const teamInvites = allInvitations.invitations.filter(inv => inv.team_id === teamId)
+          setTeamInvitations(teamInvites)
+        } catch (invErr) {
+          // If user is not admin, silently fail - invitations will be empty
+          // Team leaders can still create new invitations
+          console.log('Could not load invitations (admin only):', invErr)
+          setTeamInvitations([])
+        }
+      } else {
+        // For non-admin users, set empty invitations array
+        // They can still create new invitations if they are team leaders
+        setTeamInvitations([])
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load team details')
     }
