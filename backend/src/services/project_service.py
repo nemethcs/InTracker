@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from src.database.models import Project, User, TeamMember
+from src.database.base import set_current_user_id, reset_current_user_id
 
 
 class ProjectService:
@@ -21,23 +22,33 @@ class ProjectService:
         cursor_instructions: Optional[str] = None,
         github_repo_url: Optional[str] = None,
         github_repo_id: Optional[str] = None,
+        current_user_id: Optional[UUID] = None,
     ) -> Project:
         """Create a new project for a team."""
-        project = Project(
-            name=name,
-            description=description,
-            status=status,
-            tags=tags or [],
-            technology_tags=technology_tags or [],
-            team_id=team_id,
-            cursor_instructions=cursor_instructions,
-            github_repo_url=github_repo_url,
-            github_repo_id=github_repo_id,
-        )
-        db.add(project)
-        db.commit()
-        db.refresh(project)
-        return project
+        # Set current user ID for audit trail
+        token = None
+        if current_user_id:
+            token = set_current_user_id(current_user_id)
+        
+        try:
+            project = Project(
+                name=name,
+                description=description,
+                status=status,
+                tags=tags or [],
+                technology_tags=technology_tags or [],
+                team_id=team_id,
+                cursor_instructions=cursor_instructions,
+                github_repo_url=github_repo_url,
+                github_repo_id=github_repo_id,
+            )
+            db.add(project)
+            db.commit()
+            db.refresh(project)
+            return project
+        finally:
+            if token:
+                reset_current_user_id(token)
 
     @staticmethod
     def get_project_by_id(db: Session, project_id: UUID) -> Optional[Project]:
@@ -96,34 +107,44 @@ class ProjectService:
         github_repo_url: Optional[str] = None,
         github_repo_id: Optional[str] = None,
         team_id: Optional[UUID] = None,
+        current_user_id: Optional[UUID] = None,
     ) -> Optional[Project]:
         """Update project."""
-        project = db.query(Project).filter(Project.id == project_id).first()
-        if not project:
-            return None
+        # Set current user ID for audit trail
+        token = None
+        if current_user_id:
+            token = set_current_user_id(current_user_id)
+        
+        try:
+            project = db.query(Project).filter(Project.id == project_id).first()
+            if not project:
+                return None
 
-        if name is not None:
-            project.name = name
-        if description is not None:
-            project.description = description
-        if status is not None:
-            project.status = status
-        if tags is not None:
-            project.tags = tags
-        if technology_tags is not None:
-            project.technology_tags = technology_tags
-        if cursor_instructions is not None:
-            project.cursor_instructions = cursor_instructions
-        if github_repo_url is not None:
-            project.github_repo_url = github_repo_url
-        if github_repo_id is not None:
-            project.github_repo_id = github_repo_id
-        if team_id is not None:
-            project.team_id = team_id
+            if name is not None:
+                project.name = name
+            if description is not None:
+                project.description = description
+            if status is not None:
+                project.status = status
+            if tags is not None:
+                project.tags = tags
+            if technology_tags is not None:
+                project.technology_tags = technology_tags
+            if cursor_instructions is not None:
+                project.cursor_instructions = cursor_instructions
+            if github_repo_url is not None:
+                project.github_repo_url = github_repo_url
+            if github_repo_id is not None:
+                project.github_repo_id = github_repo_id
+            if team_id is not None:
+                project.team_id = team_id
 
-        db.commit()
-        db.refresh(project)
-        return project
+            db.commit()
+            db.refresh(project)
+            return project
+        finally:
+            if token:
+                reset_current_user_id(token)
 
     @staticmethod
     def delete_project(db: Session, project_id: UUID) -> bool:

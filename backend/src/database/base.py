@@ -9,6 +9,30 @@ from sqlalchemy.orm import sessionmaker, Session
 # This is set by services/controllers before database operations
 current_user_id: contextvars.ContextVar = contextvars.ContextVar('current_user_id', default=None)
 
+
+def set_current_user_id(user_id) -> contextvars.Token:
+    """Set current user ID for audit trail.
+    
+    Args:
+        user_id: UUID of the current user
+    
+    Returns:
+        Token that can be used to reset the context variable.
+    
+    Usage:
+        token = set_current_user_id(user_id)
+        try:
+            # ... database operations ...
+        finally:
+            reset_current_user_id(token)
+    """
+    return current_user_id.set(user_id)
+
+
+def reset_current_user_id(token: contextvars.Token) -> None:
+    """Reset current user ID context variable."""
+    current_user_id.reset(token)
+
 # Get database URL from environment or config
 def get_database_url():
     """Get database URL from environment or config."""
