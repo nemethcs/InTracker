@@ -177,8 +177,8 @@ class TodoService:
         
         try:
             todo = db.query(Todo).filter(Todo.id == todo_id).first()
-        if not todo:
-            return None
+            if not todo:
+                return None
 
         # Optimistic locking check
         if expected_version is not None and todo.version != expected_version:
