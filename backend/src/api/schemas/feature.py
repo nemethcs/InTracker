@@ -35,13 +35,14 @@ class FeatureResponse(FeatureBase):
     total_todos: int
     completed_todos: int
     created_by: Optional[UUID] = None
+    updated_by: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
     
-    @field_serializer('id', 'project_id', 'created_by', 'assigned_to')
+    @field_serializer('id', 'project_id', 'created_by', 'updated_by', 'assigned_to')
     def serialize_uuid(self, value: UUID | str | None, _info) -> str | None:
         """Serialize UUID to string."""
         return str(value) if isinstance(value, UUID) else value

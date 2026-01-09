@@ -32,6 +32,8 @@ class SessionResponse(SessionBase):
     id: UUID
     project_id: UUID
     user_id: Optional[UUID] = None
+    created_by: Optional[UUID] = None
+    updated_by: Optional[UUID] = None
     started_at: datetime
     ended_at: Optional[datetime] = None
     summary: Optional[str] = None

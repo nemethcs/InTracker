@@ -34,6 +34,8 @@ class DocumentResponse(DocumentBase):
     id: UUID
     project_id: UUID
     element_id: Optional[UUID] = None
+    created_by: Optional[UUID] = None
+    updated_by: Optional[UUID] = None
     version: int
     created_at: datetime
     updated_at: datetime

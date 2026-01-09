@@ -39,6 +39,8 @@ class ElementResponse(ElementBase):
     id: UUID
     project_id: UUID
     parent_id: Optional[UUID] = None
+    created_by: Optional[UUID] = None
+    updated_by: Optional[UUID] = None
     github_issue_number: Optional[int] = None
     github_issue_url: Optional[str] = None
     created_at: datetime

@@ -31,6 +31,8 @@ class IdeaResponse(IdeaBase):
     id: UUID
     team_id: UUID
     converted_to_project_id: Optional[UUID] = None
+    created_by: Optional[UUID] = None
+    updated_by: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
 

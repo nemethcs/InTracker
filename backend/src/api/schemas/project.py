@@ -39,6 +39,8 @@ class ProjectResponse(ProjectBase):
     """Schema for project response."""
     id: UUID
     team_id: UUID
+    created_by: Optional[UUID] = None
+    updated_by: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
     last_session_at: Optional[datetime] = None
@@ -46,9 +48,11 @@ class ProjectResponse(ProjectBase):
     class Config:
         from_attributes = True
 
-    @field_serializer('id', 'team_id')
-    def serialize_uuid(self, value: UUID | str, _info) -> str:
+    @field_serializer('id', 'team_id', 'created_by', 'updated_by')
+    def serialize_uuid(self, value: UUID | str | None, _info) -> Optional[str]:
         """Serialize UUID to string."""
+        if value is None:
+            return None
         return str(value) if isinstance(value, UUID) else value
 
 

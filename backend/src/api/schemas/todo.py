@@ -40,6 +40,7 @@ class TodoResponse(TodoBase):
     element_id: UUID
     feature_id: Optional[UUID] = None
     created_by: Optional[UUID] = None
+    updated_by: Optional[UUID] = None
     version: int
     github_issue_number: Optional[int] = None
     github_pr_number: Optional[int] = None
