@@ -1,8 +1,13 @@
 """Database base configuration."""
 import os
-from sqlalchemy import create_engine
+import contextvars
+from sqlalchemy import create_engine, event
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
+
+# Context variable to store current user ID for audit trail
+# This is set by services/controllers before database operations
+current_user_id: contextvars.ContextVar = contextvars.ContextVar('current_user_id', default=None)
 
 # Get database URL from environment or config
 def get_database_url():
@@ -39,3 +44,26 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+# SQLAlchemy event listeners for audit trail
+@event.listens_for(Session, "before_flush")
+def set_audit_fields(session, flush_context, instances):
+    """Automatically set created_by and updated_by fields for audit trail."""
+    user_id = current_user_id.get()
+    if not user_id:
+        return  # No user context, skip audit trail
+    
+    # Get all new and modified instances
+    for instance in session.new:
+        # Set created_by if not already set and model has the field
+        if hasattr(instance, 'created_by') and instance.created_by is None:
+            instance.created_by = user_id
+        # Set updated_by on create (first update)
+        if hasattr(instance, 'updated_by'):
+            instance.updated_by = user_id
+    
+    for instance in session.dirty:
+        # Set updated_by on update if model has the field
+        if hasattr(instance, 'updated_by'):
+            instance.updated_by = user_id
