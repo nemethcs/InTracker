@@ -61,7 +61,12 @@ app.include_router(audit_controller.router)
 async def health_check():
     """Health check endpoint."""
     from datetime import datetime
-    return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+    return {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "0.1.0",
+        "auto_reload": "disabled"  # Added: Backend auto-reload is now disabled for stability
+    }
 
 
 @app.get("/api")
