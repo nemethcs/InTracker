@@ -63,7 +63,7 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-    command: uvicorn src.main:app --host 0.0.0.0 --port 3000 --reload --reload-dir /app/src
+    command: uvicorn src.main:app --host 0.0.0.0 --port 3000
     mem_limit: 512m
     mem_reservation: 256m
 
