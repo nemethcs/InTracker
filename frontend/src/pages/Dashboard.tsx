@@ -91,26 +91,27 @@ export function Dashboard() {
   const completedProjects = projectsList.filter(p => p.status === 'completed').length
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">{pageTitle}</h1>
-          <p className="text-muted-foreground">{pageDescription}</p>
+    <div className="space-y-8 p-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">{pageTitle}</h1>
+          <p className="text-muted-foreground text-sm">{pageDescription}</p>
         </div>
-        <Button onClick={() => setProjectEditorOpen(true)}>
+        <Button onClick={() => setProjectEditorOpen(true)} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           New Project
         </Button>
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-3">
         {/* Status Filter */}
         <Select 
           value={statusFilter} 
           onValueChange={(value) => setStatusFilter(value)}
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
@@ -129,7 +130,7 @@ export function Dashboard() {
             value={selectedTeamId || 'all'} 
             onValueChange={(value) => setSelectedTeamId(value === 'all' ? undefined : value)}
           >
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="Filter by team" />
             </SelectTrigger>
             <SelectContent>
@@ -146,23 +147,23 @@ export function Dashboard() {
 
       {/* Statistics Cards */}
       {projectsList.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Total Projects</CardDescription>
-              <CardTitle className="text-3xl">{totalProjects}</CardTitle>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Card className="border-l-4 border-l-blue-500">
+            <CardHeader className="pb-3">
+              <CardDescription className="text-xs font-medium uppercase tracking-wide">Total Projects</CardDescription>
+              <CardTitle className="text-4xl font-bold mt-2">{totalProjects}</CardTitle>
             </CardHeader>
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Active Projects</CardDescription>
-              <CardTitle className="text-3xl text-blue-500">{activeProjects}</CardTitle>
+          <Card className="border-l-4 border-l-green-500">
+            <CardHeader className="pb-3">
+              <CardDescription className="text-xs font-medium uppercase tracking-wide">Active Projects</CardDescription>
+              <CardTitle className="text-4xl font-bold mt-2 text-green-600 dark:text-green-400">{activeProjects}</CardTitle>
             </CardHeader>
           </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Completed Projects</CardDescription>
-              <CardTitle className="text-3xl text-green-500">{completedProjects}</CardTitle>
+          <Card className="border-l-4 border-l-purple-500 sm:col-span-2 lg:col-span-1">
+            <CardHeader className="pb-3">
+              <CardDescription className="text-xs font-medium uppercase tracking-wide">Completed Projects</CardDescription>
+              <CardTitle className="text-4xl font-bold mt-2 text-purple-600 dark:text-purple-400">{completedProjects}</CardTitle>
             </CardHeader>
           </Card>
         </div>
@@ -192,52 +193,72 @@ export function Dashboard() {
             const teamName = team?.name || (teamId === 'no-team' ? 'No Team' : `Team ${teamId.substring(0, 8)}...`)
             
             return (
-              <div key={teamId} className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-semibold">{teamName}</h2>
-                  <Badge variant="secondary" className="text-xs">
+              <div key={teamId} className="space-y-4">
+                <div className="flex items-center gap-3 pb-2 border-b">
+                  <h2 className="text-xl font-semibold text-foreground">{teamName}</h2>
+                  <Badge variant="secondary" className="text-xs font-medium">
                     {teamProjects.length} {teamProjects.length === 1 ? 'project' : 'projects'}
                   </Badge>
                 </div>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {teamProjects.map((project) => (
-                    <Link key={project.id} to={`/projects/${project.id}`}>
-                      <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                        <CardHeader>
-                          <CardTitle>{project.name}</CardTitle>
-                          <CardDescription>
-                            {project.description || 'No description'}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">Status</span>
-                              <span className="capitalize">{project.status}</span>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {teamProjects.map((project) => {
+                    const statusColors: Record<string, string> = {
+                      active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+                      paused: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+                      blocked: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+                      completed: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+                      archived: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+                    }
+                    const statusColor = statusColors[project.status] || 'bg-gray-100 text-gray-800'
+                    
+                    return (
+                      <Link key={project.id} to={`/projects/${project.id}`} className="group">
+                        <Card className="h-full hover:shadow-lg transition-all duration-200 cursor-pointer border-2 hover:border-primary/50">
+                          <CardHeader className="pb-3">
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <CardTitle className="text-lg font-semibold line-clamp-2 group-hover:text-primary transition-colors">
+                                {project.name}
+                              </CardTitle>
+                              <Badge className={`${statusColor} text-xs font-medium shrink-0`}>
+                                {project.status}
+                              </Badge>
                             </div>
-                            {project.last_session_at && (
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-muted-foreground">Last session</span>
-                                <span>{format(new Date(project.last_session_at), 'MMM d, yyyy')}</span>
-                              </div>
-                            )}
-                            {project.tags && project.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {project.tags.slice(0, 3).map((tag) => (
-                                  <span
-                                    key={tag}
-                                    className="px-2 py-1 text-xs bg-secondary rounded-md"
-                                  >
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ))}
+                            <CardDescription className="text-sm line-clamp-2 min-h-[2.5rem]">
+                              {project.description || 'No description'}
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="pt-0">
+                            <div className="space-y-2.5">
+                              {project.last_session_at && (
+                                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                  <span>Last session</span>
+                                  <span className="font-medium">{format(new Date(project.last_session_at), 'MMM d, yyyy')}</span>
+                                </div>
+                              )}
+                              {project.tags && project.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                  {project.tags.slice(0, 3).map((tag) => (
+                                    <Badge
+                                      key={tag}
+                                      variant="outline"
+                                      className="text-xs px-2 py-0.5 font-normal"
+                                    >
+                                      {tag}
+                                    </Badge>
+                                  ))}
+                                  {project.tags.length > 3 && (
+                                    <Badge variant="outline" className="text-xs px-2 py-0.5 font-normal">
+                                      +{project.tags.length - 3}
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    )
+                  })}
                 </div>
               </div>
             )

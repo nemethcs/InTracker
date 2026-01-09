@@ -25,13 +25,9 @@ export function Sidebar() {
   if (isAdmin) {
     allNavigation = [adminNavigation, teamNavigation]
   } else {
-    // Regular users and team leaders see normal navigation
-    allNavigation = [...navigation]
-    
-    // Add Teams link for team leaders
-    if (isTeamLeader) {
-      allNavigation.push(teamNavigation)
-    }
+    // Regular users and team leaders see normal navigation + Teams
+    // All users (not just team leaders) can see Teams menu
+    allNavigation = [...navigation, teamNavigation]
   }
 
   return (
