@@ -180,8 +180,8 @@ class TodoService:
             if not todo:
                 return None
 
-        # Optimistic locking check
-        if expected_version is not None and todo.version != expected_version:
+            # Optimistic locking check
+            if expected_version is not None and todo.version != expected_version:
             raise ValueError("Todo was modified by another user. Please refresh and try again.")
 
         if title is not None:
