@@ -59,6 +59,8 @@ class Project(Base):
     tags = Column(ARRAY(String), default=[])
     technology_tags = Column(ARRAY(String), default=[])
     team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)  # Team that owns this project
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
     last_session_at = Column(DateTime, nullable=True)
@@ -118,6 +120,8 @@ class ProjectElement(Base):
     description = Column(Text, nullable=True)
     status = Column(String, nullable=False, index=True)  # new, in_progress, done, tested, merged
     position = Column(Integer, nullable=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
     definition_of_done = Column(Text, nullable=True)
@@ -190,6 +194,7 @@ class Feature(Base):
     completed_todos = Column(Integer, default=0, nullable=False)
     assigned_to = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
     metadata_json = Column("metadata", JSON, nullable=True)
@@ -248,6 +253,7 @@ class Todo(Base):
     blocker_reason = Column(Text, nullable=True)
     assigned_to = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     version = Column(Integer, default=1, nullable=False)  # Optimistic locking
     github_issue_number = Column(Integer, nullable=True)
     github_pr_number = Column(Integer, nullable=True)
@@ -283,6 +289,8 @@ class Document(Base):
     title = Column(String, nullable=False)
     content = Column(Text, nullable=False)  # Markdown format
     tags = Column(ARRAY(String), default=[])
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
     version = Column(Integer, default=1, nullable=False)
@@ -306,6 +314,8 @@ class Session(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     title = Column(String, nullable=True)
     goal = Column(Text, nullable=True)
     started_at = Column(DateTime, server_default=func.now(), nullable=False, index=True)
@@ -338,6 +348,8 @@ class Idea(Base):
     status = Column(String, nullable=False, index=True)  # draft, active, archived
     tags = Column(ARRAY(String), default=[])
     team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=False, index=True)  # Team that owns this idea
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
     converted_to_project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
@@ -416,6 +428,7 @@ class Team(Base):
     description = Column(Text, nullable=True)
     language = Column(String, nullable=True)  # 'hu' (Hungarian) or 'en' (English), immutable once set
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -461,6 +474,7 @@ class InvitationCode(Base):
     type = Column(String, nullable=False, index=True)  # admin, team
     team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=True, index=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     expires_at = Column(DateTime, nullable=True)
     max_uses = Column(Integer, nullable=True)  # None = unlimited
     uses_count = Column(Integer, default=0, nullable=False)
