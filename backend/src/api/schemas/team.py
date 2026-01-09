@@ -55,6 +55,7 @@ class TeamResponse(BaseModel):
     id: str
     name: str
     description: Optional[str]
+    language: Optional[str] = None  # 'hu' (Hungarian) or 'en' (English)
     created_by: str
     created_at: datetime
     updated_at: datetime
@@ -66,6 +67,18 @@ class TeamResponse(BaseModel):
     def serialize_uuid(self, value: UUID | str, _info) -> str:
         """Serialize UUID to string."""
         return str(value) if isinstance(value, UUID) else value
+
+
+class TeamLanguageRequest(BaseModel):
+    """Team language configuration request schema."""
+    language: str  # 'hu' (Hungarian) or 'en' (English)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "language": "hu",
+            }
+        }
 
 
 class TeamListResponse(BaseModel):

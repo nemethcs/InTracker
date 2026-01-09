@@ -6,9 +6,9 @@ def create_core_workflow_section() -> RulesSection:
     """Create core workflow section."""
     return RulesSection(
         name="core_workflow",
-        content="""### Development Workflow (MANDATORY)
+        content="""{LANG:core_workflow_title}
 
-**Every agent MUST follow this workflow:**
+{LANG:core_workflow_intro}
 
 1. **Project Identification (first time only):**
    - Use `mcp_identify_project_by_path` or `mcp_list_projects`

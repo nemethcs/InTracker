@@ -2,7 +2,7 @@
 
 services:
   postgres:
-    image: postgres:16
+    image: postgres:16-alpine
     container_name: intracker-postgres
     environment:
       POSTGRES_DB: intracker
@@ -17,6 +17,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    mem_limit: 512m
+    mem_reservation: 256m
 
   redis:
     image: redis:7-alpine
@@ -30,6 +32,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    mem_limit: 128m
+    mem_reservation: 64m
+    command: redis-server --maxmemory 100mb --maxmemory-policy allkeys-lru
 
   backend:
     build:
@@ -59,6 +64,8 @@ services:
     volumes:
       - ./backend:/app
     command: uvicorn src.main:app --host 0.0.0.0 --port 3000 --reload
+    mem_limit: 512m
+    mem_reservation: 256m
 
   frontend:
     build:
@@ -78,6 +85,8 @@ services:
       - backend
     stdin_open: true
     tty: true
+    mem_limit: 512m
+    mem_reservation: 256m
 
 volumes:
   postgres_data:

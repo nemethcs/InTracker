@@ -15,7 +15,7 @@ def get_parse_file_structure_tool() -> MCPTool:
     """Get parse file structure tool definition."""
     return MCPTool(
         name="mcp_parse_file_structure",
-        description="Parse project file structure and automatically create project elements. Analyzes the codebase directory structure and creates hierarchical elements (modules, components) based on folders and files. Useful for new projects to quickly set up the project structure.",
+        description="Parse project file structure and automatically create project elements. Analyzes the codebase directory structure and creates hierarchical elements (modules, components) based on folders and files. Useful for new projects to quickly set up the project structure. NOTE: In Docker environment, projectPath parameter is REQUIRED.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -25,7 +25,7 @@ def get_parse_file_structure_tool() -> MCPTool:
                 },
                 "projectPath": {
                     "type": "string",
-                    "description": "Project directory path (defaults to current working directory if not provided)",
+                    "description": "Project directory path (REQUIRED in Docker environment)",
                 },
                 "maxDepth": {
                     "type": "integer",
@@ -38,7 +38,7 @@ def get_parse_file_structure_tool() -> MCPTool:
                     "description": "File/folder patterns to ignore (e.g., ['node_modules', '.git', '__pycache__'])",
                 },
             },
-            "required": ["projectId"],
+            "required": ["projectId", "projectPath"],
         },
     )
 
@@ -49,9 +49,15 @@ async def handle_parse_file_structure(
     max_depth: int = 3,
     ignore_patterns: Optional[List[str]] = None,
 ) -> dict:
-    """Handle parse file structure tool call."""
+    """Handle parse file structure tool call.
+    
+    NOTE: In Docker environment, projectPath parameter is REQUIRED as os.getcwd() 
+    returns container working directory, not local project directory.
+    """
     if not project_path:
-        project_path = os.getcwd()
+        return {
+            "error": "projectPath parameter is required. In Docker environment, MCP server cannot access local file system without explicit path. Please provide the project directory path."
+        }
     
     path_obj = Path(project_path).resolve()
     

@@ -153,7 +153,27 @@ async def api_info():
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
-    """Global exception handler."""
+    """Global exception handler. Skips HTTPException as FastAPI handles those.
+    
+    NOTE: For ASGI apps (like MCP transport) that handle their own responses,
+    we need to be careful not to send duplicate responses.
+    """
+    from fastapi import HTTPException
+    import logging
+    
+    # Don't handle HTTPException - FastAPI already handles those
+    if isinstance(exc, HTTPException):
+        raise exc
+    
+    # Don't handle RuntimeError about response already sent - this happens with ASGI apps
+    # that handle their own responses (like MCP transport)
+    if isinstance(exc, RuntimeError) and "response already" in str(exc).lower():
+        logging.warning(f"RuntimeError: Response already sent (likely from ASGI app): {exc}")
+        # Don't try to send response - it was already sent by the ASGI app
+        # Return None to indicate we handled it (but didn't send a response)
+        return None
+    
+    # Handle all other exceptions
     return JSONResponse(
         status_code=500,
         content={

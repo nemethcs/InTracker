@@ -78,7 +78,6 @@ async def list_tools() -> list[Tool]:
         github.get_get_github_pr_tool(),
         github.get_create_github_pr_tool(),
         github.get_create_branch_for_feature_tool(),
-        github.get_get_active_branch_tool(),
         github.get_link_branch_to_feature_tool(),
         github.get_get_feature_branches_tool(),
         github.get_get_branch_status_tool(),

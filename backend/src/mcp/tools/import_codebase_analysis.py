@@ -14,7 +14,7 @@ def get_analyze_codebase_tool() -> MCPTool:
     """Get analyze codebase tool definition."""
     return MCPTool(
         name="mcp_analyze_codebase",
-        description="Analyze existing codebase and suggest initial project structure. Examines the codebase to identify modules, components, and suggest a hierarchical structure. Useful for existing projects that need to be set up in InTracker.",
+        description="Analyze existing codebase and suggest initial project structure. Examines the codebase to identify modules, components, and suggest a hierarchical structure. Useful for existing projects that need to be set up in InTracker. NOTE: In Docker environment, projectPath parameter is REQUIRED.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -24,10 +24,10 @@ def get_analyze_codebase_tool() -> MCPTool:
                 },
                 "projectPath": {
                     "type": "string",
-                    "description": "Project directory path (defaults to current working directory if not provided)",
+                    "description": "Project directory path (REQUIRED in Docker environment)",
                 },
             },
-            "required": ["projectId"],
+            "required": ["projectId", "projectPath"],
         },
     )
 
@@ -36,9 +36,15 @@ async def handle_analyze_codebase(
     project_id: str,
     project_path: Optional[str] = None,
 ) -> dict:
-    """Handle analyze codebase tool call."""
+    """Handle analyze codebase tool call.
+    
+    NOTE: In Docker environment, projectPath parameter is REQUIRED as os.getcwd() 
+    returns container working directory, not local project directory.
+    """
     if not project_path:
-        project_path = os.getcwd()
+        return {
+            "error": "projectPath parameter is required. In Docker environment, MCP server cannot access local file system without explicit path. Please provide the project directory path."
+        }
     
     path_obj = Path(project_path).resolve()
     

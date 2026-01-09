@@ -276,3 +276,55 @@ class TeamService:
             .first()
         )
         return team_member is not None
+
+    @staticmethod
+    def set_team_language(
+        db: Session,
+        team_id: UUID,
+        language: str,
+    ) -> Team:
+        """Set team language. Can only be set once (immutable after setting).
+        
+        Args:
+            db: Database session
+            team_id: Team ID
+            language: Language code ('hu' or 'en')
+            
+        Returns:
+            Updated Team object
+            
+        Raises:
+            ValueError: If team not found, language already set, or invalid language code
+        """
+        # Validate language code
+        if language not in ['hu', 'en']:
+            raise ValueError(f"Invalid language code: {language}. Must be 'hu' (Hungarian) or 'en' (English)")
+        
+        # Get team
+        team = db.query(Team).filter(Team.id == team_id).first()
+        if not team:
+            raise ValueError(f"Team {team_id} not found")
+        
+        # Check if language is already set (immutable)
+        if team.language is not None:
+            raise ValueError(
+                f"Team language is already set to '{team.language}' and cannot be changed. "
+                "Language can only be set once to ensure consistency."
+            )
+        
+        # Set language
+        team.language = language
+        db.commit()
+        db.refresh(team)
+        
+        # Invalidate cache for all projects in this team
+        # This ensures that rules generation will use the new language
+        from src.mcp.services.cache import cache_service
+        from src.database.models import Project
+        
+        projects = db.query(Project).filter(Project.team_id == team_id).all()
+        for project in projects:
+            # Clear project context cache
+            cache_service.clear_pattern(f"project:{project.id}:*")
+        
+        return team
