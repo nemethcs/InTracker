@@ -330,7 +330,7 @@ class Session(Base):
 
     # Relationships
     project = relationship("Project", back_populates="sessions")
-    user = relationship("User", back_populates="sessions")
+    user = relationship("User", foreign_keys=[user_id], back_populates="sessions")
 
     __table_args__ = (
         Index("idx_sessions_project", "project_id"),
