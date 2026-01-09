@@ -3,6 +3,7 @@ from typing import Optional, List
 from uuid import UUID
 from sqlalchemy.orm import Session
 from src.database.models import Idea, Project, TeamMember, User
+from src.database.base import set_current_user_id, reset_current_user_id
 
 
 class IdeaService:
@@ -16,19 +17,29 @@ class IdeaService:
         description: Optional[str] = None,
         status: str = "draft",
         tags: Optional[List[str]] = None,
+        current_user_id: Optional[UUID] = None,
     ) -> Idea:
         """Create a new idea for a team."""
-        idea = Idea(
-            team_id=team_id,
-            title=title,
-            description=description,
-            status=status,
-            tags=tags or [],
-        )
-        db.add(idea)
-        db.commit()
-        db.refresh(idea)
-        return idea
+        # Set current user ID for audit trail
+        token = None
+        if current_user_id:
+            token = set_current_user_id(current_user_id)
+        
+        try:
+            idea = Idea(
+                team_id=team_id,
+                title=title,
+                description=description,
+                status=status,
+                tags=tags or [],
+            )
+            db.add(idea)
+            db.commit()
+            db.refresh(idea)
+            return idea
+        finally:
+            if token:
+                reset_current_user_id(token)
 
     @staticmethod
     def get_idea_by_id(db: Session, idea_id: UUID) -> Optional[Idea]:
@@ -86,24 +97,34 @@ class IdeaService:
         description: Optional[str] = None,
         status: Optional[str] = None,
         tags: Optional[List[str]] = None,
+        current_user_id: Optional[UUID] = None,
     ) -> Optional[Idea]:
         """Update idea."""
-        idea = db.query(Idea).filter(Idea.id == idea_id).first()
-        if not idea:
-            return None
+        # Set current user ID for audit trail
+        token = None
+        if current_user_id:
+            token = set_current_user_id(current_user_id)
+        
+        try:
+            idea = db.query(Idea).filter(Idea.id == idea_id).first()
+            if not idea:
+                return None
 
-        if title is not None:
-            idea.title = title
-        if description is not None:
-            idea.description = description
-        if status is not None:
-            idea.status = status
-        if tags is not None:
-            idea.tags = tags
+            if title is not None:
+                idea.title = title
+            if description is not None:
+                idea.description = description
+            if status is not None:
+                idea.status = status
+            if tags is not None:
+                idea.tags = tags
 
-        db.commit()
-        db.refresh(idea)
-        return idea
+            db.commit()
+            db.refresh(idea)
+            return idea
+        finally:
+            if token:
+                reset_current_user_id(token)
 
     @staticmethod
     def delete_idea(db: Session, idea_id: UUID) -> bool:

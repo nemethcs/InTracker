@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from src.database.models import Document
+from src.database.base import set_current_user_id, reset_current_user_id
 
 
 class DocumentService:
@@ -18,21 +19,31 @@ class DocumentService:
         content: str,
         element_id: Optional[UUID] = None,
         tags: Optional[List[str]] = None,
+        current_user_id: Optional[UUID] = None,
     ) -> Document:
         """Create a new document."""
-        document = Document(
-            project_id=project_id,
-            element_id=element_id,
-            type=type,
-            title=title,
-            content=content,
-            tags=tags or [],
-            version=1,
-        )
-        db.add(document)
-        db.commit()
-        db.refresh(document)
-        return document
+        # Set current user ID for audit trail
+        token = None
+        if current_user_id:
+            token = set_current_user_id(current_user_id)
+        
+        try:
+            document = Document(
+                project_id=project_id,
+                element_id=element_id,
+                type=type,
+                title=title,
+                content=content,
+                tags=tags or [],
+                version=1,
+            )
+            db.add(document)
+            db.commit()
+            db.refresh(document)
+            return document
+        finally:
+            if token:
+                reset_current_user_id(token)
 
     @staticmethod
     def get_document_by_id(db: Session, document_id: UUID) -> Optional[Document]:
@@ -79,26 +90,36 @@ class DocumentService:
         title: Optional[str] = None,
         content: Optional[str] = None,
         tags: Optional[List[str]] = None,
+        current_user_id: Optional[UUID] = None,
     ) -> Optional[Document]:
         """Update document and increment version."""
-        document = db.query(Document).filter(Document.id == document_id).first()
-        if not document:
-            return None
+        # Set current user ID for audit trail
+        token = None
+        if current_user_id:
+            token = set_current_user_id(current_user_id)
+        
+        try:
+            document = db.query(Document).filter(Document.id == document_id).first()
+            if not document:
+                return None
 
-        if title is not None:
-            document.title = title
-        if content is not None:
-            document.content = content
-        if tags is not None:
-            document.tags = tags
+            if title is not None:
+                document.title = title
+            if content is not None:
+                document.content = content
+            if tags is not None:
+                document.tags = tags
 
-        # Increment version on content change
-        if content is not None:
-            document.version += 1
+            # Increment version on content change
+            if content is not None:
+                document.version += 1
 
-        db.commit()
-        db.refresh(document)
-        return document
+            db.commit()
+            db.refresh(document)
+            return document
+        finally:
+            if token:
+                reset_current_user_id(token)
 
     @staticmethod
     def delete_document(db: Session, document_id: UUID) -> bool:

@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
 from src.database.models import ProjectElement, ElementDependency, Todo
+from src.database.base import set_current_user_id, reset_current_user_id
 
 
 class ElementService:
@@ -20,35 +21,45 @@ class ElementService:
         parent_id: Optional[UUID] = None,
         position: Optional[int] = None,
         definition_of_done: Optional[str] = None,
+        current_user_id: Optional[UUID] = None,
     ) -> ProjectElement:
         """Create a new element."""
-        # Verify parent exists and belongs to same project if provided
-        if parent_id:
-            parent = (
-                db.query(ProjectElement)
-                .filter(
-                    ProjectElement.id == parent_id,
-                    ProjectElement.project_id == project_id,
+        # Set current user ID for audit trail
+        token = None
+        if current_user_id:
+            token = set_current_user_id(current_user_id)
+        
+        try:
+            # Verify parent exists and belongs to same project if provided
+            if parent_id:
+                parent = (
+                    db.query(ProjectElement)
+                    .filter(
+                        ProjectElement.id == parent_id,
+                        ProjectElement.project_id == project_id,
+                    )
+                    .first()
                 )
-                .first()
-            )
-            if not parent:
-                raise ValueError("Parent element not found or doesn't belong to project")
+                if not parent:
+                    raise ValueError("Parent element not found or doesn't belong to project")
 
-        element = ProjectElement(
-            project_id=project_id,
-            parent_id=parent_id,
-            type=type,
-            title=title,
-            description=description,
-            status=status,
-            position=position,
-            definition_of_done=definition_of_done,
-        )
-        db.add(element)
-        db.commit()
-        db.refresh(element)
-        return element
+            element = ProjectElement(
+                project_id=project_id,
+                parent_id=parent_id,
+                type=type,
+                title=title,
+                description=description,
+                status=status,
+                position=position,
+                definition_of_done=definition_of_done,
+            )
+            db.add(element)
+            db.commit()
+            db.refresh(element)
+            return element
+        finally:
+            if token:
+                reset_current_user_id(token)
 
     @staticmethod
     def get_element_by_id(db: Session, element_id: UUID) -> Optional[ProjectElement]:
@@ -167,40 +178,50 @@ class ElementService:
         position: Optional[int] = None,
         definition_of_done: Optional[str] = None,
         parent_id: Optional[UUID] = None,
+        current_user_id: Optional[UUID] = None,
     ) -> Optional[ProjectElement]:
         """Update element."""
-        element = db.query(ProjectElement).filter(ProjectElement.id == element_id).first()
-        if not element:
-            return None
+        # Set current user ID for audit trail
+        token = None
+        if current_user_id:
+            token = set_current_user_id(current_user_id)
+        
+        try:
+            element = db.query(ProjectElement).filter(ProjectElement.id == element_id).first()
+            if not element:
+                return None
 
-        if title is not None:
-            element.title = title
-        if description is not None:
-            element.description = description
-        if status is not None:
-            element.status = status
-        if position is not None:
-            element.position = position
-        if definition_of_done is not None:
-            element.definition_of_done = definition_of_done
-        if parent_id is not None:
-            # Verify parent exists and belongs to same project
-            if parent_id:
-                parent = (
-                    db.query(ProjectElement)
-                    .filter(
-                        ProjectElement.id == parent_id,
-                        ProjectElement.project_id == element.project_id,
+            if title is not None:
+                element.title = title
+            if description is not None:
+                element.description = description
+            if status is not None:
+                element.status = status
+            if position is not None:
+                element.position = position
+            if definition_of_done is not None:
+                element.definition_of_done = definition_of_done
+            if parent_id is not None:
+                # Verify parent exists and belongs to same project
+                if parent_id:
+                    parent = (
+                        db.query(ProjectElement)
+                        .filter(
+                            ProjectElement.id == parent_id,
+                            ProjectElement.project_id == element.project_id,
+                        )
+                        .first()
                     )
-                    .first()
-                )
-                if not parent:
-                    raise ValueError("Parent element not found or doesn't belong to project")
-            element.parent_id = parent_id
+                    if not parent:
+                        raise ValueError("Parent element not found or doesn't belong to project")
+                element.parent_id = parent_id
 
-        db.commit()
-        db.refresh(element)
-        return element
+            db.commit()
+            db.refresh(element)
+            return element
+        finally:
+            if token:
+                reset_current_user_id(token)
 
     @staticmethod
     def update_element_status_by_todos(db: Session, element_id: UUID) -> Optional[ProjectElement]:

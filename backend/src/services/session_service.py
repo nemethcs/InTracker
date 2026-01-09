@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from src.database.models import Session, Project, Todo, Feature
+from src.database.base import set_current_user_id, reset_current_user_id
 
 
 class SessionService:
@@ -19,25 +20,33 @@ class SessionService:
         goal: Optional[str] = None,
         feature_ids: Optional[List[UUID]] = None,
         broadcast_start: bool = True,
+        current_user_id: Optional[UUID] = None,
     ) -> Session:
         """Create a new session.
         
         If broadcast_start is True (default), broadcasts a SignalR event
         to notify clients that a user has started working on the project.
         """
-        session = Session(
-            project_id=project_id,
-            user_id=user_id,
-            title=title,
-            goal=goal,
-            feature_ids=feature_ids or [],
-            todos_completed=[],
-            features_completed=[],
-            elements_updated=[],
-        )
-        db.add(session)
-        db.commit()
-        db.refresh(session)
+        # Set current user ID for audit trail (use user_id if current_user_id not provided)
+        token = None
+        audit_user_id = current_user_id or user_id
+        if audit_user_id:
+            token = set_current_user_id(audit_user_id)
+        
+        try:
+            session = Session(
+                project_id=project_id,
+                user_id=user_id,
+                title=title,
+                goal=goal,
+                feature_ids=feature_ids or [],
+                todos_completed=[],
+                features_completed=[],
+                elements_updated=[],
+            )
+            db.add(session)
+            db.commit()
+            db.refresh(session)
         
         # Broadcast session start event via SignalR (async, fire and forget)
         if broadcast_start and user_id:
@@ -63,7 +72,10 @@ class SessionService:
                 # Don't fail session creation if broadcast fails
                 print(f"Failed to broadcast session start: {e}")
         
-        return session
+            return session
+        finally:
+            if token:
+                reset_current_user_id(token)
 
     @staticmethod
     def get_session_by_id(db: Session, session_id: UUID) -> Optional[Session]:
@@ -133,28 +145,38 @@ class SessionService:
         todos_completed: Optional[List[UUID]] = None,
         features_completed: Optional[List[UUID]] = None,
         elements_updated: Optional[List[UUID]] = None,
+        current_user_id: Optional[UUID] = None,
     ) -> Optional[Session]:
         """Update session."""
-        session = db.query(Session).filter(Session.id == session_id).first()
-        if not session:
-            return None
+        # Set current user ID for audit trail
+        token = None
+        if current_user_id:
+            token = set_current_user_id(current_user_id)
+        
+        try:
+            session = db.query(Session).filter(Session.id == session_id).first()
+            if not session:
+                return None
 
-        if title is not None:
-            session.title = title
-        if goal is not None:
-            session.goal = goal
-        if notes is not None:
-            session.notes = notes
-        if todos_completed is not None:
-            session.todos_completed = todos_completed
-        if features_completed is not None:
-            session.features_completed = features_completed
-        if elements_updated is not None:
-            session.elements_updated = elements_updated
+            if title is not None:
+                session.title = title
+            if goal is not None:
+                session.goal = goal
+            if notes is not None:
+                session.notes = notes
+            if todos_completed is not None:
+                session.todos_completed = todos_completed
+            if features_completed is not None:
+                session.features_completed = features_completed
+            if elements_updated is not None:
+                session.elements_updated = elements_updated
 
-        db.commit()
-        db.refresh(session)
-        return session
+            db.commit()
+            db.refresh(session)
+            return session
+        finally:
+            if token:
+                reset_current_user_id(token)
 
     @staticmethod
     def end_session(
