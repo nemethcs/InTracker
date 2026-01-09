@@ -17,6 +17,12 @@ LANGUAGE_CONTENT: Dict[str, Dict[str, str]] = {
         "critical": "**CRITICAL:**",
         "never": "**NEVER:**",
         "always": "**ALWAYS:**",
+        "language_requirement": "**Language Requirement (CRITICAL):** If team language is set, ALWAYS use that language when creating todos, features, and ideas!",
+        "language_requirement_detail": "Team language setting determines the language for all InTracker content (todos, features, ideas). If team language is Hungarian (hu), create content in Hungarian. If English (en) or not set, create in English.",
+        "language_examples": "Examples: If team language = 'hu': 'Implementálj egy új funkciót' (in Hungarian). If team language = 'en' or not set: 'Implement a new feature' (in English).",
+        "todo_language_note": "ALWAYS use team language when creating todo title and description!",
+        "feature_language_note": "ALWAYS use team language when creating feature name and description!",
+        "idea_language_note": "ALWAYS use team language when creating idea title and description!",
     },
     "hu": {
         "core_workflow_title": "### Fejlesztési Munkafolyamat (KÖTELEZŐ)",
@@ -31,6 +37,12 @@ LANGUAGE_CONTENT: Dict[str, Dict[str, str]] = {
         "critical": "**KRITIKUS:**",
         "never": "**SOHA:**",
         "always": "**MINDIG:**",
+        "language_requirement": "**Nyelv Követelmény (KRITIKUS):** Ha a team nyelv beállítva van, MINDIG használd azt a nyelvet todo-k, feature-ök és idea-k létrehozásánál!",
+        "language_requirement_detail": "A team nyelv beállítása meghatározza, hogy milyen nyelven kell létrehozni az összes InTracker tartalmat (todo-k, feature-ök, idea-k). Ha a team nyelv magyar (hu), akkor magyarul kell létrehozni. Ha angol (en) vagy nincs beállítva, akkor angolul.",
+        "language_examples": "Példák: Ha team nyelv = 'hu': 'Implementálj egy új funkciót' (magyarul). Ha team nyelv = 'en' vagy nincs beállítva: 'Implement a new feature' (angolul).",
+        "todo_language_note": "MINDIG használd a team nyelvét a todo cím és leírás létrehozásánál!",
+        "feature_language_note": "MINDIG használd a team nyelvét a feature név és leírás létrehozásánál!",
+        "idea_language_note": "MINDIG használd a team nyelvét az idea cím és leírás létrehozásánál!",
     },
 }
 

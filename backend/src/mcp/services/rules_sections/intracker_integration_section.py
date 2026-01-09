@@ -10,8 +10,14 @@ def create_intracker_integration_section() -> RulesSection:
 
 **ALWAYS use InTracker to track progress - this is NOT optional!**
 
+**Language Requirements (CRITICAL):**
+- **{LANG:language_requirement}**
+- **{LANG:language_requirement_detail}**
+- **{LANG:language_examples}**
+
 **Todo Management:**
 1. **Create todos:** `mcp_create_todo(elementId, title, description, featureId?, priority?)`
+   - **{LANG:todo_language_note}**
 2. **Update status:** `mcp_update_todo_status(todoId, status, expectedVersion?)`
    - Statuses: `new` → `in_progress` → `tested` → `done`
    - **CRITICAL:** Use optimistic locking with `expectedVersion` to prevent conflicts
@@ -22,9 +28,15 @@ def create_intracker_integration_section() -> RulesSection:
      - `done`: Tested AND merged to dev branch (only after merge!)
 
 **Feature Management:**
+- **Create features:** `mcp_create_feature(projectId, name, description, elementIds?)`
+  - **{LANG:feature_language_note}**
 - Track features: `mcp_update_feature_status(featureId, status)`
 - Feature statuses: `new` → `in_progress` → `tested` → `done`
 - Feature progress auto-calculated from todos
+
+**Idea Management:**
+- **Create ideas:** `mcp_create_idea(title, teamId, description, status?, tags?)`
+  - **{LANG:idea_language_note}**
 
 **Session Management:**
 - Start session: `mcp_start_session(projectId, goal, featureIds?)`
