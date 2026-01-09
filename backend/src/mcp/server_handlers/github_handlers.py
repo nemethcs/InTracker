@@ -84,12 +84,6 @@ async def handle_github_tool(name: str, arguments: dict) -> list[TextContent] | 
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 
-        elif name == "mcp_get_active_branch":
-            result = await github.handle_get_active_branch(
-                arguments["projectId"],
-            )
-            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
-
         elif name == "mcp_link_branch_to_feature":
             result = await github.handle_link_branch_to_feature(
                 arguments["featureId"],

@@ -1,8 +1,6 @@
 """MCP Tools for GitHub branches."""
 from typing import Optional
 from uuid import UUID
-import subprocess
-import os
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
 from src.database.base import SessionLocal
@@ -134,63 +132,6 @@ async def handle_create_branch_for_feature(feature_id: str, base_branch: str = "
             }
         except GithubException as e:
             return {"error": f"Failed to create GitHub branch: {e}"}
-    finally:
-        db.close()
-
-
-def get_get_active_branch_tool() -> MCPTool:
-    """Get active branch tool definition."""
-    return MCPTool(
-        name="mcp_get_active_branch",
-        description="Get the active branch from working directory or project",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "projectId": {"type": "string", "description": "Project UUID"},
-            },
-            "required": ["projectId"],
-        },
-    )
-
-
-async def handle_get_active_branch(project_id: str) -> dict:
-    """Handle get active branch tool call."""
-    db = SessionLocal()
-    try:
-        # Use ProjectService to get project
-        project = ProjectService.get_project_by_id(db, UUID(project_id))
-        if not project or not project.github_repo_url:
-            return {"error": "Project does not have a connected GitHub repository"}
-
-        # Try to get current branch from git
-        try:
-            result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                capture_output=True,
-                text=True,
-                cwd=os.getcwd(),
-            )
-            if result.returncode == 0:
-                current_branch = result.stdout.strip()
-                
-                # Check if branch is linked to a feature
-                github_branch = db.query(GitHubBranch).filter(
-                    GitHubBranch.project_id == UUID(project_id),
-                    GitHubBranch.branch_name == current_branch,
-                ).first()
-
-                return {
-                    "project_id": project_id,
-                    "branch": {
-                        "name": current_branch,
-                        "feature_id": str(github_branch.feature_id) if github_branch and github_branch.feature_id else None,
-                        "status": github_branch.status if github_branch else None,
-                    },
-                }
-        except Exception:
-            pass
-
-        return {"error": "Could not determine active branch"}
     finally:
         db.close()
 
