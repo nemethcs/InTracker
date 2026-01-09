@@ -18,6 +18,7 @@ from src.api.controllers import (
     admin_controller,
     team_controller,
     mcp_key_controller,
+    audit_controller,
 )
 
 # Create FastAPI app
