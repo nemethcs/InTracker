@@ -92,6 +92,8 @@ version: {datetime.utcnow().isoformat()}
 """
         
         # Add conditional sections
+        from .rules_sections.language_content import replace_language_placeholders
+        
         for section in self.sections:
             if section.should_include(project):
                 content = section.content
@@ -108,6 +110,8 @@ version: {datetime.utcnow().isoformat()}
                 # Replace language placeholder if present
                 if "{LANGUAGE}" in content:
                     content = content.replace("{LANGUAGE}", team_language)
+                # Replace language-specific placeholders (e.g., {LANG:key})
+                content = replace_language_placeholders(content, team_language)
                 rules_content += content + "\n"
         
         # Add project-specific information
