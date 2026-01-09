@@ -5,8 +5,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production --legacy-peer-deps && \
+# Install dependencies (including dev dependencies for vite)
+RUN npm ci --legacy-peer-deps && \
     npm cache clean --force
 
 # Copy source code
