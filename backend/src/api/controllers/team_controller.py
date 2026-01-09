@@ -120,6 +120,7 @@ async def get_team(
         "id": str(team.id),
         "name": team.name,
         "description": team.description,
+        "language": team.language,
         "created_by": str(team.created_by),
         "created_at": team.created_at,
         "updated_at": team.updated_at,
