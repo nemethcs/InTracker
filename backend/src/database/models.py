@@ -41,7 +41,7 @@ class User(Base):
     assigned_todos = relationship("Todo", foreign_keys="Todo.assigned_to", back_populates="assigned_user")
     created_features = relationship("Feature", foreign_keys="Feature.created_by", back_populates="creator")
     assigned_features = relationship("Feature", foreign_keys="Feature.assigned_to", back_populates="assigned_user")
-    sessions = relationship("Session", back_populates="user")
+    sessions = relationship("Session", foreign_keys="Session.user_id", back_populates="user")
     team_memberships = relationship("TeamMember", foreign_keys="TeamMember.user_id", back_populates="user")
     created_teams = relationship("Team", foreign_keys="Team.created_by", back_populates="creator")
     created_invitations = relationship("InvitationCode", foreign_keys="InvitationCode.created_by", back_populates="creator")
