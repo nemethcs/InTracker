@@ -54,23 +54,23 @@ class SessionService:
                     import asyncio
                     import threading
                     from src.services.signalr_hub import broadcast_session_start
-                
-                def run_broadcast():
-                    """Run async broadcast in a new event loop."""
-                    try:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        loop.run_until_complete(broadcast_session_start(str(project_id), str(user_id)))
-                        loop.close()
-                    except Exception as e:
-                        print(f"Error in broadcast thread: {e}")
-                
-                # Run broadcast in a separate thread to avoid blocking
-                thread = threading.Thread(target=run_broadcast, daemon=True)
-                thread.start()
-            except Exception as e:
-                # Don't fail session creation if broadcast fails
-                print(f"Failed to broadcast session start: {e}")
+                    
+                    def run_broadcast():
+                        """Run async broadcast in a new event loop."""
+                        try:
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            loop.run_until_complete(broadcast_session_start(str(project_id), str(user_id)))
+                            loop.close()
+                        except Exception as e:
+                            print(f"Error in broadcast thread: {e}")
+                    
+                    # Run broadcast in a separate thread to avoid blocking
+                    thread = threading.Thread(target=run_broadcast, daemon=True)
+                    thread.start()
+                except Exception as e:
+                    # Don't fail session creation if broadcast fails
+                    print(f"Failed to broadcast session start: {e}")
         
             return session
         finally:
