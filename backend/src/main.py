@@ -53,6 +53,7 @@ app.include_router(mcp_controller.router)
 app.include_router(admin_controller.router)
 app.include_router(team_controller.router)
 app.include_router(mcp_key_controller.router)
+app.include_router(audit_controller.router)
 
 
 @app.get("/health")
