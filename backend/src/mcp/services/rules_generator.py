@@ -38,6 +38,15 @@ class RulesGenerator:
         """Generate cursor rules for a project."""
         cursor_instructions = custom_instructions or project.cursor_instructions or ""
         
+        # Get team language (default to 'en' if not set)
+        team_language = 'en'  # Default language
+        if project.team and project.team.language:
+            team_language = project.team.language
+        elif hasattr(project, 'team_id') and project.team_id:
+            # If team relationship not loaded, we'll need to load it
+            # For now, use default - this will be handled by the caller if needed
+            pass
+        
         # Build project-specific service list
         docker_services = self._get_docker_services(project)
         mcp_service = "  mcp-server: MCP Server (port 3001)" if self._uses_mcp(project) else ""
@@ -96,6 +105,9 @@ version: {datetime.utcnow().isoformat()}
                 # Replace conditional placeholders (for f-string-like behavior in sections)
                 if "{uses_mcp}" in content:
                     content = content.replace("{uses_mcp}", str(uses_mcp))
+                # Replace language placeholder if present
+                if "{LANGUAGE}" in content:
+                    content = content.replace("{LANGUAGE}", team_language)
                 rules_content += content + "\n"
         
         # Add project-specific information

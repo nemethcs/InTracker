@@ -99,8 +99,11 @@ async def read_cursor_rules_resource(project_id: str) -> str:
     
     db = SessionLocal()
     try:
-        # Use ProjectService to get project
-        project = ProjectService.get_project_by_id(db, UUID(project_id))
+        # Use ProjectService to get project with team relationship loaded
+        from sqlalchemy.orm import joinedload
+        from src.database.models import Project
+        
+        project = db.query(Project).options(joinedload(Project.team)).filter(Project.id == UUID(project_id)).first()
         if not project:
             raise ValueError(f"Project not found: {project_id}")
 
