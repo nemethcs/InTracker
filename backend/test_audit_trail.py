@@ -16,7 +16,7 @@ def test_audit_trail():
     # 1. Login
     print("\n1. Login...")
     login_response = requests.post(
-        f"{BASE_URL}/auth/login",
+        "http://localhost:3000/auth/login",
         json={"email": TEST_EMAIL, "password": TEST_PASSWORD}
     )
     
