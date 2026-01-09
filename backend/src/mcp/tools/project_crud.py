@@ -64,13 +64,19 @@ async def handle_create_project(
     github_repo_url: Optional[str] = None,
 ) -> dict:
     """Handle create project tool call."""
+    from src.mcp.middleware.auth import get_current_user_id
+    
     db = SessionLocal()
     try:
+        # Get current user ID from MCP API key
+        user_id = get_current_user_id()
+        
         # Use ProjectService to create project
         project = ProjectService.create_project(
             db=db,
             team_id=UUID(team_id),
             name=name,
+            user_id=user_id,
             description=description,
             status=status,
             tags=tags,
@@ -263,10 +269,15 @@ async def handle_update_project(
                     f"Complete or remove all active features before archiving the project."
                 }
         
+        # Get current user ID from MCP API key
+        from src.mcp.middleware.auth import get_current_user_id
+        user_id = get_current_user_id()
+        
         # Use ProjectService to update project
         project = ProjectService.update_project(
             db=db,
             project_id=UUID(project_id),
+            user_id=user_id,
             name=name,
             description=description,
             status=status,

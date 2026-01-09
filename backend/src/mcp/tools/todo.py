@@ -40,6 +40,10 @@ async def handle_create_todo(
     """Handle create todo tool call."""
     db = SessionLocal()
     try:
+        # Get current user ID from MCP API key
+        from src.mcp.middleware.auth import get_current_user_id
+        user_id = get_current_user_id()
+        
         # Use TodoService to create todo
         feature_uuid = UUID(feature_id) if feature_id else None
         todo = TodoService.create_todo(
@@ -50,6 +54,7 @@ async def handle_create_todo(
             status="new",
             feature_id=feature_uuid,
             priority=priority or "medium",
+            current_user_id=user_id,
         )
 
         # Get element for project_id and broadcast

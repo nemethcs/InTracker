@@ -59,10 +59,15 @@ async def handle_connect_github_repo(project_id: str, owner: str, repo: str) -> 
         if not repo_info:
             return {"error": "Failed to get repository information"}
 
+        # Get current user ID from MCP API key
+        from src.mcp.middleware.auth import get_current_user_id
+        user_id = get_current_user_id()
+        
         # Use ProjectService to update project
         updated_project = ProjectService.update_project(
             db=db,
             project_id=UUID(project_id),
+            user_id=user_id,
             github_repo_url=repo_info["url"],
             github_repo_id=str(repo_info["id"]),
         )
