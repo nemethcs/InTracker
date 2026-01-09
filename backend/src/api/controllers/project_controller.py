@@ -49,6 +49,7 @@ async def create_project(
         db=db,
         team_id=team_id,
         name=project_data.name,
+        user_id=user_id,
         description=project_data.description,
         status=project_data.status,
         tags=project_data.tags,
@@ -215,6 +216,7 @@ async def update_project(
     project = project_service.update_project(
         db=db,
         project_id=project_id,
+        user_id=user_id,
         name=project_data.name,
         description=project_data.description,
         status=project_data.status,
