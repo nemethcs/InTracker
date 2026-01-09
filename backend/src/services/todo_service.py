@@ -170,7 +170,13 @@ class TodoService:
         current_user_id: Optional[UUID] = None,
     ) -> Optional[Todo]:
         """Update todo with optimistic locking."""
-        todo = db.query(Todo).filter(Todo.id == todo_id).first()
+        # Set current user ID for audit trail
+        token = None
+        if current_user_id:
+            token = set_current_user_id(current_user_id)
+        
+        try:
+            todo = db.query(Todo).filter(Todo.id == todo_id).first()
         if not todo:
             return None
 
