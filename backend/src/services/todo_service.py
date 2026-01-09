@@ -5,6 +5,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from src.database.models import Todo, ProjectElement, Feature
+from src.database.base import set_current_user_id, reset_current_user_id
 
 
 class TodoService:
@@ -22,50 +23,60 @@ class TodoService:
         priority: Optional[str] = "medium",
         created_by: Optional[UUID] = None,
         assigned_to: Optional[UUID] = None,
+        current_user_id: Optional[UUID] = None,
     ) -> Todo:
         """Create a new todo."""
-        # Verify element exists
-        element = db.query(ProjectElement).filter(ProjectElement.id == element_id).first()
-        if not element:
-            raise ValueError("Element not found")
-
-        # Verify feature if provided
-        if feature_id:
-            feature = db.query(Feature).filter(Feature.id == feature_id).first()
-            if not feature:
-                raise ValueError("Feature not found")
-            if feature.project_id != element.project_id:
-                raise ValueError("Feature and element must belong to the same project")
-
-        todo = Todo(
-            element_id=element_id,
-            feature_id=feature_id,
-            title=title,
-            description=description,
-            status=status,
-            position=position,
-            priority=priority or "medium",
-            created_by=created_by,
-            assigned_to=assigned_to,
-            version=1,
-        )
-        db.add(todo)
-        db.commit()
-        db.refresh(todo)
-
-        # Update element status based on todos
-        from src.services.element_service import element_service
-        element_service.update_element_status_by_todos(db=db, element_id=element_id)
+        # Set current user ID for audit trail
+        token = None
+        if current_user_id:
+            token = set_current_user_id(current_user_id)
         
-        # Update parent element statuses recursively
-        element_service.update_parent_statuses(db=db, element_id=element_id)
+        try:
+            # Verify element exists
+            element = db.query(ProjectElement).filter(ProjectElement.id == element_id).first()
+            if not element:
+                raise ValueError("Element not found")
 
-        # Update feature progress if linked
-        if feature_id:
-            from src.services.feature_service import feature_service
-            feature_service.calculate_feature_progress(db=db, feature_id=feature_id)
+            # Verify feature if provided
+            if feature_id:
+                feature = db.query(Feature).filter(Feature.id == feature_id).first()
+                if not feature:
+                    raise ValueError("Feature not found")
+                if feature.project_id != element.project_id:
+                    raise ValueError("Feature and element must belong to the same project")
 
-        return todo
+            todo = Todo(
+                element_id=element_id,
+                feature_id=feature_id,
+                title=title,
+                description=description,
+                status=status,
+                position=position,
+                priority=priority or "medium",
+                created_by=created_by,
+                assigned_to=assigned_to,
+                version=1,
+            )
+            db.add(todo)
+            db.commit()
+            db.refresh(todo)
+
+            # Update element status based on todos
+            from src.services.element_service import element_service
+            element_service.update_element_status_by_todos(db=db, element_id=element_id)
+            
+            # Update parent element statuses recursively
+            element_service.update_parent_statuses(db=db, element_id=element_id)
+
+            # Update feature progress if linked
+            if feature_id:
+                from src.services.feature_service import feature_service
+                feature_service.calculate_feature_progress(db=db, feature_id=feature_id)
+
+            return todo
+        finally:
+            if token:
+                reset_current_user_id(token)
 
     @staticmethod
     def get_todo_by_id(db: Session, todo_id: UUID) -> Optional[Todo]:
@@ -156,6 +167,7 @@ class TodoService:
         assigned_to: Optional[UUID] = None,
         feature_id: Optional[UUID] = None,
         expected_version: Optional[int] = None,
+        current_user_id: Optional[UUID] = None,
     ) -> Optional[Todo]:
         """Update todo with optimistic locking."""
         todo = db.query(Todo).filter(Todo.id == todo_id).first()

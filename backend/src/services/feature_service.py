@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from src.database.models import Feature, ProjectElement, FeatureElement, Todo
+from src.database.base import set_current_user_id, reset_current_user_id
 
 
 class FeatureService:
@@ -19,44 +20,54 @@ class FeatureService:
         created_by: Optional[UUID] = None,
         assigned_to: Optional[UUID] = None,
         element_ids: Optional[List[UUID]] = None,
+        current_user_id: Optional[UUID] = None,
     ) -> Feature:
         """Create a new feature and optionally link elements."""
-        feature = Feature(
-            project_id=project_id,
-            name=name,
-            description=description,
-            status=status,
-            created_by=created_by,
-            assigned_to=assigned_to,
-            total_todos=0,
-            completed_todos=0,
-            progress_percentage=0,
-        )
-        db.add(feature)
-        db.flush()
+        # Set current user ID for audit trail
+        token = None
+        if current_user_id:
+            token = set_current_user_id(current_user_id)
+        
+        try:
+            feature = Feature(
+                project_id=project_id,
+                name=name,
+                description=description,
+                status=status,
+                created_by=created_by,
+                assigned_to=assigned_to,
+                total_todos=0,
+                completed_todos=0,
+                progress_percentage=0,
+            )
+            db.add(feature)
+            db.flush()
 
-        # Link elements if provided
-        if element_ids:
-            for element_id in element_ids:
-                # Verify element exists and belongs to project
-                element = (
-                    db.query(ProjectElement)
-                    .filter(
-                        ProjectElement.id == element_id,
-                        ProjectElement.project_id == project_id,
+            # Link elements if provided
+            if element_ids:
+                for element_id in element_ids:
+                    # Verify element exists and belongs to project
+                    element = (
+                        db.query(ProjectElement)
+                        .filter(
+                            ProjectElement.id == element_id,
+                            ProjectElement.project_id == project_id,
+                        )
+                        .first()
                     )
-                    .first()
-                )
-                if element:
-                    feature_element = FeatureElement(
-                        feature_id=feature.id,
-                        element_id=element_id,
-                    )
-                    db.add(feature_element)
+                    if element:
+                        feature_element = FeatureElement(
+                            feature_id=feature.id,
+                            element_id=element_id,
+                        )
+                        db.add(feature_element)
 
-        db.commit()
-        db.refresh(feature)
-        return feature
+            db.commit()
+            db.refresh(feature)
+            return feature
+        finally:
+            if token:
+                reset_current_user_id(token)
 
     @staticmethod
     def get_feature_by_id(db: Session, feature_id: UUID) -> Optional[Feature]:
@@ -122,24 +133,34 @@ class FeatureService:
         description: Optional[str] = None,
         status: Optional[str] = None,
         assigned_to: Optional[UUID] = None,
+        current_user_id: Optional[UUID] = None,
     ) -> Optional[Feature]:
         """Update feature."""
-        feature = db.query(Feature).filter(Feature.id == feature_id).first()
-        if not feature:
-            return None
+        # Set current user ID for audit trail
+        token = None
+        if current_user_id:
+            token = set_current_user_id(current_user_id)
+        
+        try:
+            feature = db.query(Feature).filter(Feature.id == feature_id).first()
+            if not feature:
+                return None
 
-        if name is not None:
-            feature.name = name
-        if description is not None:
-            feature.description = description
-        if status is not None:
-            feature.status = status
-        if assigned_to is not None:
-            feature.assigned_to = assigned_to
+            if name is not None:
+                feature.name = name
+            if description is not None:
+                feature.description = description
+            if status is not None:
+                feature.status = status
+            if assigned_to is not None:
+                feature.assigned_to = assigned_to
 
-        db.commit()
-        db.refresh(feature)
-        return feature
+            db.commit()
+            db.refresh(feature)
+            return feature
+        finally:
+            if token:
+                reset_current_user_id(token)
 
     @staticmethod
     def delete_feature(db: Session, feature_id: UUID) -> bool:
