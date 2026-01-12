@@ -65,9 +65,11 @@ class GitHubOAuthService:
             state = base64.urlsafe_b64encode(secrets.token_bytes(16)).decode('utf-8').rstrip('=')
         
         # Build authorization URL
+        # Use BACKEND_URL for callback, fallback to FRONTEND_URL if not set
+        callback_url = getattr(settings, 'BACKEND_URL', settings.FRONTEND_URL)
         params = {
             "client_id": settings.GITHUB_OAUTH_CLIENT_ID,
-            "redirect_uri": f"{settings.FRONTEND_URL}/api/auth/github/callback",
+            "redirect_uri": f"{callback_url}/api/auth/github/callback",
             "scope": "repo read:org read:user user:email",
             "state": state,
             "code_challenge": code_challenge,
@@ -105,6 +107,8 @@ class GitHubOAuthService:
             raise ValueError("GitHub OAuth credentials are not configured")
         
         # Exchange code for token
+        # Use BACKEND_URL for callback, fallback to FRONTEND_URL if not set
+        callback_url = getattr(settings, 'BACKEND_URL', settings.FRONTEND_URL)
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 GitHubOAuthService.TOKEN_URL,
@@ -112,7 +116,7 @@ class GitHubOAuthService:
                     "client_id": settings.GITHUB_OAUTH_CLIENT_ID,
                     "client_secret": settings.GITHUB_OAUTH_CLIENT_SECRET,
                     "code": code,
-                    "redirect_uri": f"{settings.FRONTEND_URL}/api/auth/github/callback",
+                    "redirect_uri": f"{callback_url}/api/auth/github/callback",
                     "code_verifier": code_verifier,
                 },
                 headers={
