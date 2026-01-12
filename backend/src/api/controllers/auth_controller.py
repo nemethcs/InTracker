@@ -1,9 +1,14 @@
 """Authentication controller."""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from typing import Optional
+from uuid import UUID
+from datetime import datetime
 from src.database.base import get_db
 from src.database.models import User
 from src.services.auth_service import auth_service
+from src.services.github_oauth_service import github_oauth_service
+from src.services.cache_service import cache_service
 from src.api.schemas.auth import (
     RegisterRequest,
     LoginRequest,
@@ -117,3 +122,119 @@ async def get_me(current_user: dict = Depends(get_current_user), db: Session = D
         is_active=user.is_active,
         role=user.role,
     )
+
+
+@router.get("/github/authorize")
+async def github_authorize(
+    current_user: dict = Depends(get_current_user),
+    state: Optional[str] = Query(None),
+):
+    """Generate GitHub OAuth authorization URL with PKCE.
+    
+    Returns authorization URL and stores code_verifier in Redis with state as key.
+    """
+    try:
+        # Generate authorization URL with PKCE
+        authorization_url, code_verifier = github_oauth_service.generate_authorization_url(state=state)
+        
+        # Store code_verifier in Redis with state as key (expires in 10 minutes)
+        # Use the state from the generated URL (it might have been generated)
+        # Extract state from URL
+        import urllib.parse
+        parsed = urllib.parse.urlparse(authorization_url)
+        params = urllib.parse.parse_qs(parsed.query)
+        state_value = params.get('state', [state])[0] if state else params.get('state', [])[0]
+        
+        if state_value:
+            cache_key = f"github_oauth:state:{state_value}"
+            cache_service.set(cache_key, code_verifier, ttl=600)  # 10 minutes TTL
+        
+        return {
+            "authorization_url": authorization_url,
+            "state": state_value,
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.get("/github/callback")
+async def github_callback(
+    code: str = Query(...),
+    state: str = Query(...),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Handle GitHub OAuth callback and store tokens.
+    
+    Exchanges authorization code for tokens, stores encrypted tokens in User model,
+    and updates user's GitHub username and avatar.
+    """
+    try:
+        user_id = UUID(current_user["user_id"])
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+        
+        # Retrieve code_verifier from Redis
+        cache_key = f"github_oauth:state:{state}"
+        code_verifier = cache_service.get(cache_key)
+        
+        if not code_verifier:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired state parameter",
+            )
+        
+        # Delete state from cache (one-time use)
+        cache_service.delete(cache_key)
+        
+        # Exchange code for tokens
+        token_data = await github_oauth_service.exchange_code_for_tokens(
+            code=code,
+            code_verifier=code_verifier,
+            state=state,
+        )
+        
+        # Encrypt tokens
+        encrypted_access_token = github_oauth_service.encrypt_token(token_data["access_token"])
+        encrypted_refresh_token = None
+        if token_data.get("refresh_token"):
+            encrypted_refresh_token = github_oauth_service.encrypt_token(token_data["refresh_token"])
+        
+        # Update user with encrypted tokens and GitHub info
+        user.github_access_token_encrypted = encrypted_access_token
+        user.github_refresh_token_encrypted = encrypted_refresh_token
+        user.github_token_expires_at = token_data["expires_at"]
+        user.github_refresh_token_expires_at = token_data.get("refresh_expires_at")
+        user.github_connected_at = datetime.utcnow()
+        
+        # Update GitHub username and avatar from user_info
+        user_info = token_data.get("user_info", {})
+        if user_info:
+            user.github_username = user_info.get("login")
+            user.avatar_url = user_info.get("avatar_url")
+        
+        db.commit()
+        db.refresh(user)
+        
+        return {
+            "message": "GitHub OAuth connection successful",
+            "github_username": user.github_username,
+            "avatar_url": user.avatar_url,
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process OAuth callback: {str(e)}",
+        )
