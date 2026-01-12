@@ -68,14 +68,11 @@ class GitHubOAuthService:
             state = base64.urlsafe_b64encode(secrets.token_bytes(16)).decode('utf-8').rstrip('=')
         
         # Build authorization URL
-        # Use BACKEND_URL for callback, fallback to FRONTEND_URL if not set
-        callback_url = settings.BACKEND_URL or settings.FRONTEND_URL
-        # Remove /api prefix if present (FastAPI routes don't have /api prefix)
-        if callback_url.endswith('/api'):
-            callback_url = callback_url[:-4]
+        # Use FRONTEND_URL for callback (frontend will handle the redirect)
+        callback_url = settings.FRONTEND_URL
         params = {
             "client_id": settings.GITHUB_OAUTH_CLIENT_ID,
-            "redirect_uri": f"{callback_url}/auth/github/callback",
+            "redirect_uri": f"{callback_url}/settings",
             "scope": "repo read:org read:user user:email",
             "state": state,
             "code_challenge": code_challenge,
@@ -114,18 +111,16 @@ class GitHubOAuthService:
         
         # Exchange code for token
         # Use BACKEND_URL for callback, fallback to FRONTEND_URL if not set
-        callback_url = settings.BACKEND_URL or settings.FRONTEND_URL
-        # Remove /api prefix if present (FastAPI routes don't have /api prefix)
-        if callback_url.endswith('/api'):
-            callback_url = callback_url[:-4]
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                GitHubOAuthService.TOKEN_URL,
-                data={
-                    "client_id": settings.GITHUB_OAUTH_CLIENT_ID,
-                    "client_secret": settings.GITHUB_OAUTH_CLIENT_SECRET,
-                    "code": code,
-                    "redirect_uri": f"{callback_url}/auth/github/callback",
+            # Use FRONTEND_URL for callback (matches authorization URL)
+            callback_url = settings.FRONTEND_URL
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    GitHubOAuthService.TOKEN_URL,
+                    data={
+                        "client_id": settings.GITHUB_OAUTH_CLIENT_ID,
+                        "client_secret": settings.GITHUB_OAUTH_CLIENT_SECRET,
+                        "code": code,
+                        "redirect_uri": f"{callback_url}/settings",
                     "code_verifier": code_verifier,
                 },
                 headers={
