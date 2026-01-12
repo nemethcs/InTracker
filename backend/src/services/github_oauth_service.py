@@ -69,10 +69,13 @@ class GitHubOAuthService:
         
         # Build authorization URL
         # Use BACKEND_URL for callback, fallback to FRONTEND_URL if not set
-        callback_url = getattr(settings, 'BACKEND_URL', settings.FRONTEND_URL)
+        callback_url = settings.BACKEND_URL or settings.FRONTEND_URL
+        # Remove /api prefix if present (FastAPI routes don't have /api prefix)
+        if callback_url.endswith('/api'):
+            callback_url = callback_url[:-4]
         params = {
             "client_id": settings.GITHUB_OAUTH_CLIENT_ID,
-            "redirect_uri": f"{callback_url}/api/auth/github/callback",
+            "redirect_uri": f"{callback_url}/auth/github/callback",
             "scope": "repo read:org read:user user:email",
             "state": state,
             "code_challenge": code_challenge,
