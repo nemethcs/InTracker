@@ -1,5 +1,5 @@
 """Team service."""
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
@@ -227,6 +227,21 @@ class TeamService:
         """Get all members of a team."""
         return (
             db.query(TeamMember)
+            .filter(TeamMember.team_id == team_id)
+            .order_by(TeamMember.joined_at.asc())
+            .all()
+        )
+    
+    @staticmethod
+    def get_team_members_with_users(
+        db: Session,
+        team_id: UUID,
+    ) -> List[Tuple[TeamMember, "User"]]:
+        """Get all members of a team with user information."""
+        from src.database.models import User
+        return (
+            db.query(TeamMember, User)
+            .join(User, TeamMember.user_id == User.id)
             .filter(TeamMember.team_id == team_id)
             .order_by(TeamMember.joined_at.asc())
             .all()

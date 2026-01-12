@@ -56,6 +56,9 @@ services:
       NODE_ENV: development
       PORT: 3000
       CORS_ORIGIN: "*"
+      AZURE_COMMUNICATION_SERVICES_CONNECTION_STRING: ${AZURE_COMMUNICATION_SERVICES_CONNECTION_STRING:-}
+      AZURE_EMAIL_SENDER_ADDRESS: ${AZURE_EMAIL_SENDER_ADDRESS:-DoNotReply@kesmarki.com}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
     depends_on:
       postgres:
         condition: service_healthy

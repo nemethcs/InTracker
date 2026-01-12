@@ -68,8 +68,31 @@ api.interceptors.response.use(
     // Handle other errors
     if (error.response) {
       // Server responded with error
-      const message = error.response.data?.detail || error.response.data?.message || 'An error occurred'
-      return Promise.reject(new Error(message))
+      let message = 'An error occurred'
+      
+      // Handle FastAPI validation errors (422)
+      if (error.response.data?.detail) {
+        if (typeof error.response.data.detail === 'string') {
+          message = error.response.data.detail
+        } else if (Array.isArray(error.response.data.detail)) {
+          // Pydantic validation errors
+          message = error.response.data.detail.map((e: any) => {
+            if (typeof e === 'string') return e
+            const field = e.loc?.join('.') || 'field'
+            const msg = e.msg || e.message || 'Invalid value'
+            return `${field}: ${msg}`
+          }).join(', ')
+        } else if (typeof error.response.data.detail === 'object') {
+          message = JSON.stringify(error.response.data.detail)
+        }
+      } else if (error.response.data?.message) {
+        message = error.response.data.message
+      }
+      
+      // Preserve the original error for better debugging
+      const errorWithDetails = new Error(message)
+      ;(errorWithDetails as any).response = error.response
+      return Promise.reject(errorWithDetails)
     } else if (error.request) {
       // Request made but no response
       return Promise.reject(new Error('Network error. Please check your connection.'))

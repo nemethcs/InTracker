@@ -23,9 +23,11 @@ export function Teams() {
   // Dialog states
   const [editTeamOpen, setEditTeamOpen] = useState(false)
   const [addMemberOpen, setAddMemberOpen] = useState(false)
+  const [inviteEmailOpen, setInviteEmailOpen] = useState(false)
   const [teamForm, setTeamForm] = useState({ name: '', description: '' })
   const [selectedUserId, setSelectedUserId] = useState('')
   const [selectedMemberRole, setSelectedMemberRole] = useState('member')
+  const [inviteEmail, setInviteEmail] = useState('')
 
   // Check if user is admin or team leader
   const isAdmin = user?.role === 'admin'
@@ -169,14 +171,32 @@ export function Teams() {
     }
   }
 
-  const handleCreateTeamInvitation = async (teamId: string) => {
+  const handleCreateTeamInvitation = async (teamId: string, email?: string) => {
     try {
-      const invitation = await adminService.createTeamInvitation(teamId, 7)
+      const invitation = await adminService.createTeamInvitation(teamId, 7, email)
       setTeamInvitations([...teamInvitations, invitation])
       loadTeamDetails(teamId)
+      if (email) {
+        setInviteEmailOpen(false)
+        setInviteEmail('')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create invitation')
     }
+  }
+
+  const handleInviteEmailSubmit = async () => {
+    if (!selectedTeam || !inviteEmail.trim()) {
+      setError('Please enter an email address')
+      return
+    }
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(inviteEmail)) {
+      setError('Please enter a valid email address')
+      return
+    }
+    await handleCreateTeamInvitation(selectedTeam.id, inviteEmail.trim())
   }
 
   const handleCopyCode = (code: string) => {
@@ -336,7 +356,9 @@ export function Teams() {
                 ) : (
                   <div className="space-y-2">
                     {teamMembers.map((member) => {
-                      const memberUser = getUserInfo(member.user_id)
+                      // Use user_name and user_email from backend response, fallback to getUserInfo for backwards compatibility
+                      const displayName = member.user_name || member.user_email || getUserInfo(member.user_id)?.name || getUserInfo(member.user_id)?.email || `User ${member.user_id.slice(0, 8)}...`
+                      const displayEmail = member.user_email || getUserInfo(member.user_id)?.email || ''
                       return (
                         <div
                           key={member.id}
@@ -344,11 +366,13 @@ export function Teams() {
                         >
                           <div className="flex-1">
                             <p className="text-sm font-medium">
-                              {memberUser?.name || memberUser?.email || `User ${member.user_id.slice(0, 8)}...`}
+                              {displayName}
                             </p>
-                            <p className="text-xs text-muted-foreground">
-                              {memberUser?.email && memberUser.name ? memberUser.email : ''}
-                            </p>
+                            {displayEmail && displayEmail !== displayName && (
+                              <p className="text-xs text-muted-foreground">
+                                {displayEmail}
+                              </p>
+                            )}
                             <p className="text-xs text-muted-foreground mt-1">
                               {member.role} • Joined {new Date(member.joined_at).toLocaleDateString()}
                             </p>
@@ -395,13 +419,21 @@ export function Teams() {
                   <CardDescription>Create and manage team invitation codes</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Button
-                    onClick={() => handleCreateTeamInvitation(selectedTeam.id)}
-                    className="w-full"
-                  >
-                    <Mail className="h-4 w-4 mr-2" />
-                    Create Team Invitation
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => setInviteEmailOpen(true)}
+                      className="flex-1"
+                    >
+                      <Mail className="h-4 w-4 mr-2" />
+                      Send Invitation Email
+                    </Button>
+                    <Button
+                      onClick={() => handleCreateTeamInvitation(selectedTeam.id)}
+                      variant="outline"
+                    >
+                      Create Code Only
+                    </Button>
+                  </div>
 
                 {teamInvitations.length > 0 && (
                   <div className="space-y-2">
@@ -513,6 +545,46 @@ export function Teams() {
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setAddMemberOpen(false)}>Cancel</Button>
                   <Button onClick={handleAddMemberSubmit} disabled={!selectedUserId}>Add Member</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Send Invitation Email Dialog */}
+            <Dialog open={inviteEmailOpen} onOpenChange={setInviteEmailOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Send Team Invitation</DialogTitle>
+                  <DialogDescription>Send an invitation email to join {selectedTeam?.name}.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="invite-email">Email Address *</Label>
+                    <Input
+                      id="invite-email"
+                      type="email"
+                      placeholder="user@example.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && inviteEmail.trim()) {
+                          handleInviteEmailSubmit()
+                        }
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      An invitation email will be sent to this address with a link to join the team.
+                    </p>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => {
+                    setInviteEmailOpen(false)
+                    setInviteEmail('')
+                  }}>Cancel</Button>
+                  <Button onClick={handleInviteEmailSubmit} disabled={!inviteEmail.trim()}>
+                    <Mail className="h-4 w-4 mr-2" />
+                    Send Invitation
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>

@@ -58,6 +58,8 @@ export interface TeamMember {
   user_id: string
   role: string
   joined_at: string
+  user_name?: string
+  user_email?: string
 }
 
 export const adminService = {
@@ -135,8 +137,11 @@ export const adminService = {
     return response.data
   },
 
-  async createTeamInvitation(teamId: string, expiresInDays?: number): Promise<Invitation> {
-    const response = await api.post(`/teams/${teamId}/invitations`, null, { params: { expires_in_days: expiresInDays || 7 } })
+  async createTeamInvitation(teamId: string, expiresInDays?: number, sendEmailTo?: string): Promise<Invitation> {
+    const params: { expires_in_days?: number; send_email_to?: string } = {}
+    if (expiresInDays) params.expires_in_days = expiresInDays
+    if (sendEmailTo) params.send_email_to = sendEmailTo
+    const response = await api.post(`/teams/${teamId}/invitations`, null, { params })
     return response.data
   },
 
