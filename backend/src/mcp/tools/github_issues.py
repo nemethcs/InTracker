@@ -10,6 +10,7 @@ from src.services.project_service import ProjectService
 from src.services.element_service import ElementService
 from github.GithubException import GithubException
 from .github_repository import get_github_service
+from src.mcp.utils.project_access import validate_project_access
 
 
 def get_link_element_to_issue_tool() -> MCPTool:

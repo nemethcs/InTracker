@@ -7,6 +7,7 @@ from src.database.base import SessionLocal
 from src.mcp.services.cache import cache_service
 from src.services.github_service import GitHubService
 from src.services.project_service import ProjectService
+from src.mcp.utils.project_access import validate_project_access
 
 
 # GitHub service instance cache (per user)
@@ -62,6 +63,11 @@ async def handle_connect_github_repo(project_id: str, owner: str, repo: str) -> 
         if not project:
             return {"error": "Project not found"}
 
+        # Validate project access using user's GitHub OAuth token
+        has_access, error_dict = validate_project_access(db, project_id)
+        if not has_access:
+            return error_dict or {"error": "Cannot access project"}
+
         # Use GitHubService to validate and get repo info
         github_service = get_github_service()
         if not github_service or not github_service.client:
@@ -74,10 +80,6 @@ async def handle_connect_github_repo(project_id: str, owner: str, repo: str) -> 
         if not repo_info:
             return {"error": "Failed to get repository information"}
 
-        # Get current user ID from MCP API key
-        from src.mcp.middleware.auth import get_current_user_id
-        user_id = get_current_user_id()
-        
         # Use ProjectService to update project
         updated_project = ProjectService.update_project(
             db=db,
@@ -131,6 +133,11 @@ async def handle_get_repo_info(project_id: str) -> dict:
         project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project or not project.github_repo_url:
             return {"error": "Project does not have a connected GitHub repository"}
+
+        # Validate project access using user's GitHub OAuth token
+        has_access, error_dict = validate_project_access(db, project_id)
+        if not has_access:
+            return error_dict or {"error": "Cannot access project"}
 
         # Parse repo owner and name
         repo_parts = project.github_repo_url.replace("https://github.com/", "").split("/")

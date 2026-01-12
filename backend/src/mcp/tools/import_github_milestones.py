@@ -10,6 +10,7 @@ from src.services.todo_service import TodoService
 from src.services.feature_service import FeatureService
 from github.GithubException import GithubException
 from .github_repository import get_github_service
+from src.mcp.utils.project_access import validate_project_access
 
 
 def get_import_github_milestones_tool() -> MCPTool:
