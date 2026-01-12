@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuthStore } from '@/stores/authStore'
 import { mcpKeyService, type McpApiKey } from '@/services/mcpKeyService'
-import { Settings as SettingsIcon, Key, Copy, CheckCircle2, RefreshCw, AlertCircle, Plus } from 'lucide-react'
+import { settingsService, type GitHubOAuthStatus } from '@/services/settingsService'
+import { Settings as SettingsIcon, Key, Copy, CheckCircle2, RefreshCw, AlertCircle, Plus, Github, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -21,9 +22,14 @@ export function Settings() {
   const [copied, setCopied] = useState(false)
   const [copiedConfig, setCopiedConfig] = useState(false)
   const [showCursorConfigDialog, setShowCursorConfigDialog] = useState(false)
+  const [githubStatus, setGitHubStatus] = useState<GitHubOAuthStatus | null>(null)
+  const [isLoadingGitHub, setIsLoadingGitHub] = useState(true)
+  const [isConnectingGitHub, setIsConnectingGitHub] = useState(false)
+  const [githubError, setGitHubError] = useState<string | null>(null)
 
   useEffect(() => {
     loadCurrentKey()
+    loadGitHubStatus()
   }, [])
 
   // Auto-open deeplink when newKey is set (after regeneration from Add to Cursor)
@@ -334,6 +340,113 @@ export function Settings() {
                   Add to Cursor
                 </Button>
               )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* GitHub OAuth Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Github className="h-5 w-5" />
+            GitHub Integration
+          </CardTitle>
+          <CardDescription>
+            Connect your GitHub account to access repositories and manage projects
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {githubError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{githubError}</AlertDescription>
+            </Alert>
+          )}
+
+          {isLoadingGitHub ? (
+            <div className="flex items-center justify-center py-4">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading GitHub status...</span>
+            </div>
+          ) : githubStatus?.connected ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    {githubStatus.avatar_url && (
+                      <img
+                        src={githubStatus.avatar_url}
+                        alt={githubStatus.github_username}
+                        className="h-8 w-8 rounded-full"
+                      />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">
+                        Connected as {githubStatus.github_username}
+                      </p>
+                      {githubStatus.connected_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Connected {formatDate(githubStatus.connected_at)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDisconnectGitHub}
+                  className="flex items-center gap-2"
+                >
+                  <X className="h-4 w-4" />
+                  Disconnect
+                </Button>
+              </div>
+
+              {githubStatus.accessible_projects && githubStatus.accessible_projects.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Accessible Projects</p>
+                  <div className="space-y-1">
+                    {githubStatus.accessible_projects.map((project) => (
+                      <div
+                        key={project.project_id}
+                        className="flex items-center justify-between rounded border p-2 text-sm"
+                      >
+                        <div>
+                          <p className="font-medium">{project.project_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {project.team_name} • {project.has_access ? '✅ Access' : '❌ No access'}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Connect your GitHub account to enable repository access and project management.
+              </p>
+              <Button
+                onClick={handleConnectGitHub}
+                disabled={isConnectingGitHub}
+                className="flex items-center gap-2"
+              >
+                {isConnectingGitHub ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <Github className="h-4 w-4" />
+                    Connect with GitHub
+                  </>
+                )}
+              </Button>
             </div>
           )}
         </CardContent>
