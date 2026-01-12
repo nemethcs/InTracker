@@ -189,6 +189,49 @@ export function Settings() {
     return new Date(dateString).toLocaleString()
   }
 
+  const loadGitHubStatus = async () => {
+    try {
+      setIsLoadingGitHub(true)
+      setGitHubError(null)
+      const status = await settingsService.getGitHubStatus()
+      setGitHubStatus(status)
+    } catch (error) {
+      console.error('Failed to load GitHub status:', error)
+      setGitHubError(error instanceof Error ? error.message : 'Failed to load GitHub status')
+      setGitHubStatus({
+        connected: false,
+        accessible_projects: [],
+      })
+    } finally {
+      setIsLoadingGitHub(false)
+    }
+  }
+
+  const handleConnectGitHub = async () => {
+    try {
+      setIsConnectingGitHub(true)
+      setGitHubError(null)
+      const { authorization_url } = await settingsService.getGitHubOAuthUrl()
+      // Redirect to GitHub OAuth authorization page
+      window.location.href = authorization_url
+    } catch (error) {
+      console.error('Failed to get GitHub OAuth URL:', error)
+      setGitHubError(error instanceof Error ? error.message : 'Failed to connect GitHub')
+      setIsConnectingGitHub(false)
+    }
+  }
+
+  const handleDisconnectGitHub = async () => {
+    try {
+      setGitHubError(null)
+      await settingsService.disconnectGitHub()
+      await loadGitHubStatus() // Reload status after disconnect
+    } catch (error) {
+      console.error('Failed to disconnect GitHub:', error)
+      setGitHubError(error instanceof Error ? error.message : 'Failed to disconnect GitHub')
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
