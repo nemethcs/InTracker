@@ -38,15 +38,23 @@ def upgrade() -> None:
             user_team_id UUID;
             default_team_id UUID;
             admin_user_id UUID;
+            user_projects_exists BOOLEAN;
         BEGIN
-            -- Migrate projects with owners
-            FOR project_record IN 
-                SELECT DISTINCT ON (p.id) p.id, up.user_id
-                FROM projects p
-                JOIN user_projects up ON p.id = up.project_id
-                WHERE up.role = 'owner'
-                ORDER BY p.id, p.created_at
-            LOOP
+            -- Check if user_projects table exists
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables 
+                WHERE table_name = 'user_projects'
+            ) INTO user_projects_exists;
+            
+            -- Migrate projects with owners (only if user_projects table exists)
+            IF user_projects_exists THEN
+                FOR project_record IN 
+                    SELECT DISTINCT ON (p.id) p.id, up.user_id
+                    FROM projects p
+                    JOIN user_projects up ON p.id = up.project_id
+                    WHERE up.role = 'owner'
+                    ORDER BY p.id, p.created_at
+                LOOP
                 -- Get user's first team
                 SELECT tm.team_id INTO user_team_id
                 FROM team_members tm
@@ -81,11 +89,12 @@ def upgrade() -> None:
                     user_team_id := default_team_id;
                 END IF;
                 
-                -- Assign project to team
-                UPDATE projects
-                SET team_id = user_team_id
-                WHERE id = project_record.id;
-            END LOOP;
+                    -- Assign project to team
+                    UPDATE projects
+                    SET team_id = user_team_id
+                    WHERE id = project_record.id;
+                END LOOP;
+            END IF;
             
             -- Handle projects without owners (assign to first available team or create default)
             FOR project_record IN 
