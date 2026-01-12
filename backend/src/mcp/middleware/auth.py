@@ -47,6 +47,30 @@ def get_current_user_id() -> Optional[UUID]:
     return _current_user_id
 
 
+def get_user_github_token() -> Optional[str]:
+    """Get the current user's GitHub OAuth token (with automatic refresh).
+    
+    Returns None if:
+    - No user is authenticated
+    - User has no GitHub OAuth token
+    - Token refresh fails
+    """
+    user_id = get_current_user_id()
+    if not user_id:
+        return None
+    
+    db = SessionLocal()
+    try:
+        from src.services.github_token_service import github_token_service
+        token = github_token_service.get_user_token(db, user_id)
+        return token
+    except Exception as e:
+        print(f"⚠️  Error getting user GitHub token: {e}")
+        return None
+    finally:
+        db.close()
+
+
 def initialize_mcp_auth() -> None:
     """Initialize MCP authentication from environment variable.
     

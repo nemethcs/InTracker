@@ -9,16 +9,31 @@ from src.services.github_service import GitHubService
 from src.services.project_service import ProjectService
 
 
-# GitHub service instance (shared across all github modules)
-_github_service: Optional[GitHubService] = None
+# GitHub service instance cache (per user)
+_github_service_cache: dict[Optional[UUID], GitHubService] = {}
 
 
 def get_github_service() -> Optional[GitHubService]:
-    """Get GitHub service instance (shared singleton)."""
-    global _github_service
-    if _github_service is None:
-        _github_service = GitHubService()
-    return _github_service
+    """Get GitHub service instance using current user's OAuth token.
+    
+    If user is authenticated and has a GitHub OAuth token, uses that token.
+    Otherwise, falls back to global GITHUB_TOKEN.
+    """
+    from src.mcp.middleware.auth import get_current_user_id
+    
+    user_id = get_current_user_id()
+    
+    # Check cache first
+    if user_id in _github_service_cache:
+        return _github_service_cache[user_id]
+    
+    # Create new GitHubService with user_id (will use user's OAuth token if available)
+    github_service = GitHubService(user_id=user_id)
+    
+    # Cache the service instance for this user
+    _github_service_cache[user_id] = github_service
+    
+    return github_service
 
 
 def get_connect_github_repo_tool() -> MCPTool:
