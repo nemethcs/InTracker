@@ -17,6 +17,11 @@ class Settings(BaseSettings):
 
     # GitHub
     GITHUB_TOKEN: Optional[str] = None
+    
+    # GitHub OAuth
+    GITHUB_OAUTH_CLIENT_ID: Optional[str] = None
+    GITHUB_OAUTH_CLIENT_SECRET: Optional[str] = None
+    GITHUB_OAUTH_ENCRYPTION_KEY: Optional[str] = None  # Fernet key for token encryption (base64 encoded)
 
     # Redis
     REDIS_URL: Optional[str] = None

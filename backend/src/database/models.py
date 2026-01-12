@@ -30,6 +30,12 @@ class User(Base):
     role = Column(String, default="member", nullable=False, index=True)  # admin, team_leader, member
     github_username = Column(String, nullable=True)
     avatar_url = Column(String, nullable=True)
+    # GitHub OAuth tokens (encrypted)
+    github_access_token_encrypted = Column(Text, nullable=True)  # Encrypted access token
+    github_refresh_token_encrypted = Column(Text, nullable=True)  # Encrypted refresh token
+    github_token_expires_at = Column(DateTime, nullable=True)  # Access token expiration time
+    github_refresh_token_expires_at = Column(DateTime, nullable=True)  # Refresh token expiration time
+    github_connected_at = Column(DateTime, nullable=True)  # When OAuth connection was established
     is_active = Column(Boolean, default=True, nullable=False)
     last_login_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
