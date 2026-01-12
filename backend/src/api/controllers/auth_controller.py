@@ -133,8 +133,11 @@ async def github_authorize(
     """Generate GitHub OAuth authorization URL with PKCE.
     
     Returns authorization URL and stores code_verifier in Redis with state as key.
+    Also stores user_id in Redis for callback authentication.
     """
     try:
+        user_id = UUID(current_user["user_id"])
+        
         # Generate authorization URL with PKCE
         authorization_url, code_verifier = github_oauth_service.generate_authorization_url(state=state)
         
@@ -151,6 +154,8 @@ async def github_authorize(
             redis_client = get_redis_client()
             if redis_client:
                 redis_client.setex(cache_key, 600, code_verifier)  # 10 minutes TTL
+                # Also store user_id for callback authentication
+                redis_client.setex(f"github_oauth:user:{state_value}", 600, str(user_id))  # 10 minutes TTL
         
         return {
             "authorization_url": authorization_url,
