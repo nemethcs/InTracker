@@ -17,7 +17,7 @@ from src.api.schemas.auth import (
     UserResponse,
     AuthResponse,
 )
-from src.api.middleware.auth import get_current_user
+from src.api.middleware.auth import get_current_user, get_optional_user
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -167,16 +167,38 @@ async def github_authorize(
 async def github_callback(
     code: str = Query(...),
     state: str = Query(...),
-    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
+    current_user: Optional[dict] = Depends(get_optional_user),
 ):
     """Handle GitHub OAuth callback and store tokens.
     
     Exchanges authorization code for tokens, stores encrypted tokens in User model,
     and updates user's GitHub username and avatar.
+    
+    Note: User can be authenticated via token (current_user) or via state parameter
+    stored in Redis during authorization flow.
     """
     try:
-        user_id = UUID(current_user["user_id"])
+        # Try to get user_id from authenticated user first
+        user_id = None
+        if current_user:
+            user_id = UUID(current_user["user_id"])
+        else:
+            # If no authenticated user, try to get user_id from state in Redis
+            # The state should have been stored with user_id during authorization
+            cache_key = f"github_oauth:state:{state}"
+            redis_client = get_redis_client()
+            if redis_client:
+                # Try to get user_id from state (if we stored it)
+                user_id_data = redis_client.get(f"github_oauth:user:{state}")
+                if user_id_data:
+                    user_id = UUID(user_id_data.decode('utf-8'))
+        
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated. Please ensure you are logged in.",
+            )
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             raise HTTPException(
