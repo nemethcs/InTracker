@@ -7,13 +7,14 @@ import { useAuthStore } from '@/stores/authStore'
 import { mcpKeyService, type McpApiKey } from '@/services/mcpKeyService'
 import { settingsService, type GitHubOAuthStatus } from '@/services/settingsService'
 import { Settings as SettingsIcon, Key, Copy, CheckCircle2, RefreshCw, AlertCircle, Plus, Github, X } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export function Settings() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [mcpKey, setMcpKey] = useState<McpApiKey | null>(null)
   const [isLoadingKey, setIsLoadingKey] = useState(true)
   const [newKey, setNewKey] = useState<string | null>(null)
@@ -26,6 +27,30 @@ export function Settings() {
   const [isLoadingGitHub, setIsLoadingGitHub] = useState(true)
   const [isConnectingGitHub, setIsConnectingGitHub] = useState(false)
   const [githubError, setGitHubError] = useState<string | null>(null)
+  const [isProcessingCallback, setIsProcessingCallback] = useState(false)
+
+  // Handle OAuth callback from GitHub
+  useEffect(() => {
+    const code = searchParams.get('code')
+    const state = searchParams.get('state')
+    const error = searchParams.get('error')
+    const errorDescription = searchParams.get('error_description')
+
+    if (error) {
+      // GitHub OAuth error
+      setGitHubError(errorDescription || error || 'GitHub OAuth authorization failed')
+      // Remove error params from URL
+      searchParams.delete('error')
+      searchParams.delete('error_description')
+      setSearchParams(searchParams, { replace: true })
+      return
+    }
+
+    if (code && state) {
+      // Process OAuth callback
+      handleOAuthCallback(code, state)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     loadCurrentKey()
@@ -232,6 +257,41 @@ export function Settings() {
     }
   }
 
+  const handleOAuthCallback = async (code: string, state: string) => {
+    if (isProcessingCallback) {
+      return // Prevent multiple calls
+    }
+
+    try {
+      setIsProcessingCallback(true)
+      setGitHubError(null)
+
+      // Call backend to exchange code for tokens
+      const result = await settingsService.handleOAuthCallback(code, state)
+
+      // Remove callback params from URL
+      searchParams.delete('code')
+      searchParams.delete('state')
+      setSearchParams(searchParams, { replace: true })
+
+      // Reload GitHub status to show updated connection
+      await loadGitHubStatus()
+
+      // Show success message (optional - could use a toast notification)
+      console.log('GitHub OAuth connection successful:', result.message)
+    } catch (error) {
+      console.error('Failed to process OAuth callback:', error)
+      setGitHubError(error instanceof Error ? error.message : 'Failed to connect GitHub account')
+      
+      // Remove callback params from URL even on error
+      searchParams.delete('code')
+      searchParams.delete('state')
+      setSearchParams(searchParams, { replace: true })
+    } finally {
+      setIsProcessingCallback(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -407,7 +467,12 @@ export function Settings() {
             </Alert>
           )}
 
-          {isLoadingGitHub ? (
+          {isProcessingCallback ? (
+            <div className="flex items-center justify-center py-4">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span className="ml-2 text-sm text-muted-foreground">Connecting GitHub account...</span>
+            </div>
+          ) : isLoadingGitHub ? (
             <div className="flex items-center justify-center py-4">
               <RefreshCw className="h-4 w-4 animate-spin" />
               <span className="ml-2 text-sm text-muted-foreground">Loading GitHub status...</span>
