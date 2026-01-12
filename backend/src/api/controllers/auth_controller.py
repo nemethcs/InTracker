@@ -191,13 +191,16 @@ async def github_callback(
         else:
             # If no authenticated user, try to get user_id from state in Redis
             # The state should have been stored with user_id during authorization
-            cache_key = f"github_oauth:state:{state}"
             redis_client = get_redis_client()
             if redis_client:
                 # Try to get user_id from state (if we stored it)
                 user_id_data = redis_client.get(f"github_oauth:user:{state}")
                 if user_id_data:
-                    user_id = UUID(user_id_data.decode('utf-8'))
+                    # Handle both bytes and string (depending on Redis client version)
+                    if isinstance(user_id_data, bytes):
+                        user_id = UUID(user_id_data.decode('utf-8'))
+                    else:
+                        user_id = UUID(user_id_data)
         
         if not user_id:
             raise HTTPException(
