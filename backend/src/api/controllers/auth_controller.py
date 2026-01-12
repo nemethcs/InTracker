@@ -216,10 +216,15 @@ async def github_callback(
         redis_client = get_redis_client()
         code_verifier = None
         if redis_client:
-            code_verifier = redis_client.get(cache_key)
+            code_verifier_raw = redis_client.get(cache_key)
             # Delete state from cache (one-time use)
-            if code_verifier:
+            if code_verifier_raw:
                 redis_client.delete(cache_key)
+                # Handle both bytes and string (depending on Redis client version)
+                if isinstance(code_verifier_raw, bytes):
+                    code_verifier = code_verifier_raw.decode('utf-8')
+                else:
+                    code_verifier = code_verifier_raw
         
         if not code_verifier:
             raise HTTPException(
