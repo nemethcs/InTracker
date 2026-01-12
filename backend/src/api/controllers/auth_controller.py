@@ -18,6 +18,7 @@ from src.api.schemas.auth import (
     AuthResponse,
 )
 from src.api.middleware.auth import get_current_user, get_optional_user
+from src.services.github_token_service import github_token_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
