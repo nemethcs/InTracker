@@ -56,6 +56,11 @@ async def handle_import_github_issues(
     """Handle import GitHub issues tool call."""
     db = SessionLocal()
     try:
+        # Validate project access using user's GitHub OAuth token
+        has_access, error_dict = validate_project_access(db, project_id)
+        if not has_access:
+            return error_dict or {"error": "Cannot access project"}
+        
         # Verify project exists and has GitHub repo
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
         if not project:

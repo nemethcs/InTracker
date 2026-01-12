@@ -115,6 +115,11 @@ async def handle_get_github_pr(project_id: str, pr_number: int) -> dict:
     """Handle get GitHub PR tool call."""
     db = SessionLocal()
     try:
+        # Validate project access using user's GitHub OAuth token
+        has_access, error_dict = validate_project_access(db, project_id)
+        if not has_access:
+            return error_dict or {"error": "Cannot access project"}
+        
         # Use ProjectService to get project
         project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project or not project.github_repo_url:
