@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     
     # MCP Server API Key (for SignalR broadcast from MCP)
     MCP_API_KEY: str = "test"
+    
+    # Azure Communication Services Email
+    AZURE_COMMUNICATION_SERVICES_CONNECTION_STRING: Optional[str] = None
+    AZURE_EMAIL_SENDER_ADDRESS: str = "DoNotReply@kesmarki.com"
+    AZURE_EMAIL_SERVICE_NAME: str = "intracker-email-service"
+    FRONTEND_URL: str = "https://intracker.kesmarki.com"
 
     class Config:
         env_file = ".env"

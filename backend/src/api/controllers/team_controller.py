@@ -1,10 +1,10 @@
 """Team controller."""
 from typing import Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from src.database.base import get_db
-from src.database.models import Team, TeamMember, User
+from src.database.models import Team, TeamMember, User, User
 from src.services.team_service import TeamService
 from src.services.invitation_service import InvitationService
 from src.api.middleware.auth import get_current_user, get_current_team_leader, get_current_admin_user
@@ -213,8 +213,8 @@ async def get_team_members(
             detail="You are not a member of this team",
         )
 
-    members = TeamService.get_team_members(db, team_id)
-    # Convert UUIDs to strings for response
+    members_with_users = TeamService.get_team_members_with_users(db, team_id)
+    # Convert UUIDs to strings for response and include user information
     return [
         {
             "id": str(member.id),
@@ -222,8 +222,10 @@ async def get_team_members(
             "user_id": str(member.user_id),
             "role": member.role,
             "joined_at": member.joined_at,
+            "user_name": user.name,
+            "user_email": user.email,
         }
-        for member in members
+        for member, user in members_with_users
     ]
 
 
@@ -380,11 +382,18 @@ async def set_team_language(
 @router.post("/{team_id}/invitations", response_model=TeamInvitationResponse, status_code=status.HTTP_201_CREATED)
 async def create_team_invitation(
     team_id: UUID,
-    expires_in_days: Optional[int] = 7,
+    expires_in_days: Optional[int] = Query(7, ge=1, le=365),
+    send_email_to: Optional[str] = Query(None, description="Email address to send invitation to"),
     current_user: dict = Depends(get_current_team_leader),
     db: Session = Depends(get_db),
 ):
-    """Create a team invitation code. Only team leaders can create invitations."""
+    """Create a team invitation code. Only team leaders can create invitations.
+    
+    Args:
+        team_id: Team ID
+        expires_in_days: Number of days until invitation expires (default: 7)
+        send_email_to: Optional email address to send invitation to
+    """
     user_role = current_user.get("role")
     current_user_id = UUID(current_user["user_id"])
 
@@ -396,12 +405,40 @@ async def create_team_invitation(
         )
 
     try:
+        # Get team and inviter info
+        team = TeamService.get_team_by_id(db, team_id)
+        if not team:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Team not found",
+            )
+        
+        inviter = db.query(User).filter(User.id == current_user_id).first()
+        inviter_name = inviter.name if inviter else None
+
         invitation = InvitationService.generate_team_invitation(
             db=db,
             team_id=team_id,
             created_by=current_user_id,
             expires_in_days=expires_in_days,
         )
+        
+        # Send email if email address provided
+        if send_email_to:
+            from src.services.email_service import email_service
+            email_sent = email_service.send_invitation_email(
+                to_email=send_email_to,
+                invitation_code=invitation.code,
+                team_name=team.name,
+                inviter_name=inviter_name,
+                expires_in_days=expires_in_days,
+            )
+            if not email_sent:
+                # Log warning but don't fail the request
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Failed to send invitation email to {send_email_to}, but invitation was created")
+        
         return TeamInvitationResponse(
             code=invitation.code,
             type=invitation.type,

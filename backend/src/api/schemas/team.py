@@ -40,6 +40,8 @@ class TeamMemberResponse(BaseModel):
     user_id: str
     role: str
     joined_at: datetime
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
 
     class Config:
         from_attributes = True

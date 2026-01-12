@@ -3,6 +3,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from src.config import settings
+from contextlib import asynccontextmanager
+import os
+import logging
+from pathlib import Path
 from src.api.controllers import (
     auth_controller,
     project_controller,
@@ -21,19 +25,75 @@ from src.api.controllers import (
     audit_controller,
 )
 
-# Create FastAPI app
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown events."""
+    # Startup: Run database migrations
+    try:
+        database_url = os.getenv("DATABASE_URL")
+        if database_url:
+            logger.info("Running database migrations...")
+            from alembic import command
+            from alembic.config import Config
+            
+            backend_dir = Path(__file__).resolve().parents[1]
+            alembic_cfg = Config(str(backend_dir / "alembic.ini"))
+            alembic_cfg.set_main_option("sqlalchemy.url", database_url)
+            
+            command.upgrade(alembic_cfg, "head")
+            logger.info("Database migrations completed successfully")
+            print("✅ Database migrations completed successfully", flush=True)  # Also print for visibility
+        else:
+            logger.warning("DATABASE_URL not set, skipping migrations")
+    except Exception as e:
+        logger.error(f"Failed to run database migrations: {e}")
+        # Don't fail startup if migrations fail - might be a temporary issue
+        # The app will still start, but database operations might fail
+    
+    yield
+    
+    # Shutdown: cleanup if needed
+    pass
+
+
+# Create FastAPI app with lifespan
 app = FastAPI(
     title="InTracker API",
     description="AI-first project management system API",
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # CORS middleware
+# For development, always allow localhost origins
+if settings.NODE_ENV == "development":
+    # In development, always allow common localhost origins
+    cors_origins = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+    ]
+    # Also add CORS_ORIGIN if it's not "*" and not already in the list
+    if settings.CORS_ORIGIN != "*" and settings.CORS_ORIGIN not in cors_origins:
+        cors_origins.append(settings.CORS_ORIGIN)
+else:
+    # In production, use CORS_ORIGIN or allow all
+    if settings.CORS_ORIGIN != "*":
+        cors_origins = [settings.CORS_ORIGIN]
+    else:
+        cors_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.CORS_ORIGIN] if settings.CORS_ORIGIN != "*" else ["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -181,6 +241,9 @@ async def global_exception_handler(request, exc):
         return None
     
     # Handle all other exceptions
+    # Always log the error for debugging
+    logging.error(f"Unhandled exception: {exc}", exc_info=True)
+    
     return JSONResponse(
         status_code=500,
         content={

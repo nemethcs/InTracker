@@ -1,0 +1,88 @@
+name: Azure CI/CD Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags (v1.0.0, v1.1.0, etc.)
+    # Note: Removed main branch trigger to avoid duplicate builds
+    # When pushing to main, create a release tag instead
+
+env:
+  AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+  ACR_NAME: ${{ secrets.ACR_NAME }}
+  CONTAINER_APP_NAME_BACKEND: ${{ secrets.CONTAINER_APP_NAME_BACKEND }}
+  CONTAINER_APP_NAME_FRONTEND: ${{ secrets.CONTAINER_APP_NAME_FRONTEND }}
+  CONTAINER_APP_ENVIRONMENT: ${{ secrets.CONTAINER_APP_ENVIRONMENT }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: extract_version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "tag=$VERSION" >> $GITHUB_OUTPUT
+          else
+            VERSION="latest"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "tag=$VERSION" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build and push Backend image using ACR
+        run: |
+          az acr build \
+            --registry ${{ env.ACR_NAME }} \
+            --image intracker-backend:${{ steps.extract_version.outputs.tag }} \
+            --image intracker-backend:latest \
+            --file ./backend/Dockerfile \
+            --platform linux/amd64 \
+            ./backend
+
+      - name: Build and push Frontend image using ACR
+        run: |
+          az acr build \
+            --registry ${{ env.ACR_NAME }} \
+            --image intracker-frontend:${{ steps.extract_version.outputs.tag }} \
+            --image intracker-frontend:latest \
+            --file ./frontend/Dockerfile.prod \
+            --platform linux/amd64 \
+            --build-arg VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }} \
+            --build-arg VITE_SIGNALR_URL=${{ secrets.VITE_SIGNALR_URL }} \
+            --build-arg VITE_APP_NAME=InTracker \
+            ./frontend
+
+      - name: Update Backend Container App
+        run: |
+          az containerapp update \
+            --name ${{ env.CONTAINER_APP_NAME_BACKEND }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_NAME }}.azurecr.io/intracker-backend:${{ steps.extract_version.outputs.tag }}
+
+      - name: Update Frontend Container App
+        run: |
+          az containerapp update \
+            --name ${{ env.CONTAINER_APP_NAME_FRONTEND }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_NAME }}.azurecr.io/intracker-frontend:${{ steps.extract_version.outputs.tag }}
+
+      - name: Deployment summary
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.extract_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Backend Image:** ${{ env.ACR_NAME }}.azurecr.io/intracker-backend:${{ steps.extract_version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Frontend Image:** ${{ env.ACR_NAME }}.azurecr.io/intracker-frontend:${{ steps.extract_version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Deployment completed successfully!" >> $GITHUB_STEP_SUMMARY

@@ -225,6 +225,23 @@ class TodoService:
                 reset_current_user_id(token)
 
     @staticmethod
+    def update_todo_status(
+        db: Session,
+        todo_id: UUID,
+        status: str,
+        expected_version: Optional[int] = None,
+        current_user_id: Optional[UUID] = None,
+    ) -> Optional[Todo]:
+        """Update todo status with optimistic locking."""
+        return TodoService.update_todo(
+            db=db,
+            todo_id=todo_id,
+            status=status,
+            expected_version=expected_version,
+            current_user_id=current_user_id,
+        )
+
+    @staticmethod
     def delete_todo(db: Session, todo_id: UUID) -> bool:
         """Delete todo."""
         todo = db.query(Todo).filter(Todo.id == todo_id).first()

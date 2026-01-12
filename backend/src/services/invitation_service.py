@@ -90,9 +90,20 @@ class InvitationService:
         if not invitation:
             return False, None, "Invalid invitation code"
         
-        if invitation.used_at is not None:
+        # Check if invitation has been used (old schema with used_at)
+        if hasattr(invitation, 'used_at') and invitation.used_at is not None:
             return False, invitation, "Invitation code has already been used"
         
+        # Check if invitation is active
+        if hasattr(invitation, 'is_active') and not invitation.is_active:
+            return False, invitation, "Invitation code is not active"
+        
+        # Check if invitation has reached max uses (new schema with uses_count and max_uses)
+        if hasattr(invitation, 'uses_count') and hasattr(invitation, 'max_uses'):
+            if invitation.max_uses is not None and invitation.uses_count >= invitation.max_uses:
+                return False, invitation, "Invitation code has reached maximum uses"
+        
+        # Check expiration
         if invitation.expires_at and invitation.expires_at < datetime.utcnow():
             return False, invitation, "Invitation code has expired"
         

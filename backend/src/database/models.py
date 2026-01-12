@@ -479,6 +479,8 @@ class InvitationCode(Base):
     max_uses = Column(Integer, nullable=True)  # None = unlimited
     uses_count = Column(Integer, default=0, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    used_at = Column(DateTime, nullable=True)  # When the invitation was used
+    used_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)  # Who used the invitation
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
