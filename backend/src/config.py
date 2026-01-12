@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     AZURE_EMAIL_SENDER_ADDRESS: str = "DoNotReply@kesmarki.com"
     AZURE_EMAIL_SERVICE_NAME: str = "intracker-email-service"
     FRONTEND_URL: str = "https://intracker.kesmarki.com"
+    BACKEND_URL: str = "https://intracker-api.kesmarki.com"  # For OAuth callback URL
 
     class Config:
         env_file = ".env"
