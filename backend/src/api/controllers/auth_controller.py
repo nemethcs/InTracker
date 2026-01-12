@@ -298,18 +298,7 @@ async def github_disconnect(
             )
         
         # Disconnect GitHub by clearing all token-related fields
-        # Clear all GitHub OAuth token fields
-        user.github_access_token_encrypted = None
-        user.github_refresh_token_encrypted = None
-        user.github_token_expires_at = None
-        user.github_refresh_token_expires_at = None
-        user.github_connected_at = None
-        user.github_username = None
-        user.avatar_url = None
-        
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+        github_token_service.disconnect_github(db, user_id)
         
         return {"message": "GitHub account disconnected successfully"}
     except HTTPException:

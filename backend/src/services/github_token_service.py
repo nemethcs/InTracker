@@ -163,9 +163,12 @@ class GitHubTokenService:
         user.github_token_expires_at = None
         user.github_refresh_token_expires_at = None
         user.github_connected_at = None
-        # Keep github_username and avatar_url for reference
+        user.github_username = None
+        user.avatar_url = None
         
+        db.add(user)
         db.commit()
+        db.refresh(user)
         return True
 
 
