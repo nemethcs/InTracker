@@ -47,6 +47,7 @@ async def lifespan(app: FastAPI):
             
             command.upgrade(alembic_cfg, "head")
             logger.info("Database migrations completed successfully")
+            print("✅ Database migrations completed successfully", flush=True)  # Also print for visibility
         else:
             logger.warning("DATABASE_URL not set, skipping migrations")
     except Exception as e:
