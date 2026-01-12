@@ -101,20 +101,24 @@ def upgrade() -> None:
                 
                 -- If no teams exist, create a default admin team
                 IF user_team_id IS NULL THEN
-                    -- Get first admin user (check if role column exists first)
-                    BEGIN
+                    -- Check if users.role column exists, then get first admin user or first user
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'users' AND column_name = 'role'
+                    ) THEN
+                        -- Role column exists, get first admin user
                         SELECT id INTO admin_user_id
                         FROM users
                         WHERE role = 'admin'
                         ORDER BY created_at ASC
                         LIMIT 1;
-                    EXCEPTION WHEN OTHERS THEN
-                        -- If role column doesn't exist, get first user
+                    ELSE
+                        -- Role column doesn't exist yet, get first user
                         SELECT id INTO admin_user_id
                         FROM users
                         ORDER BY created_at ASC
                         LIMIT 1;
-                    END;
+                    END IF;
                     
                     IF admin_user_id IS NOT NULL THEN
                         INSERT INTO teams (id, name, description, created_by, created_at, updated_at)
@@ -165,20 +169,24 @@ def upgrade() -> None:
                 
                 -- If no teams exist, create a default team
                 IF user_team_id IS NULL THEN
-                    -- Get first admin user (check if role column exists first)
-                    BEGIN
+                    -- Check if users.role column exists, then get first admin user or first user
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'users' AND column_name = 'role'
+                    ) THEN
+                        -- Role column exists, get first admin user
                         SELECT id INTO admin_user_id
                         FROM users
                         WHERE role = 'admin'
                         ORDER BY created_at ASC
                         LIMIT 1;
-                    EXCEPTION WHEN OTHERS THEN
-                        -- If role column doesn't exist, get first user
+                    ELSE
+                        -- Role column doesn't exist yet, get first user
                         SELECT id INTO admin_user_id
                         FROM users
                         ORDER BY created_at ASC
                         LIMIT 1;
-                    END;
+                    END IF;
                     
                     IF admin_user_id IS NOT NULL THEN
                         INSERT INTO teams (id, name, description, created_by, created_at, updated_at)
