@@ -29,32 +29,6 @@ export function Settings() {
   const [githubError, setGitHubError] = useState<string | null>(null)
   const [isProcessingCallback, setIsProcessingCallback] = useState(false)
 
-  // Handle OAuth callback from GitHub
-  useEffect(() => {
-    const code = searchParams.get('code')
-    const state = searchParams.get('state')
-    const error = searchParams.get('error')
-    const errorDescription = searchParams.get('error_description')
-
-    if (error) {
-      // GitHub OAuth error
-      setGitHubError(errorDescription || error || 'GitHub OAuth authorization failed')
-      // Remove error params from URL
-      searchParams.delete('error')
-      searchParams.delete('error_description')
-      setSearchParams(searchParams, { replace: true })
-      return
-    }
-
-    // Only process callback if we have both code and state
-    // This prevents the callback from running when the page first loads
-    if (code && state) {
-      // Process OAuth callback
-      handleOAuthCallback(code, state)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, state]) // Only depend on code and state, not the entire searchParams object
-
   useEffect(() => {
     loadCurrentKey()
     loadGitHubStatus()
@@ -265,43 +239,71 @@ export function Settings() {
     }
   }
 
-  const handleOAuthCallback = async (code: string, state: string) => {
-    if (isProcessingCallback) {
-      return // Prevent multiple calls
+  // Handle OAuth callback from GitHub
+  useEffect(() => {
+    const code = searchParams.get('code')
+    const state = searchParams.get('state')
+    const error = searchParams.get('error')
+    const errorDescription = searchParams.get('error_description')
+
+    if (error) {
+      // GitHub OAuth error
+      setGitHubError(errorDescription || error || 'GitHub OAuth authorization failed')
+      // Remove error params from URL
+      searchParams.delete('error')
+      searchParams.delete('error_description')
+      setSearchParams(searchParams, { replace: true })
+      return
     }
 
-    try {
-      setIsProcessingCallback(true)
-      setGitHubError(null)
-
-      // Call backend to exchange code for tokens
-      const result = await settingsService.handleOAuthCallback(code, state)
-
-      // Remove callback params from URL
-      searchParams.delete('code')
-      searchParams.delete('state')
-      setSearchParams(searchParams, { replace: true })
-
-      // Refresh user data to get updated GitHub info
-      await checkAuth()
-
-      // Reload GitHub status to show updated connection
-      await loadGitHubStatus()
-
-      // Show success message (optional - could use a toast notification)
-      console.log('GitHub OAuth connection successful:', result.message)
-    } catch (error) {
-      console.error('Failed to process OAuth callback:', error)
-      setGitHubError(error instanceof Error ? error.message : 'Failed to connect GitHub account')
-      
-      // Remove callback params from URL even on error
-      searchParams.delete('code')
-      searchParams.delete('state')
-      setSearchParams(searchParams, { replace: true })
-    } finally {
-      setIsProcessingCallback(false)
+    // Only process callback if we have both code and state
+    // This prevents the callback from running when the page first loads
+    if (!code || !state) {
+      return // Don't process if code or state is missing
     }
-  }
+
+    // Process OAuth callback
+    const processCallback = async () => {
+      if (isProcessingCallback) {
+        return // Prevent multiple calls
+      }
+
+      try {
+        setIsProcessingCallback(true)
+        setGitHubError(null)
+
+        // Call backend to exchange code for tokens
+        const result = await settingsService.handleOAuthCallback(code, state)
+
+        // Remove callback params from URL
+        searchParams.delete('code')
+        searchParams.delete('state')
+        setSearchParams(searchParams, { replace: true })
+
+        // Refresh user data to get updated GitHub info
+        await checkAuth()
+
+        // Reload GitHub status to show updated connection
+        await loadGitHubStatus()
+
+        // Show success message (optional - could use a toast notification)
+        console.log('GitHub OAuth connection successful:', result.message)
+      } catch (error) {
+        console.error('Failed to process OAuth callback:', error)
+        setGitHubError(error instanceof Error ? error.message : 'Failed to connect GitHub account')
+        
+        // Remove callback params from URL even on error
+        searchParams.delete('code')
+        searchParams.delete('state')
+        setSearchParams(searchParams, { replace: true })
+      } finally {
+        setIsProcessingCallback(false)
+      }
+    }
+
+    processCallback()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.get('code'), searchParams.get('state')]) // Only depend on code and state values
 
   return (
     <div className="space-y-6">
