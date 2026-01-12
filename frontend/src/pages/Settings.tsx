@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export function Settings() {
-  const { user, logout } = useAuthStore()
+  const { user, logout, checkAuth } = useAuthStore()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [mcpKey, setMcpKey] = useState<McpApiKey | null>(null)
@@ -46,11 +46,14 @@ export function Settings() {
       return
     }
 
+    // Only process callback if we have both code and state
+    // This prevents the callback from running when the page first loads
     if (code && state) {
       // Process OAuth callback
       handleOAuthCallback(code, state)
     }
-  }, [searchParams])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, state]) // Only depend on code and state, not the entire searchParams object
 
   useEffect(() => {
     loadCurrentKey()
@@ -278,6 +281,9 @@ export function Settings() {
       searchParams.delete('code')
       searchParams.delete('state')
       setSearchParams(searchParams, { replace: true })
+
+      // Refresh user data to get updated GitHub info
+      await checkAuth()
 
       // Reload GitHub status to show updated connection
       await loadGitHubStatus()
