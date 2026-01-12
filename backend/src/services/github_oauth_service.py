@@ -69,7 +69,7 @@ class GitHubOAuthService:
         
         # Build authorization URL
         # Use FRONTEND_URL for callback (frontend will handle the redirect)
-        callback_url = settings.FRONTEND_URL
+        callback_url = settings.FRONTEND_URL.rstrip("/")
         params = {
             "client_id": settings.GITHUB_OAUTH_CLIENT_ID,
             "redirect_uri": f"{callback_url}/settings",
@@ -79,8 +79,9 @@ class GitHubOAuthService:
             "code_challenge_method": code_challenge_method,
         }
         
-        query_string = "&".join([f"{k}={v}" for k, v in params.items()])
-        authorization_url = f"{GitHubOAuthService.AUTHORIZATION_URL}?{query_string}"
+        # IMPORTANT: URL-encode params (redirect_uri contains ":" and "/")
+        from urllib.parse import urlencode
+        authorization_url = f"{GitHubOAuthService.AUTHORIZATION_URL}?{urlencode(params)}"
         
         return authorization_url, code_verifier
     
@@ -110,38 +111,40 @@ class GitHubOAuthService:
             raise ValueError("GitHub OAuth credentials are not configured")
         
         # Exchange code for token
-        # Use BACKEND_URL for callback, fallback to FRONTEND_URL if not set
-            # Use FRONTEND_URL for callback (matches authorization URL)
-            callback_url = settings.FRONTEND_URL
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    GitHubOAuthService.TOKEN_URL,
-                    data={
-                        "client_id": settings.GITHUB_OAUTH_CLIENT_ID,
-                        "client_secret": settings.GITHUB_OAUTH_CLIENT_SECRET,
-                        "code": code,
-                        "redirect_uri": f"{callback_url}/settings",
+        callback_url = settings.FRONTEND_URL.rstrip("/")
+        redirect_uri = f"{callback_url}/settings"
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                GitHubOAuthService.TOKEN_URL,
+                data={
+                    "client_id": settings.GITHUB_OAUTH_CLIENT_ID,
+                    "client_secret": settings.GITHUB_OAUTH_CLIENT_SECRET,
+                    "code": code,
+                    "redirect_uri": redirect_uri,
                     "code_verifier": code_verifier,
                 },
                 headers={
                     "Accept": "application/json",
                 },
             )
-            
+
             if response.status_code != 200:
-                error_detail = response.text
-                raise ValueError(f"Failed to exchange code for token: {error_detail}")
-            
+                raise ValueError(f"Failed to exchange code for token: {response.text}")
+
             token_data = response.json()
-            
+
             # Check for errors in response
-            if "error" in token_data:
-                raise ValueError(f"OAuth error: {token_data.get('error_description', token_data['error'])}")
-            
+            if isinstance(token_data, dict) and "error" in token_data:
+                raise ValueError(f"OAuth error: {token_data.get('error_description', token_data.get('error'))}")
+
+            if not isinstance(token_data, dict):
+                raise ValueError(f"Unexpected token response type: {type(token_data)}")
+
             access_token = token_data.get("access_token")
             if not access_token:
                 raise ValueError("No access token in response")
-            
+
             # Get user information
             user_response = await client.get(
                 GitHubOAuthService.USER_API_URL,
@@ -150,24 +153,22 @@ class GitHubOAuthService:
                     "Accept": "application/vnd.github.v3+json",
                 },
             )
-            
+
             if user_response.status_code != 200:
                 raise ValueError(f"Failed to get user information: {user_response.text}")
-            
+
             user_info = user_response.json()
-            
+
             # Calculate expiration times
             expires_in = token_data.get("expires_in", 28800)  # Default: 8 hours
             expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
-            
-            # GitHub OAuth Apps don't provide refresh tokens by default
-            # Refresh tokens are only available for GitHub Apps
+
+            # GitHub OAuth Apps don't provide refresh tokens by default (future-proof)
             refresh_token = token_data.get("refresh_token")
             refresh_expires_at = None
             if refresh_token:
-                # Refresh tokens typically expire in 6 months
                 refresh_expires_at = datetime.utcnow() + timedelta(days=180)
-            
+
             return {
                 "access_token": access_token,
                 "refresh_token": refresh_token,
@@ -177,6 +178,7 @@ class GitHubOAuthService:
                 "scope": token_data.get("scope", ""),
                 "token_type": token_data.get("token_type", "bearer"),
                 "user_info": user_info,
+                "redirect_uri": redirect_uri,
             }
     
     @staticmethod
