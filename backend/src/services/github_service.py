@@ -4,14 +4,37 @@ from uuid import UUID
 from github import Github
 from github.GithubException import GithubException
 from src.config import settings
+from src.services.github_token_service import github_token_service
+from src.database.base import SessionLocal
 
 
 class GitHubService:
     """Service for GitHub operations."""
 
-    def __init__(self):
-        """Initialize GitHub client."""
+    def __init__(self, user_id: Optional[UUID] = None):
+        """Initialize GitHub client.
+        
+        Args:
+            user_id: Optional user ID to use user's OAuth token instead of global token
+        """
         self.client: Optional[Github] = None
+        self.user_id = user_id
+        
+        # If user_id is provided, try to use user's OAuth token
+        if user_id:
+            db = SessionLocal()
+            try:
+                token = github_token_service.get_user_token(db, user_id)
+                if token:
+                    try:
+                        self.client = Github(token)
+                        return
+                    except Exception as e:
+                        print(f"⚠️  GitHub client initialization with user token failed: {e}")
+            finally:
+                db.close()
+        
+        # Fallback to global token or no client
         if settings.GITHUB_TOKEN:
             try:
                 self.client = Github(settings.GITHUB_TOKEN)
