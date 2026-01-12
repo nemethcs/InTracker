@@ -150,13 +150,24 @@ async def github_authorize(
         params = urllib.parse.parse_qs(parsed.query)
         state_value = params.get('state', [state])[0] if state else params.get('state', [])[0]
         
-        if state_value:
-            cache_key = f"github_oauth:state:{state_value}"
-            redis_client = get_redis_client()
-            if redis_client:
-                redis_client.setex(cache_key, 600, code_verifier)  # 10 minutes TTL
-                # Also store user_id for callback authentication
-                redis_client.setex(f"github_oauth:user:{state_value}", 600, str(user_id))  # 10 minutes TTL
+        if not state_value:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to generate state parameter",
+            )
+        
+        # Store in Redis (state is used as-is, no URL encoding needed for Redis key)
+        cache_key = f"github_oauth:state:{state_value}"
+        redis_client = get_redis_client()
+        if redis_client:
+            redis_client.setex(cache_key, 600, code_verifier)  # 10 minutes TTL
+            # Also store user_id for callback authentication
+            redis_client.setex(f"github_oauth:user:{state_value}", 600, str(user_id))  # 10 minutes TTL
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Redis is not available",
+            )
         
         return {
             "authorization_url": authorization_url,
@@ -216,24 +227,43 @@ async def github_callback(
             )
         
         # Retrieve code_verifier from Redis
-        cache_key = f"github_oauth:state:{state}"
+        # State parameter comes from URL, might be URL-encoded by GitHub
+        # Try both the original state and URL-decoded version
+        import urllib.parse
+        decoded_state = urllib.parse.unquote(state)
+        
         redis_client = get_redis_client()
+        if not redis_client:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Redis is not available",
+            )
+        
         code_verifier = None
-        if redis_client:
-            code_verifier_raw = redis_client.get(cache_key)
-            # Delete state from cache (one-time use)
+        # Try original state first
+        cache_key = f"github_oauth:state:{state}"
+        code_verifier_raw = redis_client.get(cache_key)
+        
+        # If not found, try URL-decoded state
+        if not code_verifier_raw and decoded_state != state:
+            cache_key_decoded = f"github_oauth:state:{decoded_state}"
+            code_verifier_raw = redis_client.get(cache_key_decoded)
             if code_verifier_raw:
-                redis_client.delete(cache_key)
-                # Handle both bytes and string (depending on Redis client version)
-                if isinstance(code_verifier_raw, bytes):
-                    code_verifier = code_verifier_raw.decode('utf-8')
-                else:
-                    code_verifier = code_verifier_raw
+                cache_key = cache_key_decoded
+        
+        # Delete state from cache (one-time use)
+        if code_verifier_raw:
+            redis_client.delete(cache_key)
+            # Handle both bytes and string (depending on Redis client version)
+            if isinstance(code_verifier_raw, bytes):
+                code_verifier = code_verifier_raw.decode('utf-8')
+            else:
+                code_verifier = code_verifier_raw
         
         if not code_verifier:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid or expired state parameter",
+                detail=f"Invalid or expired state parameter. State: {state[:20]}...",
             )
         
         # Exchange code for tokens
