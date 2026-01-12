@@ -52,7 +52,10 @@ class GitHubOAuthService:
             If code_challenge is provided, code_verifier will be empty string
         """
         if not settings.GITHUB_OAUTH_CLIENT_ID:
-            raise ValueError("GITHUB_OAUTH_CLIENT_ID is not configured")
+            raise ValueError(
+                "GitHub OAuth is not configured. Please set GITHUB_OAUTH_CLIENT_ID environment variable. "
+                "See docs/GITHUB_OAUTH_SETUP.md for setup instructions."
+            )
         
         # Generate PKCE pair if not provided
         if code_challenge is None:

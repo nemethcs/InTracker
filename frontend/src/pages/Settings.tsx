@@ -241,7 +241,12 @@ export function Settings() {
       window.location.href = authorization_url
     } catch (error) {
       console.error('Failed to get GitHub OAuth URL:', error)
-      setGitHubError(error instanceof Error ? error.message : 'Failed to connect GitHub')
+      const errorMessage = error instanceof Error ? error.message : 'Failed to connect GitHub'
+      setGitHubError(
+        errorMessage.includes('not configured')
+          ? 'GitHub OAuth is not configured on the server. Please contact your administrator or see the setup documentation.'
+          : errorMessage
+      )
       setIsConnectingGitHub(false)
     }
   }
