@@ -8,7 +8,7 @@ from src.database.base import get_db
 from src.database.models import User
 from src.services.auth_service import auth_service
 from src.services.github_oauth_service import github_oauth_service
-from src.services.cache_service import cache_service
+from src.services.cache_service import get_redis_client
 from src.api.schemas.auth import (
     RegisterRequest,
     LoginRequest,
@@ -147,7 +147,9 @@ async def github_authorize(
         
         if state_value:
             cache_key = f"github_oauth:state:{state_value}"
-            cache_service.set(cache_key, code_verifier, ttl=600)  # 10 minutes TTL
+            redis_client = get_redis_client()
+            if redis_client:
+                redis_client.setex(cache_key, 600, code_verifier)  # 10 minutes TTL
         
         return {
             "authorization_url": authorization_url,
@@ -183,16 +185,19 @@ async def github_callback(
         
         # Retrieve code_verifier from Redis
         cache_key = f"github_oauth:state:{state}"
-        code_verifier = cache_service.get(cache_key)
+        redis_client = get_redis_client()
+        code_verifier = None
+        if redis_client:
+            code_verifier = redis_client.get(cache_key)
+            # Delete state from cache (one-time use)
+            if code_verifier:
+                redis_client.delete(cache_key)
         
         if not code_verifier:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid or expired state parameter",
             )
-        
-        # Delete state from cache (one-time use)
-        cache_service.delete(cache_key)
         
         # Exchange code for tokens
         token_data = await github_oauth_service.exchange_code_for_tokens(
