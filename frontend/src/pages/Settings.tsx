@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,6 +28,8 @@ export function Settings() {
   const [isConnectingGitHub, setIsConnectingGitHub] = useState(false)
   const [githubError, setGitHubError] = useState<string | null>(null)
   const [isProcessingCallback, setIsProcessingCallback] = useState(false)
+  // Guard against React StrictMode / double-invoked effects (dev) processing the same callback twice
+  const processedOAuthStateRef = useRef<string | null>(null)
 
   useEffect(() => {
     loadCurrentKey()
@@ -261,6 +263,12 @@ export function Settings() {
     if (!code || !state) {
       return // Don't process if code or state is missing
     }
+
+    // Prevent processing the same state twice (can happen in dev StrictMode)
+    if (processedOAuthStateRef.current === state) {
+      return
+    }
+    processedOAuthStateRef.current = state
 
     // Process OAuth callback
     const processCallback = async () => {
