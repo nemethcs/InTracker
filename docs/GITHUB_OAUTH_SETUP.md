@@ -17,7 +17,7 @@ Ez az útmutató leírja, hogyan kell létrehozni és konfigurálni a GitHub OAu
      - Development: `http://localhost:5173`
    - **Authorization callback URL**:
      - Production: `https://intracker-api.kesmarki.com/api/auth/github/callback`
-     - Development: `http://localhost:3000/api/auth/github/callback`
+     - Development: `http://localhost:3000/auth/github/callback`
 5. Kattints a **"Register application"** gombra
 
 ## 2. OAuth App konfiguráció
