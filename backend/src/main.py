@@ -221,6 +221,9 @@ async def global_exception_handler(request, exc):
         return None
     
     # Handle all other exceptions
+    # Always log the error for debugging
+    logging.error(f"Unhandled exception: {exc}", exc_info=True)
+    
     return JSONResponse(
         status_code=500,
         content={
