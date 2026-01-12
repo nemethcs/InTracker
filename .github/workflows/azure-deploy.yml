@@ -4,8 +4,8 @@ on:
   push:
     tags:
       - 'v*'  # Trigger on version tags (v1.0.0, v1.1.0, etc.)
-    branches:
-      - main  # Also trigger on main branch pushes (optional, for testing)
+    # Note: Removed main branch trigger to avoid duplicate builds
+    # When pushing to main, create a release tag instead
 
 env:
   AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
