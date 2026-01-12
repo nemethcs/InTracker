@@ -280,3 +280,31 @@ async def github_callback(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to process OAuth callback: {str(e)}",
         )
+
+
+@router.post("/github/disconnect")
+async def github_disconnect(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Disconnect GitHub account by clearing tokens."""
+    try:
+        user_id = UUID(current_user["user_id"])
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+        
+        # Disconnect GitHub by clearing all token-related fields
+        github_token_service.disconnect_github(db, user)
+        
+        return {"message": "GitHub account disconnected successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to disconnect GitHub account: {str(e)}",
+        )
