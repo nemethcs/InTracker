@@ -2,6 +2,8 @@
 
 Ez az útmutató leírja, hogyan kell létrehozni és konfigurálni a GitHub OAuth App-ot az InTracker-hez.
 
+> **💡 Fontos megértés:** Az OAuth App csak egy "kapu" - minden felhasználó saját tokent kap, ami a **felhasználó saját GitHub jogosultságait** használja, nem az OAuth App tulajdonosának jogosultságait. Részletek: [GitHub OAuth - Hogyan működik?](./GITHUB_OAUTH_HOW_IT_WORKS.md)
+
 ## 1. GitHub OAuth App létrehozása
 
 1. Lépj be a GitHub fiókodba
