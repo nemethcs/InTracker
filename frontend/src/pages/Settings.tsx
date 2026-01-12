@@ -514,22 +514,62 @@ export function Settings() {
 
               {githubStatus.accessible_projects && githubStatus.accessible_projects.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">Accessible Projects</p>
-                  <div className="space-y-1">
+                  <p className="text-sm font-medium">Project Access Status</p>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
                     {githubStatus.accessible_projects.map((project) => (
                       <div
                         key={project.project_id}
-                        className="flex items-center justify-between rounded border p-2 text-sm"
+                        className={`flex items-center justify-between rounded border p-3 text-sm ${
+                          project.has_access
+                            ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950'
+                            : 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-950'
+                        }`}
                       >
-                        <div>
+                        <div className="flex-1">
                           <p className="font-medium">{project.project_name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {project.team_name} • {project.has_access ? '✅ Access' : '❌ No access'}
-                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="text-xs text-muted-foreground">{project.team_name}</p>
+                            {project.github_repo_url && (
+                              <>
+                                <span className="text-xs text-muted-foreground">•</span>
+                                <a
+                                  href={project.github_repo_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+                                >
+                                  GitHub
+                                </a>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {project.has_access ? (
+                            <span className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+                              <CheckCircle2 className="h-4 w-4" />
+                              {project.access_level || 'Access'}
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-xs text-red-700 dark:text-red-400">
+                              <AlertCircle className="h-4 w-4" />
+                              No access
+                            </span>
+                          )}
                         </div>
                       </div>
                     ))}
                   </div>
+                  {githubStatus.accessible_projects.filter((p) => !p.has_access).length > 0 && (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Some projects show "No access" because your GitHub token doesn't have
+                        permission to access their repositories. You may need to grant additional
+                        permissions or request access to those repositories.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </div>
               )}
             </div>

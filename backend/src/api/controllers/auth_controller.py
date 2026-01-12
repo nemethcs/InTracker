@@ -119,6 +119,7 @@ async def get_me(current_user: dict = Depends(get_current_user), db: Session = D
         name=user.name,
         github_username=user.github_username,
         avatar_url=user.avatar_url,
+        github_connected_at=user.github_connected_at.isoformat() if user.github_connected_at else None,
         is_active=user.is_active,
         role=user.role,
     )

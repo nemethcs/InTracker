@@ -7,6 +7,7 @@ from src.api.middleware.auth import get_current_user
 from src.services.project_service import project_service
 from src.services.github_service import github_service
 from src.services.branch_service import branch_service
+from src.services.github_access_service import github_access_service
 from src.api.schemas.github import (
     GitHubConnectRequest,
     GitHubRepoResponse,
@@ -147,6 +148,27 @@ async def list_project_branches(
         ],
         "count": len(branches),
     }
+
+
+@router.get("/projects/access")
+async def get_projects_access(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get list of projects with GitHub OAuth token access validation.
+    
+    Returns all projects the user has access to via team membership,
+    along with information about whether the user's GitHub OAuth token
+    has access to each project's GitHub repository.
+    """
+    user_id = UUID(current_user["user_id"])
+    
+    accessible_projects = github_access_service.validate_project_access_for_user(
+        db=db,
+        user_id=user_id,
+    )
+    
+    return accessible_projects
 
 
 @router.post("/branches", status_code=status.HTTP_201_CREATED)
