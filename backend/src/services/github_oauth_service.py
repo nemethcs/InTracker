@@ -114,7 +114,10 @@ class GitHubOAuthService:
         
         # Exchange code for token
         # Use BACKEND_URL for callback, fallback to FRONTEND_URL if not set
-        callback_url = getattr(settings, 'BACKEND_URL', settings.FRONTEND_URL)
+        callback_url = settings.BACKEND_URL or settings.FRONTEND_URL
+        # Remove /api prefix if present (FastAPI routes don't have /api prefix)
+        if callback_url.endswith('/api'):
+            callback_url = callback_url[:-4]
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 GitHubOAuthService.TOKEN_URL,
@@ -122,7 +125,7 @@ class GitHubOAuthService:
                     "client_id": settings.GITHUB_OAUTH_CLIENT_ID,
                     "client_secret": settings.GITHUB_OAUTH_CLIENT_SECRET,
                     "code": code,
-                    "redirect_uri": f"{callback_url}/api/auth/github/callback",
+                    "redirect_uri": f"{callback_url}/auth/github/callback",
                     "code_verifier": code_verifier,
                 },
                 headers={
