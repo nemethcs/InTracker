@@ -22,16 +22,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Azure Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.ACR_NAME }}.azurecr.io
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
-
       - name: Extract version from tag
         id: extract_version
         run: |
@@ -45,40 +35,33 @@ jobs:
             echo "tag=$VERSION" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build and push Backend image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          file: ./backend/Dockerfile
-          push: true
-          platforms: linux/amd64
-          tags: |
-            ${{ env.ACR_NAME }}.azurecr.io/intracker-backend:${{ steps.extract_version.outputs.tag }}
-            ${{ env.ACR_NAME }}.azurecr.io/intracker-backend:latest
-          cache-from: type=registry,ref=${{ env.ACR_NAME }}.azurecr.io/intracker-backend:buildcache
-          cache-to: type=registry,ref=${{ env.ACR_NAME }}.azurecr.io/intracker-backend:buildcache,mode=max
-
-      - name: Build and push Frontend image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile.prod
-          push: true
-          platforms: linux/amd64
-          build-args: |
-            VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
-            VITE_SIGNALR_URL=${{ secrets.VITE_SIGNALR_URL }}
-            VITE_APP_NAME=InTracker
-          tags: |
-            ${{ env.ACR_NAME }}.azurecr.io/intracker-frontend:${{ steps.extract_version.outputs.tag }}
-            ${{ env.ACR_NAME }}.azurecr.io/intracker-frontend:latest
-          cache-from: type=registry,ref=${{ env.ACR_NAME }}.azurecr.io/intracker-frontend:buildcache
-          cache-to: type=registry,ref=${{ env.ACR_NAME }}.azurecr.io/intracker-frontend:buildcache,mode=max
-
       - name: Azure Login
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build and push Backend image using ACR
+        run: |
+          az acr build \
+            --registry ${{ env.ACR_NAME }} \
+            --image intracker-backend:${{ steps.extract_version.outputs.tag }} \
+            --image intracker-backend:latest \
+            --file ./backend/Dockerfile \
+            --platform linux/amd64 \
+            ./backend
+
+      - name: Build and push Frontend image using ACR
+        run: |
+          az acr build \
+            --registry ${{ env.ACR_NAME }} \
+            --image intracker-frontend:${{ steps.extract_version.outputs.tag }} \
+            --image intracker-frontend:latest \
+            --file ./frontend/Dockerfile.prod \
+            --platform linux/amd64 \
+            --build-arg VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }} \
+            --build-arg VITE_SIGNALR_URL=${{ secrets.VITE_SIGNALR_URL }} \
+            --build-arg VITE_APP_NAME=InTracker \
+            ./frontend
 
       - name: Update Backend Container App
         run: |
