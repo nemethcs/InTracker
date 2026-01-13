@@ -127,6 +127,9 @@ async def get_me(current_user: dict = Depends(get_current_user), db: Session = D
 
     # Update setup_completed status (always check on /auth/me call)
     update_setup_completed(db, UUID(current_user["user_id"]))
+    
+    # Refresh user to get updated setup_completed and onboarding_step
+    db.refresh(user)
 
     return UserResponse(
         id=str(user.id),
