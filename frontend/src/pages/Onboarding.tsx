@@ -55,19 +55,23 @@ export function Onboarding() {
 
   // Redirect if setup is already completed
   useEffect(() => {
-    const currentUser = useAuthStore.getState().user
-    if (currentUser?.setup_completed) {
-      navigate('/')
+    const checkAndRedirect = () => {
+      const currentUser = useAuthStore.getState().user
+      if (currentUser?.setup_completed) {
+        navigate('/')
+      }
     }
-  }, [user?.setup_completed, navigate])
-
-  // Also listen to store changes for setup_completed
-  useEffect(() => {
+    
+    // Check immediately
+    checkAndRedirect()
+    
+    // Also subscribe to store changes
     const unsubscribe = useAuthStore.subscribe((state) => {
       if (state.user?.setup_completed) {
         navigate('/')
       }
     })
+    
     return unsubscribe
   }, [navigate])
 
