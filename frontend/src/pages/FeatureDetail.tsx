@@ -16,6 +16,7 @@ import { ArrowLeft, Plus, CheckCircle2, Circle, AlertCircle, Clock, User, Edit }
 import { format } from 'date-fns'
 import type { Todo } from '@/services/todoService'
 import type { Feature } from '@/services/featureService'
+import { toast } from '@/hooks/useToast'
 
 const statusIcons = {
   new: Circle,
@@ -298,11 +299,11 @@ export function FeatureDetail() {
                             } catch (error: any) {
                               if (error.isConflict) {
                                 // Show conflict warning
-                                alert(`Conflict: ${error.message}\n\nPlease refresh the page to get the latest version.`)
+                                toast.warning('Conflict detected', error.message + '\n\nPlease refresh the page to get the latest version.')
                                 // Refresh todos to get latest data
                                 refetchTodos()
                               } else {
-                                alert(`Failed to update todo: ${error.message}`)
+                                toast.error('Failed to update todo', error.message || 'An error occurred')
                               }
                             }
                           }}

@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { toast } from '@/hooks/useToast'
 import { adminService, type Team } from '@/services/adminService'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import type { Project, ProjectCreate, ProjectUpdate } from '@/services/projectService'
@@ -98,7 +99,7 @@ export function ProjectEditor({
       const technologyTagsArray = technologyTags.split(',').map(t => t.trim()).filter(t => t.length > 0)
 
       if (!teamId && !project) {
-        alert('Please select a team')
+        toast.warning('Team required', 'Please select a team before creating a project.')
         return
       }
 

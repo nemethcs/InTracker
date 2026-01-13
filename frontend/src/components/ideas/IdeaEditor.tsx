@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { adminService, type Team } from '@/services/adminService'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import type { Idea, IdeaCreate, IdeaUpdate } from '@/services/ideaService'
+import { toast } from '@/hooks/useToast'
 
 interface IdeaEditorProps {
   open: boolean
@@ -79,7 +80,7 @@ export function IdeaEditor({ open, onOpenChange, idea, onSave }: IdeaEditorProps
 
   const handleSave = async () => {
     if (!teamId && !idea) {
-      alert('Please select a team')
+      toast.warning('Team required', 'Please select a team before creating an idea.')
       return
     }
 

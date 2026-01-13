@@ -19,6 +19,7 @@ import { Lightbulb, Plus, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { Idea, IdeaConvertRequest } from '@/services/ideaService'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { toast } from '@/hooks/useToast'
 
 export function Ideas() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
@@ -145,7 +146,7 @@ export function Ideas() {
       navigate(`/projects/${project.id}`)
     } catch (error) {
       console.error('Failed to convert idea:', error)
-      alert('Failed to convert idea to project')
+      toast.error('Failed to convert idea to project', error instanceof Error ? error.message : 'An error occurred')
     } finally {
       setIsConverting(false)
     }

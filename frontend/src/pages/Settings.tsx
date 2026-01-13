@@ -11,6 +11,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { toast } from '@/hooks/useToast'
 
 export function Settings() {
   const { user, logout, checkAuth } = useAuthStore()
@@ -80,7 +81,7 @@ export function Settings() {
       await loadCurrentKey() // Reload to get the new key metadata
     } catch (error) {
       console.error('Failed to regenerate MCP key:', error)
-      alert('Failed to regenerate MCP key. Please try again.')
+      toast.error('Failed to regenerate MCP key', 'Please try again.')
     } finally {
       setIsRegenerating(false)
     }
