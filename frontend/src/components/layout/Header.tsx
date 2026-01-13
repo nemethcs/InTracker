@@ -37,7 +37,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b glass">
-      <div className="container flex h-14 items-center px-4 sm:px-6">
+      <div className="container mx-auto flex h-14 items-center px-4 sm:px-6 lg:px-8 max-w-7xl">
         <div className="mr-4 flex items-center">
           {/* Hamburger menu - visible on mobile, hidden on desktop */}
           <Button
