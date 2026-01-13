@@ -36,6 +36,10 @@ class User(Base):
     github_token_expires_at = Column(DateTime, nullable=True)  # Access token expiration time
     github_refresh_token_expires_at = Column(DateTime, nullable=True)  # Refresh token expiration time
     github_connected_at = Column(DateTime, nullable=True)  # When OAuth connection was established
+    # Onboarding fields
+    onboarding_step = Column(Integer, default=0, nullable=False)  # 0=not_started, 1=welcome, 2=mcp_key, 3=mcp_verified, 4=github, 5=complete
+    mcp_verified_at = Column(DateTime, nullable=True)  # Timestamp when mcp_verify_connection was successfully called
+    setup_completed = Column(Boolean, default=False, nullable=False)  # True when both MCP key exists AND GitHub connected
     is_active = Column(Boolean, default=True, nullable=False)
     last_login_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
