@@ -130,8 +130,14 @@ async def get_me(current_user: dict = Depends(get_current_user), db: Session = D
     
     # Re-query user to get updated setup_completed and onboarding_step
     # This ensures we get the latest values from the database
-    db.expire(user)  # Expire the object to force reload
-    db.refresh(user)
+    # Use merge=False to get a fresh instance from the database
+    user_id = UUID(current_user["user_id"])
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
 
     return UserResponse(
         id=str(user.id),
