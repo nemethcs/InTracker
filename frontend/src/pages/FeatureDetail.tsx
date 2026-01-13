@@ -14,6 +14,7 @@ import { TodoCard } from '@/components/todos/TodoCard'
 import { TodoEditor } from '@/components/todos/TodoEditor'
 import { FeatureEditor } from '@/components/features/FeatureEditor'
 import { ArrowLeft, Plus, CheckCircle2, Circle, AlertCircle, Clock, User, Edit } from 'lucide-react'
+import { iconSize } from '@/components/ui/Icon'
 import { format } from 'date-fns'
 import type { Todo } from '@/services/todoService'
 import type { Feature } from '@/services/featureService'
@@ -151,26 +152,28 @@ export function FeatureDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link to={`/projects/${projectId}`}>
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold">{feature.name}</h1>
-          {feature.description && (
-            <p className="text-muted-foreground mt-2">{feature.description}</p>
-          )}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <Link to={`/projects/${projectId}`}>
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className={iconSize('sm')} />
+            </Button>
+          </Link>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold truncate">{feature.name}</h1>
+            {feature.description && (
+              <p className="text-muted-foreground mt-2 text-sm sm:text-base">{feature.description}</p>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <Badge 
             variant={
               feature.status === 'done' ? 'default' :
               feature.status === 'tested' ? 'secondary' :
               feature.status === 'in_progress' ? 'secondary' : 'outline'
             }
-            className="text-lg px-3 py-1"
+            className="text-base sm:text-lg px-2 sm:px-3 py-1"
           >
             {feature.status}
           </Badge>
@@ -178,8 +181,9 @@ export function FeatureDetail() {
             variant="outline"
             size="sm"
             onClick={() => setFeatureEditorOpen(true)}
+            className="w-full sm:w-auto"
           >
-            <Edit className="mr-2 h-4 w-4" />
+            <Edit className={`mr-2 ${iconSize('sm')}`} />
             Edit
           </Button>
         </div>
