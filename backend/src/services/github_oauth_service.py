@@ -160,14 +160,22 @@ class GitHubOAuthService:
             user_info = user_response.json()
 
             # Calculate expiration times
-            expires_in = token_data.get("expires_in", 28800)  # Default: 8 hours
-            expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+            # GitHub OAuth Apps can have non-expiring tokens or 8-hour tokens depending on settings
+            expires_in = token_data.get("expires_in")  # None if no expiration
+            if expires_in:
+                expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+                print(f"✅ GitHub token expires in {expires_in} seconds ({expires_in/3600:.1f} hours)")
+            else:
+                # No expiration - GitHub tokens expire after 1 year of inactivity
+                expires_at = datetime.utcnow() + timedelta(days=365)
+                print(f"✅ GitHub token has no expiration, setting 1 year expiry")
 
             # GitHub OAuth Apps don't provide refresh tokens by default (future-proof)
             refresh_token = token_data.get("refresh_token")
             refresh_expires_at = None
             if refresh_token:
                 refresh_expires_at = datetime.utcnow() + timedelta(days=180)
+                print(f"✅ GitHub refresh token received, expires in 180 days")
 
             return {
                 "access_token": access_token,

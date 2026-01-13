@@ -37,16 +37,27 @@ class GitHubTokenService:
         buffer = timedelta(minutes=5)
         
         if user.github_token_expires_at and user.github_token_expires_at < (now + buffer):
-            # Token is expired or will expire soon, try to refresh
-            refreshed = GitHubTokenService.refresh_user_token(db, user_id)
-            if refreshed:
-                # Reload user to get new token
-                db.refresh(user)
-                if user.github_access_token_encrypted:
-                    return github_oauth_service.decrypt_token(user.github_access_token_encrypted)
+            # Token is expired or will expire soon
+            if user.github_refresh_token_encrypted:
+                # Try to refresh
+                refreshed = GitHubTokenService.refresh_user_token(db, user_id)
+                if refreshed:
+                    # Reload user to get new token
+                    db.refresh(user)
+                    if user.github_access_token_encrypted:
+                        return github_oauth_service.decrypt_token(user.github_access_token_encrypted)
+                else:
+                    # Refresh failed, return None
+                    print(f"⚠️  Token expired and refresh failed for user {user_id}")
+                    return None
             else:
-                # Refresh failed, return None
-                return None
+                # No refresh token - try to use the token anyway (might still work)
+                # GitHub tokens might still be valid even after the recorded expiry
+                print(f"⚠️  Token expired ({user.github_token_expires_at}) but no refresh token, trying anyway...")
+                token = github_oauth_service.decrypt_token(user.github_access_token_encrypted)
+                if token:
+                    print(f"   → Token decrypted successfully, will attempt to use it")
+                return token
         
         # Token is still valid, decrypt and return
         return github_oauth_service.decrypt_token(user.github_access_token_encrypted)
