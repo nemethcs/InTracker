@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { FormField, FormInput, FormTextarea, FormSelect } from '@/components/ui/form'
 import {
   Select,
   SelectContent,
@@ -143,15 +144,14 @@ export function ProjectEditor({
         </DialogHeader>
         <div className="space-y-4 py-4">
           {!project && (
-            <div className="space-y-2">
-              <Label htmlFor="team">Team *</Label>
+            <FormField label="Team" required>
               {isLoadingTeams ? (
                 <LoadingSpinner size="sm" />
               ) : (
                 <Select value={teamId} onValueChange={setTeamId}>
-                  <SelectTrigger id="team">
+                  <FormSelect>
                     <SelectValue placeholder="Select a team" />
-                  </SelectTrigger>
+                  </FormSelect>
                   <SelectContent>
                     {teams.map((team) => (
                       <SelectItem key={team.id} value={team.id}>
@@ -161,34 +161,29 @@ export function ProjectEditor({
                   </SelectContent>
                 </Select>
               )}
-            </div>
+            </FormField>
           )}
-          <div className="space-y-2">
-            <Label htmlFor="name">Name *</Label>
-            <Input
-              id="name"
+          <FormField label="Name" required>
+            <FormInput
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter project name"
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
+          </FormField>
+          <FormField label="Description">
+            <FormTextarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Enter project description"
               rows={3}
             />
-          </div>
+          </FormField>
           {project && (
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+            <FormField label="Status">
               <Select value={status} onValueChange={(value) => setStatus(value as Project['status'])}>
-                <SelectTrigger id="status">
+                <FormSelect>
                   <SelectValue />
-                </SelectTrigger>
+                </FormSelect>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="paused">Paused</SelectItem>
@@ -197,39 +192,39 @@ export function ProjectEditor({
                   <SelectItem value="archived">Archived</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </FormField>
           )}
-          <div className="space-y-2">
-            <Label htmlFor="tags">Tags</Label>
-            <Input
-              id="tags"
+          <FormField 
+            label="Tags" 
+            description="Separate multiple tags with commas"
+          >
+            <FormInput
               value={tags}
               onChange={(e) => setTags(e.target.value)}
               placeholder="Enter tags separated by commas (e.g., ai, project-management, mcp)"
             />
-            <p className="text-xs text-muted-foreground">Separate multiple tags with commas</p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="technologyTags">Technology Tags</Label>
-            <Input
-              id="technologyTags"
+          </FormField>
+          <FormField 
+            label="Technology Tags" 
+            description="Separate multiple tags with commas"
+          >
+            <FormInput
               value={technologyTags}
               onChange={(e) => setTechnologyTags(e.target.value)}
               placeholder="Enter technology tags separated by commas (e.g., react, typescript, python)"
             />
-            <p className="text-xs text-muted-foreground">Separate multiple tags with commas</p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="cursorInstructions">Cursor Instructions</Label>
-            <Textarea
-              id="cursorInstructions"
+          </FormField>
+          <FormField 
+            label="Cursor Instructions" 
+            description="Optional instructions for AI context"
+          >
+            <FormTextarea
               value={cursorInstructions}
               onChange={(e) => setCursorInstructions(e.target.value)}
               placeholder="Enter specific instructions for AI assistants working on this project"
               rows={4}
             />
-            <p className="text-xs text-muted-foreground">Optional instructions for AI context</p>
-          </div>
+          </FormField>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

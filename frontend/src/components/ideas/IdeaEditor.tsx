@@ -10,6 +10,7 @@ import { adminService, type Team } from '@/services/adminService'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import type { Idea, IdeaCreate, IdeaUpdate } from '@/services/ideaService'
 import { toast } from '@/hooks/useToast'
+import { FormField, FormInput, FormTextarea, FormSelect } from '@/components/ui/form'
 
 interface IdeaEditorProps {
   open: boolean
@@ -159,24 +160,21 @@ export function IdeaEditor({ open, onOpenChange, idea, onSave }: IdeaEditorProps
               rows={4}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
+          <FormField label="Status">
             <Select value={status} onValueChange={(value: 'draft' | 'active' | 'archived') => setStatus(value)}>
-              <SelectTrigger>
+              <FormSelect>
                 <SelectValue />
-              </SelectTrigger>
+              </FormSelect>
               <SelectContent>
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="archived">Archived</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="tags">Tags</Label>
+          </FormField>
+          <FormField label="Tags">
             <div className="flex gap-2">
-              <Input
-                id="tags"
+              <FormInput
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => {
