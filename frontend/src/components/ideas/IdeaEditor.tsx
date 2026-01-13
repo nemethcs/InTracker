@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { adminService, type Team } from '@/services/adminService'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import type { Idea, IdeaCreate, IdeaUpdate } from '@/services/ideaService'
+import { toast } from '@/hooks/useToast'
+import { FormField, FormInput, FormTextarea, FormSelect } from '@/components/ui/form'
 
 interface IdeaEditorProps {
   open: boolean
@@ -79,7 +81,7 @@ export function IdeaEditor({ open, onOpenChange, idea, onSave }: IdeaEditorProps
 
   const handleSave = async () => {
     if (!teamId && !idea) {
-      alert('Please select a team')
+      toast.warning('Team required', 'Please select a team before creating an idea.')
       return
     }
 
@@ -119,15 +121,14 @@ export function IdeaEditor({ open, onOpenChange, idea, onSave }: IdeaEditorProps
         </DialogHeader>
         <div className="space-y-4 py-4">
           {!idea && (
-            <div className="space-y-2">
-              <Label htmlFor="team">Team *</Label>
+            <FormField label="Team" required>
               {isLoadingTeams ? (
                 <LoadingSpinner size="sm" />
               ) : (
                 <Select value={teamId} onValueChange={setTeamId}>
-                  <SelectTrigger id="team">
+                  <FormSelect>
                     <SelectValue placeholder="Select a team" />
-                  </SelectTrigger>
+                  </FormSelect>
                   <SelectContent>
                     {teams.map((team) => (
                       <SelectItem key={team.id} value={team.id}>
@@ -137,45 +138,38 @@ export function IdeaEditor({ open, onOpenChange, idea, onSave }: IdeaEditorProps
                   </SelectContent>
                 </Select>
               )}
-            </div>
+            </FormField>
           )}
-          <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
-            <Input
-              id="title"
+          <FormField label="Title" required>
+            <FormInput
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Enter idea title"
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
+          </FormField>
+          <FormField label="Description">
+            <FormTextarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe your idea"
               rows={4}
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
+          </FormField>
+          <FormField label="Status">
             <Select value={status} onValueChange={(value: 'draft' | 'active' | 'archived') => setStatus(value)}>
-              <SelectTrigger>
+              <FormSelect>
                 <SelectValue />
-              </SelectTrigger>
+              </FormSelect>
               <SelectContent>
                 <SelectItem value="draft">Draft</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="archived">Archived</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="tags">Tags</Label>
+          </FormField>
+          <FormField label="Tags">
             <div className="flex gap-2">
-              <Input
-                id="tags"
+              <FormInput
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -199,7 +193,7 @@ export function IdeaEditor({ open, onOpenChange, idea, onSave }: IdeaEditorProps
                 ))}
               </div>
             )}
-          </div>
+          </FormField>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

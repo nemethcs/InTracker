@@ -8,6 +8,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { adminService, type Team, type Invitation, type TeamMember, type User } from '@/services/adminService'
 import { UsersRound, Mail, Plus, Edit, Trash2, Copy, CheckCircle2, XCircle, UserPlus, UserMinus } from 'lucide-react'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 export function Teams() {
   const { user } = useAuth()
@@ -227,10 +228,10 @@ export function Teams() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Teams</h1>
-        <p className="text-muted-foreground">Manage your teams and members</p>
-      </div>
+      <PageHeader
+        title="Teams"
+        description="Manage your teams and members"
+      />
 
       {error && (
         <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
@@ -379,7 +380,7 @@ export function Teams() {
                           </div>
                           <div className="flex items-center gap-2">
                             {member.role === 'team_leader' && (
-                              <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
+                              <span className="px-2 py-1 rounded text-xs bg-primary/10 text-primary dark:bg-primary/20">
                                 Leader
                               </span>
                             )}

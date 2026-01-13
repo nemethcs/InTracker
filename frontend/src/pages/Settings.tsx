@@ -7,9 +7,15 @@ import { useAuthStore } from '@/stores/authStore'
 import { mcpKeyService, type McpApiKey } from '@/services/mcpKeyService'
 import { settingsService, type GitHubOAuthStatus } from '@/services/settingsService'
 import { Settings as SettingsIcon, Key, Copy, CheckCircle2, RefreshCw, AlertCircle, Plus, Github, X } from 'lucide-react'
+import { iconSize } from '@/components/ui/Icon'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { toast } from '@/hooks/useToast'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 export function Settings() {
   const { user, logout, checkAuth } = useAuthStore()
@@ -79,7 +85,7 @@ export function Settings() {
       await loadCurrentKey() // Reload to get the new key metadata
     } catch (error) {
       console.error('Failed to regenerate MCP key:', error)
-      alert('Failed to regenerate MCP key. Please try again.')
+      toast.error('Failed to regenerate MCP key', 'Please try again.')
     } finally {
       setIsRegenerating(false)
     }
@@ -315,10 +321,10 @@ export function Settings() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">Manage your account and preferences</p>
-      </div>
+      <PageHeader
+        title="Settings"
+        description="Manage your account and preferences"
+      />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
@@ -361,7 +367,7 @@ export function Settings() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5" />
+            <Key className={iconSize('md')} />
             MCP API Key
           </CardTitle>
           <CardDescription>
@@ -377,13 +383,9 @@ export function Settings() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Key Status</Label>
-                  <span className={`text-xs px-2 py-1 rounded ${
-                    mcpKey.is_active
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                  }`}>
+                  <Badge variant={mcpKey.is_active ? 'success' : 'muted'}>
                     {mcpKey.is_active ? 'Active' : 'Inactive'}
-                  </span>
+                  </Badge>
                 </div>
                 {mcpKey.name && (
                   <div>
@@ -408,7 +410,7 @@ export function Settings() {
               </div>
 
               <Alert>
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className={iconSize('sm')} />
                 <AlertDescription>
                   The API key value cannot be retrieved after creation. If you've lost your key,
                   regenerate a new one below.
@@ -420,7 +422,7 @@ export function Settings() {
                   onClick={handleAddToCursor}
                   className="flex-1"
                 >
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus className={`mr-2 ${iconSize('sm')}`} />
                   Add to Cursor
                 </Button>
                 <Button
@@ -429,7 +431,7 @@ export function Settings() {
                   variant="outline"
                   className="flex-1"
                 >
-                  <RefreshCw className={`mr-2 h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`mr-2 ${iconSize('sm')} ${isRegenerating ? 'animate-spin' : ''}`} />
                   {isRegenerating ? 'Regenerating...' : 'Regenerate Key'}
                 </Button>
               </div>
@@ -437,7 +439,7 @@ export function Settings() {
           ) : (
             <div className="space-y-4">
               <Alert>
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className={iconSize('sm')} />
                 <AlertDescription>
                   You don't have an MCP API key yet. Generate one to connect Cursor and other AI assistants.
                 </AlertDescription>
@@ -448,7 +450,7 @@ export function Settings() {
                 disabled={isRegenerating}
                 className="w-full"
               >
-                <Key className={`mr-2 h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
+                <Key className={`mr-2 ${iconSize('sm')} ${isRegenerating ? 'animate-spin' : ''}`} />
                 {isRegenerating ? 'Generating...' : 'Generate MCP API Key'}
               </Button>
               {newKey && (
@@ -460,7 +462,7 @@ export function Settings() {
                   className="w-full mt-2"
                   variant="outline"
                 >
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus className={`mr-2 ${iconSize('sm')}`} />
                   Add to Cursor
                 </Button>
               )}
@@ -473,7 +475,7 @@ export function Settings() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Github className="h-5 w-5" />
+            <Github className={iconSize('md')} />
             GitHub Integration
           </CardTitle>
           <CardDescription>
@@ -490,12 +492,12 @@ export function Settings() {
 
           {isProcessingCallback ? (
             <div className="flex items-center justify-center py-4">
-              <RefreshCw className="h-4 w-4 animate-spin" />
+              <RefreshCw className={`${iconSize('sm')} animate-spin`} />
               <span className="ml-2 text-sm text-muted-foreground">Connecting GitHub account...</span>
             </div>
           ) : isLoadingGitHub ? (
             <div className="flex items-center justify-center py-4">
-              <RefreshCw className="h-4 w-4 animate-spin" />
+              <RefreshCw className={`${iconSize('sm')} animate-spin`} />
               <span className="ml-2 text-sm text-muted-foreground">Loading GitHub status...</span>
             </div>
           ) : githubStatus?.connected ? (
@@ -528,7 +530,7 @@ export function Settings() {
                   onClick={handleDisconnectGitHub}
                   className="flex items-center gap-2"
                 >
-                  <X className="h-4 w-4" />
+                  <X className={iconSize('sm')} />
                   Disconnect
                 </Button>
               </div>
@@ -536,54 +538,56 @@ export function Settings() {
               {githubStatus.accessible_projects && githubStatus.accessible_projects.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Project Access Status</p>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {githubStatus.accessible_projects.map((project) => (
-                      <div
-                        key={project.project_id}
-                        className={`flex items-center justify-between rounded border p-3 text-sm ${
-                          project.has_access
-                            ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950'
-                            : 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-950'
-                        }`}
-                      >
-                        <div className="flex-1">
-                          <p className="font-medium">{project.project_name}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <p className="text-xs text-muted-foreground">{project.team_name}</p>
-                            {project.github_repo_url && (
-                              <>
-                                <span className="text-xs text-muted-foreground">•</span>
+                  <div className="rounded-md border max-h-64 overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Project</TableHead>
+                          <TableHead>Team</TableHead>
+                          <TableHead>Repository</TableHead>
+                          <TableHead className="text-right">Access</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {githubStatus.accessible_projects.map((project) => (
+                          <TableRow key={project.project_id}>
+                            <TableCell className="font-medium">{project.project_name}</TableCell>
+                            <TableCell className="text-muted-foreground">{project.team_name}</TableCell>
+                            <TableCell>
+                              {project.github_repo_url ? (
                                 <a
                                   href={project.github_repo_url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+                                  className="text-xs text-primary hover:underline"
                                 >
                                   GitHub
                                 </a>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {project.has_access ? (
-                            <span className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
-                              <CheckCircle2 className="h-4 w-4" />
-                              {project.access_level || 'Access'}
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1 text-xs text-red-700 dark:text-red-400">
-                              <AlertCircle className="h-4 w-4" />
-                              No access
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                              ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {project.has_access ? (
+                                <span className="flex items-center justify-end gap-1 text-xs text-success">
+                                  <CheckCircle2 className={iconSize('sm')} />
+                                  {project.access_level || 'Access'}
+                                </span>
+                              ) : (
+                                <span className="flex items-center justify-end gap-1 text-xs text-destructive">
+                                  <AlertCircle className={iconSize('sm')} />
+                                  No access
+                                </span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                   {githubStatus.accessible_projects.filter((p) => !p.has_access).length > 0 && (
                     <Alert>
-                      <AlertCircle className="h-4 w-4" />
+                      <AlertCircle className={iconSize('sm')} />
                       <AlertDescription className="text-xs">
                         Some projects show "No access" because your GitHub token doesn't have
                         permission to access their repositories. You may need to grant additional
@@ -606,12 +610,12 @@ export function Settings() {
               >
                 {isConnectingGitHub ? (
                   <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <RefreshCw className={`${iconSize('sm')} animate-spin`} />
                     Connecting...
                   </>
                 ) : (
                   <>
-                    <Github className="h-4 w-4" />
+                    <Github className={iconSize('sm')} />
                     Connect with GitHub
                   </>
                 )}
@@ -641,18 +645,26 @@ export function Settings() {
                   readOnly
                   className="font-mono text-sm"
                 />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleCopyKey}
-                  title="Copy to clipboard"
-                >
-                  {copied ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleCopyKey}
+                      >
+                        {copied ? (
+                          <CheckCircle2 className={`${iconSize('sm')} text-success`} />
+                        ) : (
+                          <Copy className={iconSize('sm')} />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Copy to clipboard</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
             <Alert>
@@ -705,22 +717,30 @@ export function Settings() {
                       }}
                     >
                       <Button className="w-full" size="lg">
-                        <Plus className="mr-2 h-4 w-4" />
+                        <Plus className={`mr-2 ${iconSize('sm')}`} />
                         Add to Cursor
                       </Button>
                     </a>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleCopyDeeplink(newKey)}
-                      title="Copy install link"
-                    >
-                      {copiedConfig ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleCopyDeeplink(newKey)}
+                          >
+                            {copiedConfig ? (
+                              <CheckCircle2 className={`${iconSize('sm')} text-success`} />
+                            ) : (
+                              <Copy className={iconSize('sm')} />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Copy install link</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Click the button above to automatically install InTracker in Cursor. 
@@ -744,29 +764,37 @@ export function Settings() {
                   className="flex-1 font-mono text-xs p-3 bg-muted rounded-md min-h-[150px] resize-none"
                   spellCheck={false}
                 />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => {
-                    if (newKey) {
-                      handleCopyCursorConfig(newKey)
-                    }
-                  }}
-                  title="Copy configuration to clipboard"
-                  disabled={!newKey}
-                >
-                  {copiedConfig ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          if (newKey) {
+                            handleCopyCursorConfig(newKey)
+                          }
+                        }}
+                        disabled={!newKey}
+                      >
+                        {copiedConfig ? (
+                          <CheckCircle2 className={`${iconSize('sm')} text-success`} />
+                        ) : (
+                          <Copy className={iconSize('sm')} />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Copy configuration to clipboard</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
 
             {newKey && (
               <Alert>
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className={iconSize('sm')} />
                 <AlertDescription>
                   <strong>Manual installation:</strong>
                   <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">

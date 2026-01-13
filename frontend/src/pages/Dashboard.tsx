@@ -5,13 +5,14 @@ import { useProjectStore } from '@/stores/projectStore'
 import { adminService, type Team } from '@/services/adminService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ProjectEditor } from '@/components/projects/ProjectEditor'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FolderKanban, Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 export function Dashboard() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>(undefined)
@@ -62,8 +63,12 @@ export function Dashboard() {
 
   if (isLoading || isLoadingTeams) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner size="lg" />
+      <div className="space-y-6">
+        <PageHeader
+          title={pageTitle}
+          description={pageDescription}
+        />
+        <LoadingState variant="combined" size="md" skeletonCount={6} />
       </div>
     )
   }
@@ -91,18 +96,18 @@ export function Dashboard() {
   const completedProjects = projectsList.filter(p => p.status === 'completed').length
 
   return (
-    <div className="space-y-8 p-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">{pageTitle}</h1>
-          <p className="text-muted-foreground text-sm">{pageDescription}</p>
-        </div>
-        <Button onClick={() => setProjectEditorOpen(true)} className="w-full sm:w-auto">
-          <Plus className="mr-2 h-4 w-4" />
-          New Project
-        </Button>
-      </div>
+      <PageHeader
+        title={pageTitle}
+        description={pageDescription}
+        actions={
+          <Button onClick={() => setProjectEditorOpen(true)} className="w-full sm:w-auto">
+            <Plus className="mr-2 h-4 w-4" />
+            New Project
+          </Button>
+        }
+      />
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
@@ -148,22 +153,22 @@ export function Dashboard() {
       {/* Statistics Cards */}
       {projectsList.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Card className="border-l-4 border-l-blue-500">
+          <Card className="border-l-4 border-l-primary">
             <CardHeader className="pb-3">
               <CardDescription className="text-xs font-medium uppercase tracking-wide">Total Projects</CardDescription>
-              <CardTitle className="text-4xl font-bold mt-2">{totalProjects}</CardTitle>
+              <CardTitle className="text-3xl sm:text-4xl font-bold mt-2">{totalProjects}</CardTitle>
             </CardHeader>
           </Card>
-          <Card className="border-l-4 border-l-green-500">
+          <Card className="border-l-4 border-l-success">
             <CardHeader className="pb-3">
               <CardDescription className="text-xs font-medium uppercase tracking-wide">Active Projects</CardDescription>
-              <CardTitle className="text-4xl font-bold mt-2 text-green-600 dark:text-green-400">{activeProjects}</CardTitle>
+              <CardTitle className="text-3xl sm:text-4xl font-bold mt-2 text-success">{activeProjects}</CardTitle>
             </CardHeader>
           </Card>
-          <Card className="border-l-4 border-l-purple-500 sm:col-span-2 lg:col-span-1">
+          <Card className="border-l-4 border-l-accent sm:col-span-2 lg:col-span-1">
             <CardHeader className="pb-3">
               <CardDescription className="text-xs font-medium uppercase tracking-wide">Completed Projects</CardDescription>
-              <CardTitle className="text-4xl font-bold mt-2 text-purple-600 dark:text-purple-400">{completedProjects}</CardTitle>
+              <CardTitle className="text-3xl sm:text-4xl font-bold mt-2 text-accent">{completedProjects}</CardTitle>
             </CardHeader>
           </Card>
         </div>
@@ -194,22 +199,22 @@ export function Dashboard() {
             
             return (
               <div key={teamId} className="space-y-4">
-                <div className="flex items-center gap-3 pb-2 border-b">
-                  <h2 className="text-xl font-semibold text-foreground">{teamName}</h2>
-                  <Badge variant="secondary" className="text-xs font-medium">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 pb-2 border-b">
+                  <h2 className="text-lg sm:text-xl font-semibold text-foreground">{teamName}</h2>
+                  <Badge variant="secondary" className="text-xs font-medium w-fit">
                     {teamProjects.length} {teamProjects.length === 1 ? 'project' : 'projects'}
                   </Badge>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {teamProjects.map((project) => {
-                    const statusColors: Record<string, string> = {
-                      active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-                      paused: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-                      blocked: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-                      completed: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-                      archived: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+                    const statusVariants: Record<string, 'success' | 'warning' | 'destructive' | 'info' | 'muted'> = {
+                      active: 'success',
+                      paused: 'warning',
+                      blocked: 'destructive',
+                      completed: 'info',
+                      archived: 'muted',
                     }
-                    const statusColor = statusColors[project.status] || 'bg-gray-100 text-gray-800'
+                    const statusVariant = statusVariants[project.status] || 'muted'
                     
                     return (
                       <Link key={project.id} to={`/projects/${project.id}`} className="group">
@@ -219,7 +224,7 @@ export function Dashboard() {
                               <CardTitle className="text-lg font-semibold line-clamp-2 group-hover:text-primary transition-colors">
                                 {project.name}
                               </CardTitle>
-                              <Badge className={`${statusColor} text-xs font-medium shrink-0`}>
+                              <Badge variant={statusVariant} className="text-xs font-medium shrink-0">
                                 {project.status}
                               </Badge>
                             </div>

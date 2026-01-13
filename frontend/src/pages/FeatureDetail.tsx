@@ -6,16 +6,20 @@ import { useFeatureStore } from '@/stores/featureStore'
 import { useTodoStore } from '@/stores/todoStore'
 import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { LoadingState } from '@/components/ui/LoadingState'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { TodoEditor } from '@/components/todos/TodoEditor'
 import { FeatureEditor } from '@/components/features/FeatureEditor'
 import { ArrowLeft, Plus, CheckCircle2, Circle, AlertCircle, Clock, User, Edit } from 'lucide-react'
+import { iconSize } from '@/components/ui/Icon'
 import { format } from 'date-fns'
+import { PageHeader } from '@/components/layout/PageHeader'
 import type { Todo } from '@/services/todoService'
 import type { Feature } from '@/services/featureService'
+import { toast } from '@/hooks/useToast'
 
 const statusIcons = {
   new: Circle,
@@ -27,10 +31,10 @@ const statusIcons = {
 
 const statusColors = {
   new: 'text-muted-foreground',
-  in_progress: 'text-blue-500',
-  done: 'text-green-500',
-  tested: 'text-yellow-500',
-  merged: 'text-purple-500',
+  in_progress: 'text-primary',
+  done: 'text-green-600 dark:text-green-400',
+  tested: 'text-yellow-600 dark:text-yellow-400',
+  merged: 'text-accent',
 }
 
 export function FeatureDetail() {
@@ -120,8 +124,8 @@ export function FeatureDetail() {
 
   if (featuresLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner size="lg" />
+      <div className="space-y-6">
+        <LoadingState variant="combined" size="md" skeletonCount={6} />
       </div>
     )
   }
@@ -149,39 +153,42 @@ export function FeatureDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link to={`/projects/${projectId}`}>
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold">{feature.name}</h1>
-          {feature.description && (
-            <p className="text-muted-foreground mt-2">{feature.description}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge 
-            variant={
-              feature.status === 'done' ? 'default' :
-              feature.status === 'tested' ? 'secondary' :
-              feature.status === 'in_progress' ? 'secondary' : 'outline'
-            }
-            className="text-lg px-3 py-1"
-          >
-            {feature.status}
-          </Badge>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setFeatureEditorOpen(true)}
-          >
-            <Edit className="mr-2 h-4 w-4" />
-            Edit
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Link to={`/projects/${projectId}`}>
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className={iconSize('sm')} />
+              </Button>
+            </Link>
+            <span className="truncate">{feature.name}</span>
+          </div>
+        }
+        description={feature.description}
+        actions={
+          <div className="flex items-center gap-2">
+            <Badge 
+              variant={
+                feature.status === 'done' ? 'default' :
+                feature.status === 'tested' ? 'secondary' :
+                feature.status === 'in_progress' ? 'secondary' : 'outline'
+              }
+              className="text-base sm:text-lg px-2 sm:px-3 py-1"
+            >
+              {feature.status}
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFeatureEditorOpen(true)}
+              className="w-full sm:w-auto"
+            >
+              <Edit className={`mr-2 ${iconSize('sm')}`} />
+              Edit
+            </Button>
+          </div>
+        }
+      />
 
       {/* Progress Overview */}
       <Card>
@@ -202,7 +209,7 @@ export function FeatureDetail() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold">{feature.total_todos}</div>
                 <div className="text-sm text-muted-foreground">Total</div>
@@ -212,15 +219,15 @@ export function FeatureDetail() {
                 <div className="text-sm text-muted-foreground">New</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-500">{todosByStatus.in_progress.length}</div>
+                <div className="text-2xl font-bold text-primary">{todosByStatus.in_progress.length}</div>
                 <div className="text-sm text-muted-foreground">In Progress</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-500">{todosByStatus.done.length}</div>
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{todosByStatus.done.length}</div>
                 <div className="text-sm text-muted-foreground">Done</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-500">{feature.completed_todos}</div>
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{feature.completed_todos}</div>
                 <div className="text-sm text-muted-foreground">Completed</div>
               </div>
             </div>
@@ -230,30 +237,37 @@ export function FeatureDetail() {
 
       {/* Todos Section */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Todos</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <h2 className="text-xl sm:text-2xl font-bold">Todos</h2>
           <Button 
             onClick={() => {
               setEditingTodo(null)
               setTodoEditorOpen(true)
             }}
             disabled={todosLoading}
+            className="w-full sm:w-auto"
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className={`mr-2 ${iconSize('sm')}`} />
             New Todo
           </Button>
         </div>
 
         {todosLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <LoadingSpinner />
-          </div>
+          <LoadingState variant="combined" size="md" skeletonCount={3} />
         ) : todos.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No todos yet. Create your first todo to get started.
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={<CheckSquare className="h-12 w-12 text-muted-foreground" />}
+            title="No todos yet"
+            description="Create your first todo to get started"
+            action={{
+              label: 'Create Todo',
+              onClick: () => {
+                setEditingTodo(null)
+                setTodoEditorOpen(true)
+              }
+            }}
+            variant="compact"
+          />
         ) : (
           <div className="space-y-4">
             {/* Todo Status Columns */}
@@ -267,7 +281,7 @@ export function FeatureDetail() {
               return (
                 <div key={status}>
                   <div className="flex items-center gap-2 mb-2">
-                    <StatusIcon className={`h-5 w-5 ${statusColor}`} />
+                    <StatusIcon className={`${iconSize('md')} ${statusColor}`} />
                     <h3 className="font-semibold capitalize">{status.replace('_', ' ')}</h3>
                     <Badge variant="outline" className="ml-2">{statusTodos.length}</Badge>
                   </div>
@@ -298,11 +312,11 @@ export function FeatureDetail() {
                             } catch (error: any) {
                               if (error.isConflict) {
                                 // Show conflict warning
-                                alert(`Conflict: ${error.message}\n\nPlease refresh the page to get the latest version.`)
+                                toast.warning('Conflict detected', error.message + '\n\nPlease refresh the page to get the latest version.')
                                 // Refresh todos to get latest data
                                 refetchTodos()
                               } else {
-                                alert(`Failed to update todo: ${error.message}`)
+                                toast.error('Failed to update todo', error.message || 'An error occurred')
                               }
                             }
                           }}

@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ChevronRight, ChevronDown, Folder, Package, Component, CheckSquare } from 'lucide-react'
 import { useState } from 'react'
 import type { Element } from '@/services/elementService'
@@ -16,10 +17,10 @@ const typeIcons = {
 }
 
 const typeColors = {
-  milestone: 'text-purple-500',
-  module: 'text-blue-500',
-  component: 'text-green-500',
-  task: 'text-orange-500',
+  milestone: 'text-accent',
+  module: 'text-primary',
+  component: 'text-green-600 dark:text-green-400',
+  task: 'text-yellow-600 dark:text-yellow-400',
 }
 
 export function ElementTree({ 
@@ -58,7 +59,7 @@ function ElementNode({
   const [isExpanded, setIsExpanded] = useState(false)
   const hasChildren = element.children && element.children.length > 0
   const Icon = typeIcons[element.type] || Folder
-  const typeColor = typeColors[element.type] || 'text-gray-500'
+  const typeColor = typeColors[element.type] || 'text-muted-foreground'
 
   return (
     <div className="select-none">
@@ -95,22 +96,34 @@ function ElementNode({
         {/* Statistics */}
         <div className="flex items-center gap-3 text-xs text-muted-foreground flex-shrink-0">
           {element.todos_count !== undefined && element.todos_count > 0 && (
-            <span 
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/50" 
-              title={`${element.todos_done_count || 0}/${element.todos_count} todos done`}
-            >
-              <CheckSquare className="h-3 w-3" />
-              <span className="font-medium">{element.todos_done_count || 0}/{element.todos_count}</span>
-            </span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/50 cursor-help">
+                    <CheckSquare className="h-3 w-3" />
+                    <span className="font-medium">{element.todos_done_count || 0}/{element.todos_count}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{element.todos_done_count || 0}/{element.todos_count} todos done</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
           {element.features_count !== undefined && element.features_count > 0 && (
-            <span 
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/50 cursor-help" 
-              title={element.linked_features ? `Features: ${element.linked_features.join(', ')}` : `${element.features_count} features`}
-            >
-              <Package className="h-3 w-3" />
-              <span className="font-medium">{element.features_count}</span>
-            </span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/50 cursor-help">
+                    <Package className="h-3 w-3" />
+                    <span className="font-medium">{element.features_count}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{element.linked_features ? `Features: ${element.linked_features.join(', ')}` : `${element.features_count} features`}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
         <Badge

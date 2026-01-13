@@ -5,10 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { LoadingState } from '@/components/ui/LoadingState'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { adminService, type User, type Team, type Invitation, type TeamMember } from '@/services/adminService'
 import { Users, UsersRound, Mail, Shield, Trash2, Edit, Plus, Copy, CheckCircle2, XCircle, UserPlus, UserMinus, ChevronDown, ChevronUp } from 'lucide-react'
+import { iconSize } from '@/components/ui/Icon'
 
 type Tab = 'users' | 'teams' | 'invitations'
 
@@ -41,56 +45,39 @@ export function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <p className="text-muted-foreground">Manage users, teams, and invitations</p>
-      </div>
+      <PageHeader
+        title="Admin Dashboard"
+        description="Manage users, teams, and invitations"
+      />
 
       {/* Tabs */}
-      <div className="border-b">
-        <nav className="flex space-x-8">
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'users'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
-            }`}
-          >
-            <Users className="inline mr-2 h-4 w-4" />
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as Tab)} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users className={iconSize('sm')} />
             Users
-          </button>
-          <button
-            onClick={() => setActiveTab('teams')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'teams'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
-            }`}
-          >
-            <UsersRound className="inline mr-2 h-4 w-4" />
+          </TabsTrigger>
+          <TabsTrigger value="teams" className="flex items-center gap-2">
+            <UsersRound className={iconSize('sm')} />
             Teams
-          </button>
-          <button
-            onClick={() => setActiveTab('invitations')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'invitations'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
-            }`}
-          >
-            <Mail className="inline mr-2 h-4 w-4" />
+          </TabsTrigger>
+          <TabsTrigger value="invitations" className="flex items-center gap-2">
+            <Mail className={iconSize('sm')} />
             Invitations
-          </button>
-        </nav>
-      </div>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Tab Content */}
-      <div>
-        {activeTab === 'users' && <UsersTab />}
-        {activeTab === 'teams' && <TeamsTab />}
-        {activeTab === 'invitations' && <InvitationsTab />}
-      </div>
+        {/* Tab Content */}
+        <TabsContent value="users" className="mt-6">
+          <UsersTab />
+        </TabsContent>
+        <TabsContent value="teams" className="mt-6">
+          <TeamsTab />
+        </TabsContent>
+        <TabsContent value="invitations" className="mt-6">
+          <InvitationsTab />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
@@ -143,7 +130,7 @@ function UsersTab() {
   }
 
   if (isLoading) {
-    return <LoadingSpinner size="lg" />
+    return <LoadingState variant="combined" size="md" skeletonCount={5} />
   }
 
   return (
@@ -175,63 +162,73 @@ function UsersTab() {
         </select>
       </div>
 
-      {/* Users List */}
-      <div className="grid gap-4">
-        {users.map((user) => (
-          <Card key={user.id}>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold">{user.email}</h3>
-                    {user.name && <span className="text-muted-foreground">({user.name})</span>}
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      user.role === 'admin' ? 'bg-red-100 text-red-800' :
-                      user.role === 'team_leader' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {user.role}
-                    </span>
+      {/* Users Table */}
+      {users.length === 0 ? (
+        <EmptyState
+          icon={<Users className={iconSize('lg')} />}
+          title="No users found"
+          description="No users match your search criteria"
+          variant="compact"
+        />
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Email</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.email}</TableCell>
+                  <TableCell>{user.name || '-'}</TableCell>
+                  <TableCell>
+                    <select
+                      value={user.role}
+                      onChange={(e) => handleUpdateRole(user.id, e.target.value)}
+                      className="h-8 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                    >
+                      <option value="member">Member</option>
+                      <option value="team_leader">Team Leader</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </TableCell>
+                  <TableCell>
                     {!user.is_active && (
-                      <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">
+                      <span className="px-2 py-1 rounded text-xs bg-muted text-muted-foreground">
                         Inactive
                       </span>
                     )}
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Created: {new Date(user.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <select
-                    value={user.role}
-                    onChange={(e) => handleUpdateRole(user.id, e.target.value)}
-                    className="h-9 rounded-md border border-input bg-background px-2 py-1 text-sm"
-                  >
-                    <option value="member">Member</option>
-                    <option value="team_leader">Team Leader</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleDeleteUser(user.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        {users.length === 0 && (
-          <Card>
-            <CardContent className="pt-6 text-center text-muted-foreground">
-              No users found
-            </CardContent>
-          </Card>
-        )}
-      </div>
+                    {user.is_active && (
+                      <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                        Active
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {new Date(user.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDeleteUser(user.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   )
 }
@@ -401,7 +398,7 @@ function TeamsTab() {
   }
 
   if (isLoading) {
-    return <LoadingSpinner size="lg" />
+    return <LoadingState variant="combined" size="md" skeletonCount={5} />
   }
 
   return (
@@ -533,11 +530,12 @@ function TeamsTab() {
           )
         })}
         {teams.length === 0 && (
-          <Card>
-            <CardContent className="pt-6 text-center text-muted-foreground">
-              No teams found
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={<UsersRound className={iconSize('lg')} />}
+            title="No teams found"
+            description="Create your first team to get started"
+            variant="compact"
+          />
         )}
       </div>
 
@@ -706,7 +704,7 @@ function InvitationsTab() {
   }
 
   if (isLoading) {
-    return <LoadingSpinner size="lg" />
+    return <LoadingState variant="combined" size="md" skeletonCount={5} />
   }
 
   return (
@@ -724,21 +722,42 @@ function InvitationsTab() {
         </Button>
       </div>
 
-      <div className="grid gap-4">
-        {invitations.map((inv) => (
-          <Card key={inv.code}>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
+      {invitations.length === 0 ? (
+        <EmptyState
+          icon={<Mail className={iconSize('lg')} />}
+          title="No invitations found"
+          description="Create an invitation to allow new users to join"
+          variant="compact"
+        />
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Code</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead>Expires</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {invitations.map((inv) => (
+                <TableRow key={inv.code}>
+                  <TableCell>
                     <code className="text-sm font-mono bg-muted px-2 py-1 rounded">
                       {inv.code}
                     </code>
+                  </TableCell>
+                  <TableCell>
                     <span className={`px-2 py-1 rounded text-xs ${
-                      inv.type === 'admin' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                      inv.type === 'admin' ? 'bg-destructive/10 text-destructive dark:bg-destructive/20' : 'bg-primary/10 text-primary dark:bg-primary/20'
                     }`}>
                       {inv.type}
                     </span>
+                  </TableCell>
+                  <TableCell>
                     {inv.used_at ? (
                       <span className="flex items-center gap-1 text-xs text-muted-foreground">
                         <CheckCircle2 className="h-3 w-3" />
@@ -750,48 +769,43 @@ function InvitationsTab() {
                         Unused
                       </span>
                     )}
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Created: {new Date(inv.created_at).toLocaleDateString()}
-                    {inv.expires_at && (
-                      <> • Expires: {new Date(inv.expires_at).toLocaleDateString()}</>
-                    )}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCopyCode(inv.code)}
-                  >
-                    {copiedCode === inv.code ? (
-                      <CheckCircle2 className="h-4 w-4" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                  {!inv.used_at && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDeleteInvitation(inv.code)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        {invitations.length === 0 && (
-          <Card>
-            <CardContent className="pt-6 text-center text-muted-foreground">
-              No invitations found
-            </CardContent>
-          </Card>
-        )}
-      </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {new Date(inv.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {inv.expires_at ? new Date(inv.expires_at).toLocaleDateString() : '-'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopyCode(inv.code)}
+                      >
+                        {copiedCode === inv.code ? (
+                          <CheckCircle2 className="h-4 w-4" />
+                        ) : (
+                          <Copy className="h-4 w-4" />
+                        )}
+                      </Button>
+                      {!inv.used_at && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteInvitation(inv.code)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   )
 }

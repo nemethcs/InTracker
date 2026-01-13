@@ -6,7 +6,7 @@ import { adminService, type Team } from '@/services/adminService'
 import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { IdeaCard } from '@/components/ideas/IdeaCard'
 import { IdeaEditor } from '@/components/ideas/IdeaEditor'
@@ -18,6 +18,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Lightbulb, Plus, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { Idea, IdeaConvertRequest } from '@/services/ideaService'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { toast } from '@/hooks/useToast'
 
 export function Ideas() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
@@ -144,7 +146,7 @@ export function Ideas() {
       navigate(`/projects/${project.id}`)
     } catch (error) {
       console.error('Failed to convert idea:', error)
-      alert('Failed to convert idea to project')
+      toast.error('Failed to convert idea to project', error instanceof Error ? error.message : 'An error occurred')
     } finally {
       setIsConverting(false)
     }
@@ -152,8 +154,12 @@ export function Ideas() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner size="lg" />
+      <div className="space-y-6">
+        <PageHeader
+          title="Ideas"
+          description="Manage and convert ideas into projects"
+        />
+        <LoadingState variant="combined" size="md" skeletonCount={6} />
       </div>
     )
   }
@@ -178,22 +184,24 @@ export function Ideas() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
             <Sparkles className="h-8 w-8" />
             Ideas
-          </h1>
-          <p className="text-muted-foreground mt-2">Capture and organize your project ideas</p>
-        </div>
-        <Button onClick={() => {
-          setEditingIdea(null)
-          setIdeaEditorOpen(true)
-        }}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Idea
-        </Button>
-      </div>
+          </span>
+        }
+        description="Capture and organize your project ideas"
+        actions={
+          <Button onClick={() => {
+            setEditingIdea(null)
+            setIdeaEditorOpen(true)
+          }}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Idea
+          </Button>
+        }
+      />
 
       <div className="flex items-center gap-4">
         <Select value={statusFilter || 'all'} onValueChange={(value) => setStatusFilter(value === 'all' ? undefined : value)}>

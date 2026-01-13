@@ -4,48 +4,51 @@
 
 @layer base {
   :root {
+    /* Light mode - Cursor/Linear/Vercel/Stripe aesthetic */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 222 47% 11%; /* #0F172A - Dark Navy */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 217 91% 60%; /* #2563EB - Electric Blue */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 91%; /* #E5E7EB - Light */
+    --secondary-foreground: 222 47% 11%;
+    --muted: 220 14% 91%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 188 78% 58%; /* #22D3EE - Cyan */
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 14% 91%;
+    --input: 220 14% 91%;
+    --ring: 217 91% 60%; /* Electric Blue for focus rings */
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    /* Dark mode - Deep Navy base with Electric Blue accents */
+    /* Refined for better contrast and readability - Cursor/Linear/Vercel aesthetic */
+    --background: 222 47% 11%; /* #0F172A - Dark Navy */
+    --foreground: 210 40% 98%; /* High contrast text */
+    --card: 217 33% 15%; /* Slightly lighter than background for depth */
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 217 33% 15%;
     --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
+    --primary: 217 91% 65%; /* Slightly brighter Electric Blue for better visibility */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 20%; /* More visible secondary surfaces */
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --muted: 217 33% 20%; /* Better contrast for muted elements */
+    --muted-foreground: 215 25% 70%; /* More readable muted text */
+    --accent: 188 78% 63%; /* Slightly brighter Cyan for better visibility */
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 72% 51%; /* More visible destructive color */
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 33% 25%; /* More visible borders */
+    --input: 217 33% 20%; /* Better input visibility */
+    --ring: 217 91% 65%; /* Brighter focus rings for better visibility */
   }
 }
 
@@ -54,6 +57,229 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
   }
+  
+  /* Typography improvements for Cursor/Linear/Vercel aesthetic */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+  
+  h1 {
+    @apply text-3xl md:text-4xl;
+  }
+  
+  h2 {
+    @apply text-2xl md:text-3xl;
+  }
+  
+  h3 {
+    @apply text-xl md:text-2xl;
+  }
+}
+
+@layer utilities {
+  /* Modern design system utilities - Cursor/Linear/Vercel/Stripe aesthetic */
+  
+  /* Smooth transitions for interactive elements */
+  .transition-smooth {
+    @apply transition-all duration-200 ease-in-out;
+  }
+  
+  /* Subtle shadows for depth - adapts to dark mode */
+  .shadow-subtle {
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  }
+  
+  .dark .shadow-subtle {
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  }
+  
+  .shadow-soft {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  }
+  
+  .dark .shadow-soft {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+  }
+  
+  .shadow-elevated {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  }
+  
+  .dark .shadow-elevated {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  }
+  
+  /* Hover effects and micro-interactions */
+  .hover-lift {
+    @apply transition-transform duration-200 ease-in-out;
+  }
+  
+  .hover-lift:hover {
+    @apply -translate-y-0.5;
+  }
+  
+  /* Smooth scale on interaction */
+  .hover-scale {
+    @apply transition-transform duration-200 ease-in-out;
+  }
+  
+  .hover-scale:hover {
+    @apply scale-105;
+  }
+  
+  .active-scale {
+    @apply transition-transform duration-150 ease-out;
+  }
+  
+  .active-scale:active {
+    @apply scale-95;
+  }
+  
+  /* Smooth opacity transitions */
+  .fade-in {
+    @apply animate-in fade-in-0 duration-200;
+  }
+  
+  .fade-out {
+    @apply animate-out fade-out-0 duration-200;
+  }
+  
+  /* Slide animations */
+  .slide-in-from-top {
+    @apply animate-in slide-in-from-top-2 duration-200;
+  }
+  
+  .slide-in-from-bottom {
+    @apply animate-in slide-in-from-bottom-2 duration-200;
+  }
+  
+  .slide-in-from-left {
+    @apply animate-in slide-in-from-left-2 duration-200;
+  }
+  
+  .slide-in-from-right {
+    @apply animate-in slide-in-from-right-2 duration-200;
+  }
+  
+  /* Pulse animation for loading/attention */
+  .pulse-subtle {
+    animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  @keyframes pulse-subtle {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+  
+  /* Smooth color transitions */
+  .transition-colors-smooth {
+    @apply transition-colors duration-200 ease-in-out;
+  }
+  
+  /* Smooth background transitions */
+  .transition-bg-smooth {
+    @apply transition-[background-color] duration-200 ease-in-out;
+  }
+  
+  /* Smooth border transitions */
+  .transition-border-smooth {
+    @apply transition-[border-color] duration-200 ease-in-out;
+  }
+  
+  /* Glass morphism effect */
+  .glass {
+    @apply bg-background/80 backdrop-blur-sm;
+  }
+  
+  /* Gradient accents */
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+  }
+  
+  /* Focus states */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+  
+  /* Icon sizing utilities - Use for consistent icon sizes across the app */
+  .icon-xs {
+    @apply h-3 w-3; /* 12px - Badges, inline text, very small UI elements */
+  }
+  
+  .icon-sm {
+    @apply h-4 w-4; /* 16px - Default: buttons, inline elements, form fields */
+  }
+  
+  .icon-md {
+    @apply h-5 w-5; /* 20px - Cards, lists, medium UI elements */
+  }
+  
+  .icon-lg {
+    @apply h-6 w-6; /* 24px - Headers, empty states, prominent UI elements */
+  }
+  
+  .icon-xl {
+    @apply h-8 w-8; /* 32px - Featured icons, hero sections, large displays */
+  }
+  
+  /* Spacing System - Use for consistent spacing across the app
+   * 
+   * Base spacing scale (4px base unit):
+   * - 0.5 = 2px   (xs) - Tight spacing, inline elements
+   * - 1   = 4px   (sm) - Small spacing, form fields, badges
+   * - 2   = 8px   (md) - Default spacing, buttons, cards
+   * - 3   = 12px  (lg) - Medium spacing, sections, lists
+   * - 4   = 16px  (xl) - Large spacing, containers, groups
+   * - 6   = 24px  (2xl) - Extra large spacing, page sections
+   * - 8   = 32px  (3xl) - Hero spacing, major sections
+   * 
+   * Usage guidelines:
+   * - Use space-y-{size} for vertical spacing between stacked elements
+   * - Use space-x-{size} for horizontal spacing between inline elements
+   * - Use gap-{size} for flex/grid layouts
+   * - Use p-{size} for padding (p-6 = 24px is standard for cards)
+   * - Use px-{size} and py-{size} for directional padding
+   * 
+   * Common patterns:
+   * - Form fields: space-y-2 (8px between label and input)
+   * - Card content: p-6 (24px padding)
+   * - Button groups: gap-2 (8px between buttons)
+   * - Page sections: space-y-6 (24px between sections)
+   * - Lists: space-y-3 (12px between items)
+   */
+  
+  /* Color Usage Guidelines
+   * 
+   * Always use CSS variables for colors to ensure consistency and dark mode support.
+   * 
+   * Primary Colors:
+   * - primary: Electric Blue (#2563EB) - Primary actions, links, focus states
+   * - accent: Cyan (#22D3EE) - Accent elements, highlights, secondary actions
+   * - destructive: Red - Errors, destructive actions, warnings
+   * 
+   * Semantic Colors:
+   * - background: Main background color
+   * - foreground: Primary text color
+   * - card: Card backgrounds
+   * - muted: Muted backgrounds, borders, secondary text
+   * - border: Borders and dividers
+   * 
+   * Usage:
+   * - Use bg-{color} for backgrounds
+   * - Use text-{color} for text
+   * - Use border-{color} for borders
+   * - Always pair with -foreground variants for text on colored backgrounds
+   * 
+   * Examples:
+   * - bg-primary text-primary-foreground (primary button)
+   * - text-destructive (error text)
+   * - border-border (standard border)
+   * - bg-muted text-muted-foreground (muted background)
+   */
 }

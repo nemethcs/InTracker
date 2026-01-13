@@ -2,10 +2,11 @@ import { useEffect } from 'react'
 import { useTodos } from '@/hooks/useTodos'
 import { useProject } from '@/hooks/useProject'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { CheckSquare } from 'lucide-react'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 export function Todos() {
   const { projects } = useProject()
@@ -17,8 +18,12 @@ export function Todos() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner size="lg" />
+      <div className="space-y-6">
+        <PageHeader
+          title="All Todos"
+          description="View and manage todos across all projects"
+        />
+        <LoadingState variant="combined" size="md" skeletonCount={6} />
       </div>
     )
   }
@@ -40,10 +45,10 @@ export function Todos() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">All Todos</h1>
-        <p className="text-muted-foreground">View and manage todos across all projects</p>
-      </div>
+      <PageHeader
+        title="All Todos"
+        description="View and manage todos across all projects"
+      />
 
       {todosList.length === 0 ? (
         <EmptyState
