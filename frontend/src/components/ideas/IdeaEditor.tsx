@@ -193,7 +193,7 @@ export function IdeaEditor({ open, onOpenChange, idea, onSave }: IdeaEditorProps
                 ))}
               </div>
             )}
-          </div>
+          </FormField>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
