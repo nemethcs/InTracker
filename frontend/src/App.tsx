@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { useAuth } from '@/hooks/useAuth'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { Toaster } from '@/components/ui/toast'
 import { Dashboard } from '@/pages/Dashboard'
 import { ProjectDetail } from '@/pages/ProjectDetail'
 import { FeatureDetail } from '@/pages/FeatureDetail'
@@ -56,6 +57,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <BrowserRouter>
+      <Toaster />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/admin/login" element={<AdminLogin />} />
