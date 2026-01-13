@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/LoadingState'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -163,11 +164,12 @@ function UsersTab() {
 
       {/* Users Table */}
       {users.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6 text-center text-muted-foreground">
-            No users found
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={<Users className={iconSize('lg')} />}
+          title="No users found"
+          description="No users match your search criteria"
+          variant="compact"
+        />
       ) : (
         <div className="rounded-md border">
           <Table>
@@ -528,11 +530,12 @@ function TeamsTab() {
           )
         })}
         {teams.length === 0 && (
-          <Card>
-            <CardContent className="pt-6 text-center text-muted-foreground">
-              No teams found
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={<UsersRound className={iconSize('lg')} />}
+            title="No teams found"
+            description="Create your first team to get started"
+            variant="compact"
+          />
         )}
       </div>
 
@@ -720,11 +723,12 @@ function InvitationsTab() {
       </div>
 
       {invitations.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6 text-center text-muted-foreground">
-            No invitations found
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={<Mail className={iconSize('lg')} />}
+          title="No invitations found"
+          description="Create an invitation to allow new users to join"
+          variant="compact"
+        />
       ) : (
         <div className="rounded-md border">
           <Table>

@@ -7,6 +7,7 @@ import { useTodoStore } from '@/stores/todoStore'
 import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingState } from '@/components/ui/LoadingState'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { TodoCard } from '@/components/todos/TodoCard'
@@ -248,11 +249,19 @@ export function FeatureDetail() {
         {todosLoading ? (
           <LoadingState variant="combined" size="md" skeletonCount={3} />
         ) : todos.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No todos yet. Create your first todo to get started.
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={<CheckSquare className="h-12 w-12 text-muted-foreground" />}
+            title="No todos yet"
+            description="Create your first todo to get started"
+            action={{
+              label: 'Create Todo',
+              onClick: () => {
+                setEditingTodo(null)
+                setTodoEditorOpen(true)
+              }
+            }}
+            variant="compact"
+          />
         ) : (
           <div className="space-y-4">
             {/* Todo Status Columns */}

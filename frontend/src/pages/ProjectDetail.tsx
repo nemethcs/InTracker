@@ -11,6 +11,7 @@ import { documentService, type Document } from '@/services/documentService'
 import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingState } from '@/components/ui/LoadingState'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { FeatureEditor } from '@/components/features/FeatureEditor'
@@ -20,7 +21,7 @@ import { ElementTree } from '@/components/elements/ElementTree'
 import { ElementDetailDialog } from '@/components/elements/ElementDetailDialog'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { ActiveUsers } from '@/components/collaboration/ActiveUsers'
-import { Plus, Edit, FileText, CheckSquare, UsersRound, ChevronDown, ChevronRight, Clock } from 'lucide-react'
+import { Plus, Edit, FileText, CheckSquare, UsersRound, ChevronDown, ChevronRight, Clock, FolderKanban, Layers } from 'lucide-react'
 import { format } from 'date-fns'
 import type { Feature } from '@/services/featureService'
 import type { Todo } from '@/services/todoService'
@@ -458,11 +459,12 @@ export function ProjectDetail() {
         {isLoadingTodos ? (
           <LoadingState variant="combined" size="md" skeletonCount={3} />
         ) : todos.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No open todos. All tasks are completed!
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={<CheckSquare className="h-12 w-12 text-muted-foreground" />}
+            title="No open todos"
+            description="All tasks are completed! Great job!"
+            variant="compact"
+          />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {todos.map((todo) => (
@@ -487,11 +489,19 @@ export function ProjectDetail() {
         {featuresLoading ? (
           <LoadingState variant="combined" size="md" skeletonCount={3} />
         ) : features.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No features yet. Create your first feature to get started.
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={<FolderKanban className="h-12 w-12 text-muted-foreground" />}
+            title="No features yet"
+            description="Create your first feature to get started"
+            action={{
+              label: 'Create Feature',
+              onClick: () => {
+                setEditingFeature(null)
+                setFeatureEditorOpen(true)
+              }
+            }}
+            variant="compact"
+          />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {sortedFeatures.map((feature, index) => (
@@ -554,12 +564,12 @@ export function ProjectDetail() {
                 </CardContent>
               </Card>
             ) : (
-              <Card>
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  <p>No elements yet. Project structure will appear here.</p>
-                  <p className="text-xs mt-2">Elements are created automatically when you add features and todos to the project.</p>
-                </CardContent>
-              </Card>
+              <EmptyState
+                icon={<Layers className="h-12 w-12 text-muted-foreground" />}
+                title="No elements yet"
+                description="Elements are created automatically when you add features and todos to the project."
+                variant="compact"
+              />
             )}
           </div>
         )}
@@ -577,11 +587,12 @@ export function ProjectDetail() {
         {isLoadingDocuments ? (
           <LoadingState variant="combined" size="md" skeletonCount={3} />
         ) : documents.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No documents yet. Create your first document to get started.
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={<FileText className="h-12 w-12 text-muted-foreground" />}
+            title="No documents yet"
+            description="Create your first document to get started"
+            variant="compact"
+          />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {documents.map((document) => {
