@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useTodos } from '@/hooks/useTodos'
 import { useProject } from '@/hooks/useProject'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { CheckSquare } from 'lucide-react'
@@ -18,8 +18,12 @@ export function Todos() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner size="lg" />
+      <div className="space-y-6">
+        <PageHeader
+          title="All Todos"
+          description="View and manage todos across all projects"
+        />
+        <LoadingState variant="combined" size="md" skeletonCount={6} />
       </div>
     )
   }

@@ -6,7 +6,7 @@ import { useFeatureStore } from '@/stores/featureStore'
 import { useTodoStore } from '@/stores/todoStore'
 import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { TodoCard } from '@/components/todos/TodoCard'
@@ -121,8 +121,8 @@ export function FeatureDetail() {
 
   if (featuresLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner size="lg" />
+      <div className="space-y-6">
+        <LoadingState variant="combined" size="md" skeletonCount={6} />
       </div>
     )
   }

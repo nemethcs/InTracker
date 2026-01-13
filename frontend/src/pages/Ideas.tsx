@@ -6,7 +6,7 @@ import { adminService, type Team } from '@/services/adminService'
 import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { IdeaCard } from '@/components/ideas/IdeaCard'
 import { IdeaEditor } from '@/components/ideas/IdeaEditor'
@@ -154,8 +154,12 @@ export function Ideas() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner size="lg" />
+      <div className="space-y-6">
+        <PageHeader
+          title="Ideas"
+          description="Manage and convert ideas into projects"
+        />
+        <LoadingState variant="combined" size="md" skeletonCount={6} />
       </div>
     )
   }

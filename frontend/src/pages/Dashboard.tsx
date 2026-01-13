@@ -5,7 +5,7 @@ import { useProjectStore } from '@/stores/projectStore'
 import { adminService, type Team } from '@/services/adminService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ProjectEditor } from '@/components/projects/ProjectEditor'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -63,8 +63,12 @@ export function Dashboard() {
 
   if (isLoading || isLoadingTeams) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner size="lg" />
+      <div className="space-y-6">
+        <PageHeader
+          title={pageTitle}
+          description={pageDescription}
+        />
+        <LoadingState variant="combined" size="md" skeletonCount={6} />
       </div>
     )
   }
