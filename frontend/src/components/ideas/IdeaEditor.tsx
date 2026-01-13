@@ -121,15 +121,14 @@ export function IdeaEditor({ open, onOpenChange, idea, onSave }: IdeaEditorProps
         </DialogHeader>
         <div className="space-y-4 py-4">
           {!idea && (
-            <div className="space-y-2">
-              <Label htmlFor="team">Team *</Label>
+            <FormField label="Team" required>
               {isLoadingTeams ? (
                 <LoadingSpinner size="sm" />
               ) : (
                 <Select value={teamId} onValueChange={setTeamId}>
-                  <SelectTrigger id="team">
+                  <FormSelect>
                     <SelectValue placeholder="Select a team" />
-                  </SelectTrigger>
+                  </FormSelect>
                   <SelectContent>
                     {teams.map((team) => (
                       <SelectItem key={team.id} value={team.id}>
@@ -139,27 +138,23 @@ export function IdeaEditor({ open, onOpenChange, idea, onSave }: IdeaEditorProps
                   </SelectContent>
                 </Select>
               )}
-            </div>
+            </FormField>
           )}
-          <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
-            <Input
-              id="title"
+          <FormField label="Title" required>
+            <FormInput
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Enter idea title"
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
+          </FormField>
+          <FormField label="Description">
+            <FormTextarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe your idea"
               rows={4}
             />
-          </div>
+          </FormField>
           <FormField label="Status">
             <Select value={status} onValueChange={(value: 'draft' | 'active' | 'archived') => setStatus(value)}>
               <FormSelect>
