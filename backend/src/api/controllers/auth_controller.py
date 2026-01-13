@@ -19,6 +19,7 @@ from src.api.schemas.auth import (
 )
 from src.api.middleware.auth import get_current_user, get_optional_user
 from src.services.github_token_service import github_token_service
+from src.services.onboarding_service import update_setup_completed
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -123,6 +124,9 @@ async def get_me(current_user: dict = Depends(get_current_user), db: Session = D
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
         )
+
+    # Update setup_completed status (always check on /auth/me call)
+    update_setup_completed(db, UUID(current_user["user_id"]))
 
     return UserResponse(
         id=str(user.id),
@@ -306,8 +310,15 @@ async def github_callback(
             user.github_username = user_info.get("login")
             user.avatar_url = user_info.get("avatar_url")
         
+        # Update onboarding_step to 4 (github_connected) if not already higher
+        if user.onboarding_step < 4:
+            user.onboarding_step = 4
+        
         db.commit()
         db.refresh(user)
+        
+        # Update setup_completed status
+        update_setup_completed(db, user_id)
         
         return {
             "message": "GitHub OAuth connection successful",

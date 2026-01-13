@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from src.database.base import get_db
 from src.api.middleware.auth import get_current_user
 from src.services.mcp_key_service import mcp_key_service
+from src.services.onboarding_service import update_setup_completed
 from src.api.schemas.mcp_key import (
     McpApiKeyCreate,
     McpApiKeyResponse,
