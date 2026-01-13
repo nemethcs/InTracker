@@ -143,7 +143,7 @@ function UsersTab() {
   }
 
   if (isLoading) {
-    return <LoadingSpinner size="lg" />
+    return <LoadingState variant="combined" size="md" skeletonCount={5} />
   }
 
   return (
@@ -401,7 +401,7 @@ function TeamsTab() {
   }
 
   if (isLoading) {
-    return <LoadingSpinner size="lg" />
+    return <LoadingState variant="combined" size="md" skeletonCount={5} />
   }
 
   return (
@@ -706,7 +706,7 @@ function InvitationsTab() {
   }
 
   if (isLoading) {
-    return <LoadingSpinner size="lg" />
+    return <LoadingState variant="combined" size="md" skeletonCount={5} />
   }
 
   return (
