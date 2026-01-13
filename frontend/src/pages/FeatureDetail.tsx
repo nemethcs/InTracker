@@ -153,42 +153,42 @@ export function FeatureDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="flex items-center gap-2 sm:gap-4">
-          <Link to={`/projects/${projectId}`}>
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className={iconSize('sm')} />
-            </Button>
-          </Link>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl sm:text-3xl font-bold truncate">{feature.name}</h1>
-            {feature.description && (
-              <p className="text-muted-foreground mt-2 text-sm sm:text-base">{feature.description}</p>
-            )}
+      <PageHeader
+        title={
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Link to={`/projects/${projectId}`}>
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className={iconSize('sm')} />
+              </Button>
+            </Link>
+            <span className="truncate">{feature.name}</span>
           </div>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <Badge 
-            variant={
-              feature.status === 'done' ? 'default' :
-              feature.status === 'tested' ? 'secondary' :
-              feature.status === 'in_progress' ? 'secondary' : 'outline'
-            }
-            className="text-base sm:text-lg px-2 sm:px-3 py-1"
-          >
-            {feature.status}
-          </Badge>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setFeatureEditorOpen(true)}
-            className="w-full sm:w-auto"
-          >
-            <Edit className={`mr-2 ${iconSize('sm')}`} />
-            Edit
-          </Button>
-        </div>
-      </div>
+        }
+        description={feature.description}
+        actions={
+          <div className="flex items-center gap-2">
+            <Badge 
+              variant={
+                feature.status === 'done' ? 'default' :
+                feature.status === 'tested' ? 'secondary' :
+                feature.status === 'in_progress' ? 'secondary' : 'outline'
+              }
+              className="text-base sm:text-lg px-2 sm:px-3 py-1"
+            >
+              {feature.status}
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFeatureEditorOpen(true)}
+              className="w-full sm:w-auto"
+            >
+              <Edit className={`mr-2 ${iconSize('sm')}`} />
+              Edit
+            </Button>
+          </div>
+        }
+      />
 
       {/* Progress Overview */}
       <Card>
