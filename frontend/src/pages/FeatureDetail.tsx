@@ -5,6 +5,7 @@ import { useTodos } from '@/hooks/useTodos'
 import { useFeatureStore } from '@/stores/featureStore'
 import { useTodoStore } from '@/stores/todoStore'
 import { signalrService } from '@/services/signalrService'
+import { elementService, type ElementTree } from '@/services/elementService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -32,25 +33,50 @@ const statusIcons = {
 const statusColors = {
   new: 'text-muted-foreground',
   in_progress: 'text-primary',
-  done: 'text-green-600 dark:text-green-400',
-  tested: 'text-yellow-600 dark:text-yellow-400',
+  done: 'text-success',
+  tested: 'text-warning',
   merged: 'text-accent',
 }
 
 export function FeatureDetail() {
   const { projectId, featureId } = useParams<{ projectId: string; featureId: string }>()
-  const { features, isLoading: featuresLoading } = useFeatures(projectId)
+  const { features, isLoading: featuresLoading, refetch: refetchFeatures } = useFeatures(projectId)
   const { todos, isLoading: todosLoading, refetch: refetchTodos } = useTodos(featureId)
   const { createTodo, updateTodo, deleteTodo, updateTodoStatus } = useTodoStore()
   const { updateFeature } = useFeatureStore()
   const [todoEditorOpen, setTodoEditorOpen] = useState(false)
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null)
   const [featureEditorOpen, setFeatureEditorOpen] = useState(false)
+  const [elementTree, setElementTree] = useState<ElementTree | null>(null)
+  const [isLoadingElements, setIsLoadingElements] = useState(false)
 
   const feature = features.find(f => f.id === featureId)
   
-  // Get first element ID for new todos (we'll improve this later)
-  const elementId = '40447518-f6da-4e7a-9857-d42dbd1ca352' // Real-time Sync & WebSocket element
+  // Get element ID for new todos - use first element from project tree or feature's linked elements
+  const elementId = useMemo(() => {
+    if (!elementTree || !elementTree.elements || elementTree.elements.length === 0) {
+      return undefined
+    }
+    
+    // Helper function to find first element in tree (recursive)
+    const findFirstElement = (elements: any[]): string | undefined => {
+      for (const el of elements) {
+        // Prefer component or module type elements
+        if (el.type === 'component' || el.type === 'module') {
+          return el.id
+        }
+        // Check children recursively
+        if (el.children && el.children.length > 0) {
+          const childId = findFirstElement(el.children)
+          if (childId) return childId
+        }
+      }
+      // Fallback to first element
+      return elements[0]?.id
+    }
+    
+    return findFirstElement(elementTree.elements)
+  }, [elementTree])
 
   // Sort todos by position (if available), then by created_at
   // IMPORTANT: This must be before any early returns to maintain hook order
@@ -77,16 +103,51 @@ export function FeatureDetail() {
     done: sortedTodos.filter(t => t.status === 'done'),
   }
 
+  // Load element tree for project
+  useEffect(() => {
+    if (!projectId) return
+
+    setIsLoadingElements(true)
+    elementService.getProjectTree(projectId)
+      .then((tree) => {
+        setElementTree(tree)
+        setIsLoadingElements(false)
+      })
+      .catch((error) => {
+        console.error('Failed to load element tree:', error)
+        setElementTree(null)
+        setIsLoadingElements(false)
+      })
+  }, [projectId])
+
   // Subscribe to SignalR real-time updates
   useEffect(() => {
     if (!projectId || !featureId) return
 
     // Join SignalR project group for real-time updates
-    if (signalrService.isConnected()) {
-      signalrService.joinProject(projectId).catch((error) => {
-        console.error('Failed to join SignalR project group:', error)
-      })
+    const joinProject = async () => {
+      if (signalrService.isConnected()) {
+        try {
+          await signalrService.joinProject(projectId)
+        } catch (error) {
+          console.error('Failed to join SignalR project group:', error)
+        }
+      }
     }
+
+    // Handle connection events to join when connection is established
+    const handleConnected = () => {
+      if (projectId) {
+        joinProject()
+      }
+    }
+
+    // Try to join immediately if already connected
+    joinProject()
+
+    // Subscribe to connection events
+    signalrService.on('connected', handleConnected)
+    signalrService.on('reconnected', handleConnected)
 
     // Handle todo updates
     const handleTodoUpdate = (data: { todoId: string; projectId: string; userId: string; changes: any }) => {
@@ -111,9 +172,15 @@ export function FeatureDetail() {
 
     // Cleanup: Leave SignalR project group and unsubscribe from events
     return () => {
+      // Unsubscribe from SignalR events
       signalrService.off('todoUpdated', handleTodoUpdate)
       signalrService.off('featureUpdated', handleFeatureUpdate)
       
+      // Unsubscribe from connection events
+      signalrService.off('connected', handleConnected)
+      signalrService.off('reconnected', handleConnected)
+      
+      // Leave SignalR project group
       if (projectId && signalrService.isConnected()) {
         signalrService.leaveProject(projectId).catch((error) => {
           console.error('Failed to leave SignalR project group:', error)
@@ -152,7 +219,7 @@ export function FeatureDetail() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title={
           <div className="flex items-center gap-2 sm:gap-4">
@@ -169,9 +236,10 @@ export function FeatureDetail() {
           <div className="flex items-center gap-2">
             <Badge 
               variant={
-                feature.status === 'done' ? 'default' :
-                feature.status === 'tested' ? 'secondary' :
-                feature.status === 'in_progress' ? 'secondary' : 'outline'
+                feature.status === 'done' ? 'success' :
+                feature.status === 'tested' ? 'warning' :
+                feature.status === 'in_progress' ? 'info' :
+                feature.status === 'merged' ? 'accent' : 'muted'
               }
               className="text-base sm:text-lg px-2 sm:px-3 py-1"
             >
@@ -191,44 +259,44 @@ export function FeatureDetail() {
       />
 
       {/* Progress Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Progress Overview</CardTitle>
+      <Card className="border-l-4 border-l-primary">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Progress Overview</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="pt-0">
+          <div className="space-y-3">
             <div>
-              <div className="flex items-center justify-between text-sm mb-2">
+              <div className="flex items-center justify-between text-xs mb-1.5">
                 <span className="text-muted-foreground">Overall Progress</span>
-                <span className="font-medium text-lg">{feature.progress_percentage}%</span>
+                <span className="font-semibold text-base">{feature.progress_percentage}%</span>
               </div>
-              <div className="w-full bg-secondary rounded-full h-3">
+              <div className="w-full bg-secondary rounded-full h-2">
                 <div
-                  className="bg-primary h-3 rounded-full transition-all"
+                  className="bg-primary h-2 rounded-full transition-all"
                   style={{ width: `${feature.progress_percentage}%` }}
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className="grid grid-cols-5 gap-2">
               <div className="text-center">
-                <div className="text-2xl font-bold">{feature.total_todos}</div>
-                <div className="text-sm text-muted-foreground">Total</div>
+                <div className="text-lg font-bold">{feature.total_todos}</div>
+                <div className="text-xs text-muted-foreground">Total</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-muted-foreground">{todosByStatus.new.length}</div>
-                <div className="text-sm text-muted-foreground">New</div>
+                <div className="text-lg font-bold text-muted-foreground">{todosByStatus.new.length}</div>
+                <div className="text-xs text-muted-foreground">New</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-primary">{todosByStatus.in_progress.length}</div>
-                <div className="text-sm text-muted-foreground">In Progress</div>
+                <div className="text-lg font-bold text-primary">{todosByStatus.in_progress.length}</div>
+                <div className="text-xs text-muted-foreground">In Progress</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{todosByStatus.done.length}</div>
-                <div className="text-sm text-muted-foreground">Done</div>
+                <div className="text-lg font-bold text-success">{todosByStatus.done.length}</div>
+                <div className="text-xs text-muted-foreground">Done</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{feature.completed_todos}</div>
-                <div className="text-sm text-muted-foreground">Completed</div>
+                <div className="text-lg font-bold text-success">{feature.completed_todos}</div>
+                <div className="text-xs text-muted-foreground">Completed</div>
               </div>
             </div>
           </div>
@@ -237,7 +305,7 @@ export function FeatureDetail() {
 
       {/* Todos Section */}
       <div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
           <h2 className="text-xl sm:text-2xl font-bold">Todos</h2>
           <Button 
             onClick={() => {
@@ -342,7 +410,7 @@ export function FeatureDetail() {
         }}
         todo={editingTodo}
         featureId={featureId}
-        elementId={elementId}
+        elementId={elementId || undefined}
         onSave={async (data) => {
           try {
             if (editingTodo) {
@@ -371,7 +439,7 @@ export function FeatureDetail() {
             try {
               await updateFeature(featureId, data as any)
               // Refetch features to update the current feature
-              window.location.reload() // Simple refresh for now
+              refetchFeatures()
             } catch (error) {
               console.error('Failed to update feature:', error)
               throw error // Re-throw to let FeatureEditor handle the error

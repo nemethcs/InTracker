@@ -14,7 +14,7 @@ const statusIcons = {
 const statusColors = {
   new: 'text-muted-foreground',
   in_progress: 'text-primary',
-  done: 'text-green-600 dark:text-green-400',
+  done: 'text-success',
 }
 
 const priorityColors = {

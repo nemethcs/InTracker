@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useProject } from '@/hooks/useProject'
 import { useProjectStore } from '@/stores/projectStore'
 import { adminService, type Team } from '@/services/adminService'
+import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { LoadingState } from '@/components/ui/LoadingState'
@@ -20,6 +21,8 @@ export function Dashboard() {
   const [teams, setTeams] = useState<Team[]>([])
   const [isLoadingTeams, setIsLoadingTeams] = useState(false)
   const { projects, isLoading, error, refetch } = useProject(undefined, selectedTeamId, statusFilter)
+  // Fetch all projects for statistics (without filters)
+  const { projects: allProjects } = useProject(undefined, undefined, 'all')
   const { createProject } = useProjectStore()
   const location = useLocation()
   const navigate = useNavigate()
@@ -28,6 +31,22 @@ export function Dashboard() {
   useEffect(() => {
     loadTeams()
   }, [])
+
+  // Subscribe to SignalR real-time updates for projects
+  useEffect(() => {
+    const handleProjectUpdate = (data: { projectId: string; changes: any }) => {
+      // Refetch projects when any project is updated
+      refetch()
+    }
+
+    // Subscribe to project updates
+    signalrService.on('projectUpdated', handleProjectUpdate)
+
+    // Cleanup: unsubscribe when component unmounts
+    return () => {
+      signalrService.off('projectUpdated', handleProjectUpdate)
+    }
+  }, [refetch])
 
   const loadTeams = async () => {
     setIsLoadingTeams(true)
@@ -89,11 +108,11 @@ export function Dashboard() {
     )
   }
 
-  // Calculate statistics (from all projects, not just filtered)
-  // Note: These stats are based on currently loaded projects, which are already filtered
-  const totalProjects = projectsList.length
-  const activeProjects = projectsList.filter(p => p.status === 'active').length
-  const completedProjects = projectsList.filter(p => p.status === 'completed').length
+  // Calculate statistics from all projects (not filtered)
+  const allProjectsList = Array.isArray(allProjects) ? allProjects : []
+  const totalProjects = allProjectsList.length
+  const activeProjects = allProjectsList.filter(p => p.status === 'active').length
+  const completedProjects = allProjectsList.filter(p => p.status === 'completed').length
 
   return (
     <div className="space-y-8">
