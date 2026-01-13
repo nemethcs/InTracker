@@ -8,6 +8,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { adminService, type Team, type Invitation, type TeamMember, type User } from '@/services/adminService'
 import { UsersRound, Mail, Plus, Edit, Trash2, Copy, CheckCircle2, XCircle, UserPlus, UserMinus } from 'lucide-react'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 export function Teams() {
   const { user } = useAuth()
