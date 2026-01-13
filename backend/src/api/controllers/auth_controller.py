@@ -363,6 +363,7 @@ async def github_callback(
             "message": "GitHub OAuth connection successful",
             "github_username": user.github_username,
             "avatar_url": user.avatar_url,
+            "redirect_path": redirect_path,  # Return redirect_path for frontend navigation
         }
     except ValueError as e:
         raise HTTPException(

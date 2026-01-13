@@ -297,11 +297,28 @@ export function Settings() {
         // Refresh user data to get updated GitHub info
         await checkAuth()
         
-        // Check if user is in onboarding flow and redirect to onboarding if needed
-        const currentUser = useAuthStore.getState().user
-        if (currentUser && !currentUser.setup_completed) {
+        // Wait a moment for state to update, then check if setup is completed
+        // The backend automatically updates setup_completed when both MCP key and GitHub are connected
+        await new Promise(resolve => setTimeout(resolve, 300))
+        
+        // Check multiple times to ensure state has updated
+        let attempts = 0
+        let currentUser = useAuthStore.getState().user
+        while (currentUser && !currentUser.setup_completed && attempts < 3) {
+          await new Promise(resolve => setTimeout(resolve, 200))
+          await checkAuth()
+          currentUser = useAuthStore.getState().user
+          attempts++
+        }
+        
+        // Use redirect_path from backend if available, otherwise check setup_completed
+        if (result.redirect_path) {
+          // Backend specified a redirect path (e.g., /onboarding)
+          navigate(result.redirect_path, { replace: true })
+          return
+        } else if (currentUser && !currentUser.setup_completed) {
           // User is in onboarding flow, redirect to onboarding page
-          navigate('/onboarding')
+          navigate('/onboarding', { replace: true })
           return
         }
 
