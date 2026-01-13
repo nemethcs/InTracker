@@ -21,9 +21,13 @@ export const settingsService = {
   /**
    * Get GitHub OAuth authorization URL.
    * Returns the URL to redirect the user to GitHub for OAuth authorization.
+   * 
+   * @param redirectPath - Frontend path for OAuth callback (default: /settings, can be /onboarding)
    */
-  async getGitHubOAuthUrl(): Promise<{ authorization_url: string; state: string }> {
-    const response = await api.get('/auth/github/authorize')
+  async getGitHubOAuthUrl(redirectPath: string = '/settings'): Promise<{ authorization_url: string; state: string }> {
+    const response = await api.get('/auth/github/authorize', {
+      params: { redirect_path: redirectPath },
+    })
     return response.data
   },
 
