@@ -719,7 +719,7 @@ export function Settings() {
                       title="Copy install link"
                     >
                       {copiedConfig ? (
-                        <CheckCircle2 className={`${iconSize('sm')} text-green-600`} />
+                        <CheckCircle2 className={`${iconSize('sm')} text-success`} />
                       ) : (
                         <Copy className={iconSize('sm')} />
                       )}
@@ -759,7 +759,7 @@ export function Settings() {
                   disabled={!newKey}
                 >
                   {copiedConfig ? (
-                    <CheckCircle2 className={`${iconSize('sm')} text-green-600`} />
+                    <CheckCircle2 className={`${iconSize('sm')} text-success`} />
                   ) : (
                     <Copy className={iconSize('sm')} />
                   )}
