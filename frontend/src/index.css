@@ -181,4 +181,33 @@
    * - Page sections: space-y-6 (24px between sections)
    * - Lists: space-y-3 (12px between items)
    */
+  
+  /* Color Usage Guidelines
+   * 
+   * Always use CSS variables for colors to ensure consistency and dark mode support.
+   * 
+   * Primary Colors:
+   * - primary: Electric Blue (#2563EB) - Primary actions, links, focus states
+   * - accent: Cyan (#22D3EE) - Accent elements, highlights, secondary actions
+   * - destructive: Red - Errors, destructive actions, warnings
+   * 
+   * Semantic Colors:
+   * - background: Main background color
+   * - foreground: Primary text color
+   * - card: Card backgrounds
+   * - muted: Muted backgrounds, borders, secondary text
+   * - border: Borders and dividers
+   * 
+   * Usage:
+   * - Use bg-{color} for backgrounds
+   * - Use text-{color} for text
+   * - Use border-{color} for borders
+   * - Always pair with -foreground variants for text on colored backgrounds
+   * 
+   * Examples:
+   * - bg-primary text-primary-foreground (primary button)
+   * - text-destructive (error text)
+   * - border-border (standard border)
+   * - bg-muted text-muted-foreground (muted background)
+   */
 }
