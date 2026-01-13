@@ -304,7 +304,7 @@ export function ProjectDetail() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
         title={
           <div className="flex items-center gap-3 flex-wrap">
@@ -355,233 +355,252 @@ export function ProjectDetail() {
         }
       />
 
-      {/* Recent Activity - Compact display */}
-      {(lastCompletedTodos.length > 0 || lastWorkedFeature) && (
-        <Card className="border-l-4 border-l-primary">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Recent Activity</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 pt-0">
-            {/* Last 3 completed todos */}
-            {lastCompletedTodos.length > 0 && (
-              <div>
-                <h3 className="text-xs font-medium text-muted-foreground mb-1.5">
-                  Last Completed
-                </h3>
-                <div className="space-y-1">
-                  {lastCompletedTodos.map((todo, idx) => (
-                    <div key={todo.id} className="flex items-center gap-2 text-xs">
-                      <CheckSquare className={`${iconSize('xs')} text-success flex-shrink-0`} />
-                      <span className="font-medium truncate flex-1">{todo.title}</span>
-                      {todo.featureName && (
-                        <Badge variant="outline" className="text-xs px-1 py-0 h-4 shrink-0">
-                          {todo.featureName}
-                        </Badge>
+      {/* Main Content: Two-column layout for better information density */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Left Column: Context & Activity (1/3 width on large screens) */}
+        <div className="lg:col-span-1 space-y-4">
+          {/* Combined Recent Activity & Resume Context Card */}
+          {(lastCompletedTodos.length > 0 || lastWorkedFeature || currentProject.resume_context) && (
+            <Card className="border-l-4 border-l-primary">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Context & Activity</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-0">
+                {/* Recent Activity */}
+                {(lastCompletedTodos.length > 0 || lastWorkedFeature) && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                      Recent Activity
+                    </h3>
+                    {/* Last 3 completed todos */}
+                    {lastCompletedTodos.length > 0 && (
+                      <div className="mb-3">
+                        <h4 className="text-xs font-medium text-muted-foreground mb-1.5">
+                          Last Completed
+                        </h4>
+                        <div className="space-y-1.5">
+                          {lastCompletedTodos.map((todo) => (
+                            <div key={todo.id} className="flex items-start gap-2 text-xs">
+                              <CheckSquare className={`${iconSize('xs')} text-success flex-shrink-0 mt-0.5`} />
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate">{todo.title}</div>
+                                {todo.featureName && (
+                                  <Badge variant="outline" className="text-xs px-1 py-0 h-4 mt-0.5">
+                                    {todo.featureName}
+                                  </Badge>
+                                )}
+                              </div>
+                              <span className="text-muted-foreground text-xs shrink-0">
+                                {format(new Date(todo.completed_at || todo.updated_at), 'MMM d')}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Last worked feature */}
+                    {lastWorkedFeature && (
+                      <div className={lastCompletedTodos.length > 0 ? "pt-3 border-t" : ""}>
+                        <h4 className="text-xs font-medium text-muted-foreground mb-1.5">
+                          Last Worked On
+                        </h4>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="font-medium truncate flex-1">{lastWorkedFeature.name}</span>
+                          <Badge 
+                            variant={
+                              lastWorkedFeature.status === 'done' ? 'success' :
+                              lastWorkedFeature.status === 'tested' ? 'warning' :
+                              lastWorkedFeature.status === 'in_progress' ? 'info' :
+                              lastWorkedFeature.status === 'merged' ? 'accent' : 'muted'
+                            }
+                            className="text-xs px-1.5 py-0 h-4 shrink-0"
+                          >
+                            {lastWorkedFeature.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Resume Context */}
+                {currentProject.resume_context && (
+                  <div className={lastCompletedTodos.length > 0 || lastWorkedFeature ? "pt-4 border-t" : ""}>
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                      Resume Context
+                    </h3>
+                    <div className="space-y-2.5">
+                      {currentProject.resume_context.last && (
+                        <div>
+                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Last</h4>
+                          <p className="text-xs text-foreground line-clamp-3">{currentProject.resume_context.last}</p>
+                        </div>
                       )}
-                      <span className="text-muted-foreground text-xs shrink-0">
-                        {format(new Date(todo.completed_at || todo.updated_at), 'MMM d')}
-                      </span>
+                      {currentProject.resume_context.now && (
+                        <div>
+                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Now</h4>
+                          <p className="text-xs text-foreground line-clamp-3">{currentProject.resume_context.now}</p>
+                        </div>
+                      )}
+                      {currentProject.resume_context.next && (
+                        <div>
+                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Next</h4>
+                          <p className="text-xs text-foreground line-clamp-3">{currentProject.resume_context.next}</p>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Last worked feature */}
-            {lastWorkedFeature && (
-              <div className={lastCompletedTodos.length > 0 ? "pt-2 border-t" : ""}>
-                <h3 className="text-xs font-medium text-muted-foreground mb-1.5">
-                  Last Worked On
-                </h3>
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="font-medium truncate flex-1">{lastWorkedFeature.name}</span>
-                  <Badge 
-                    variant={
-                      lastWorkedFeature.status === 'done' ? 'success' :
-                      lastWorkedFeature.status === 'tested' ? 'warning' :
-                      lastWorkedFeature.status === 'in_progress' ? 'info' :
-                      lastWorkedFeature.status === 'merged' ? 'accent' : 'muted'
-                    }
-                    className="text-xs px-1.5 py-0 h-4 shrink-0"
-                  >
-                    {lastWorkedFeature.status}
-                  </Badge>
-                  <span className="text-muted-foreground text-xs shrink-0">
-                    {format(new Date(lastWorkedFeature.updated_at), 'MMM d')}
-                  </span>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Resume Context - Most important: what was done, what's next */}
-      {currentProject.resume_context && (
-        <Card className="border-l-4 border-l-accent">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Resume Context</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 pt-0">
-            {currentProject.resume_context.last && (
-              <div>
-                <h3 className="text-xs font-medium text-muted-foreground mb-1">Last</h3>
-                <p className="text-xs text-foreground line-clamp-2">{currentProject.resume_context.last}</p>
-              </div>
-            )}
-            {currentProject.resume_context.now && (
-              <div>
-                <h3 className="text-xs font-medium text-muted-foreground mb-1">Now</h3>
-                <p className="text-xs text-foreground line-clamp-2">{currentProject.resume_context.now}</p>
-              </div>
-            )}
-            {currentProject.resume_context.next && (
-              <div>
-                <h3 className="text-xs font-medium text-muted-foreground mb-1">Next</h3>
-                <p className="text-xs text-foreground line-clamp-2">{currentProject.resume_context.next}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Open Todos Section - Next tasks (most important after resume context) */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl sm:text-2xl font-bold">Next Tasks</h2>
-          {features.length > 0 && (
-            <Link to={`/projects/${id}/features/${features[0]?.id}`}>
-              <Button variant="outline" size="sm">
-                <CheckSquare className="mr-2 h-4 w-4" />
-                View by Feature
-              </Button>
-            </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
         </div>
-        {isLoadingTodos ? (
-          <LoadingState variant="combined" size="md" skeletonCount={3} />
-        ) : todos.length === 0 ? (
-          <EmptyState
-            icon={<CheckSquare className="h-12 w-12 text-muted-foreground" />}
-            title="No open todos"
-            description="All tasks are completed! Great job!"
-            variant="compact"
-          />
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {todos.map((todo) => (
-              <TodoCard key={todo.id} todo={todo} />
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* Features Section - Active features (sorted by last update) */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Features</h2>
-          <Button onClick={() => {
-            setEditingFeature(null)
-            setFeatureEditorOpen(true)
-          }}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Feature
-          </Button>
-        </div>
-        {featuresLoading ? (
-          <LoadingState variant="combined" size="md" skeletonCount={3} />
-        ) : features.length === 0 ? (
-          <EmptyState
-            icon={<FolderKanban className="h-12 w-12 text-muted-foreground" />}
-            title="No features yet"
-            description="Create your first feature to get started"
-            action={{
-              label: 'Create Feature',
-              onClick: () => {
-                setEditingFeature(null)
-                setFeatureEditorOpen(true)
-              }
-            }}
-            variant="compact"
-          />
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {sortedFeatures.map((feature, index) => (
-              <FeatureCard
-                key={feature.id}
-                feature={feature}
-                projectId={id!}
-                number={index + 1}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Element Tree Section - Collapsible with Accordion */}
-      <Accordion type="single" collapsible className="w-full">
-        <AccordionItem value="project-structure">
-          <AccordionTrigger className="text-xl sm:text-2xl font-bold">
-            <div className="flex items-center gap-2">
-              <Layers className={iconSize('md')} />
-              <span>Project Structure</span>
-              {elementTree && elementTree.elements && elementTree.elements.length > 0 && (
-                <span className="text-sm font-normal text-muted-foreground">
-                  ({elementTree.elements.length} {elementTree.elements.length === 1 ? 'element' : 'elements'})
-                </span>
+        {/* Right Column: Next Tasks & Features (2/3 width on large screens) */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Next Tasks Section */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl sm:text-2xl font-bold">Next Tasks</h2>
+              {features.length > 0 && todos.length > 0 && (
+                <Link to={`/projects/${id}/features/${features[0]?.id}`}>
+                  <Button variant="outline" size="sm">
+                    <CheckSquare className="mr-2 h-4 w-4" />
+                    View by Feature
+                  </Button>
+                </Link>
               )}
             </div>
-          </AccordionTrigger>
-          <AccordionContent>
-            {isLoadingElements ? (
-              <Card>
-                <CardContent className="py-8">
-                  <LoadingState variant="combined" size="md" skeletonCount={3} />
-                </CardContent>
-              </Card>
-            ) : elementTree && elementTree.elements && elementTree.elements.length > 0 ? (
-              <Card className="overflow-hidden">
-                <CardHeader className="pb-3">
-                  <CardDescription>
-                    Click on an element to view details. Use the chevron icons to expand/collapse folders.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="max-h-[400px] overflow-y-auto">
-                    <ElementTree
-                      elements={elementTree.elements}
-                      onElementClick={(element) => {
-                        setSelectedElement(element)
-                        setElementDetailOpen(true)
-                      }}
-                    />
-                  </div>
+            {isLoadingTodos ? (
+              <LoadingState variant="combined" size="md" skeletonCount={3} />
+            ) : todos.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="py-8 text-center">
+                  <CheckSquare className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm font-medium text-foreground mb-1">No open todos</p>
+                  <p className="text-xs text-muted-foreground">All tasks are completed! Great job!</p>
                 </CardContent>
               </Card>
             ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {todos.map((todo) => (
+                  <TodoCard key={todo.id} todo={todo} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Features Section */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl sm:text-2xl font-bold">Features</h2>
+              <Button onClick={() => {
+                setEditingFeature(null)
+                setFeatureEditorOpen(true)
+              }}>
+                <Plus className="mr-2 h-4 w-4" />
+                New Feature
+              </Button>
+            </div>
+            {featuresLoading ? (
+              <LoadingState variant="combined" size="md" skeletonCount={3} />
+            ) : features.length === 0 ? (
               <EmptyState
-                icon={<Layers className="h-12 w-12 text-muted-foreground" />}
-                title="No elements yet"
-                description="Elements are created automatically when you add features and todos to the project."
+                icon={<FolderKanban className="h-12 w-12 text-muted-foreground" />}
+                title="No features yet"
+                description="Create your first feature to get started"
+                action={{
+                  label: 'Create Feature',
+                  onClick: () => {
+                    setEditingFeature(null)
+                    setFeatureEditorOpen(true)
+                  }
+                }}
                 variant="compact"
               />
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {sortedFeatures.map((feature, index) => (
+                  <FeatureCard
+                    key={feature.id}
+                    feature={feature}
+                    projectId={id!}
+                    number={index + 1}
+                  />
+                ))}
+              </div>
             )}
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-
-      {/* Documents Section */}
-      <div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-          <h2 className="text-xl sm:text-2xl font-bold">Documents</h2>
-          <Button onClick={() => {
-            setEditingDocument(null)
-            setDocumentEditorOpen(true)
-          }}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Document
-          </Button>
+          </div>
         </div>
+      </div>
+
+      {/* Project Structure & Documents: Full-width sections */}
+      <div className="space-y-6">
+        {/* Element Tree Section - Collapsible with Accordion */}
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="project-structure">
+            <AccordionTrigger className="text-xl sm:text-2xl font-bold">
+              <div className="flex items-center gap-2">
+                <Layers className={iconSize('md')} />
+                <span>Project Structure</span>
+                {elementTree && elementTree.elements && elementTree.elements.length > 0 && (
+                  <span className="text-sm font-normal text-muted-foreground">
+                    ({elementTree.elements.length} {elementTree.elements.length === 1 ? 'element' : 'elements'})
+                  </span>
+                )}
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              {isLoadingElements ? (
+                <Card>
+                  <CardContent className="py-8">
+                    <LoadingState variant="combined" size="md" skeletonCount={3} />
+                  </CardContent>
+                </Card>
+              ) : elementTree && elementTree.elements && elementTree.elements.length > 0 ? (
+                <Card className="overflow-hidden">
+                  <CardHeader className="pb-3">
+                    <CardDescription>
+                      Click on an element to view details. Use the chevron icons to expand/collapse folders.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="max-h-[400px] overflow-y-auto">
+                      <ElementTree
+                        elements={elementTree.elements}
+                        onElementClick={(element) => {
+                          setSelectedElement(element)
+                          setElementDetailOpen(true)
+                        }}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <EmptyState
+                  icon={<Layers className="h-12 w-12 text-muted-foreground" />}
+                  title="No elements yet"
+                  description="Elements are created automatically when you add features and todos to the project."
+                  variant="compact"
+                />
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
+        {/* Documents Section */}
+        <div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <h2 className="text-xl sm:text-2xl font-bold">Documents</h2>
+            <Button onClick={() => {
+              setEditingDocument(null)
+              setDocumentEditorOpen(true)
+            }}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Document
+            </Button>
+          </div>
         {isLoadingDocuments ? (
           <LoadingState variant="combined" size="md" skeletonCount={3} />
         ) : documents.length === 0 ? (
@@ -592,7 +611,7 @@ export function ProjectDetail() {
             variant="compact"
           />
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {documents.map((document) => {
               // Get preview of content (first 200 characters, strip markdown)
               const preview = document.content
@@ -707,6 +726,7 @@ export function ProjectDetail() {
             })}
           </div>
         )}
+        </div>
       </div>
 
       {/* Feature Editor Dialog */}
