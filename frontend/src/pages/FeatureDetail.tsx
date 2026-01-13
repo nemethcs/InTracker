@@ -208,7 +208,7 @@ export function FeatureDetail() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold">{feature.total_todos}</div>
                 <div className="text-sm text-muted-foreground">Total</div>

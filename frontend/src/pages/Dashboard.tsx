@@ -153,22 +153,22 @@ export function Dashboard() {
       {/* Statistics Cards */}
       {projectsList.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Card className="border-l-4 border-l-blue-500">
+          <Card className="border-l-4 border-l-primary">
             <CardHeader className="pb-3">
               <CardDescription className="text-xs font-medium uppercase tracking-wide">Total Projects</CardDescription>
-              <CardTitle className="text-4xl font-bold mt-2">{totalProjects}</CardTitle>
+              <CardTitle className="text-3xl sm:text-4xl font-bold mt-2">{totalProjects}</CardTitle>
             </CardHeader>
           </Card>
-          <Card className="border-l-4 border-l-green-500">
+          <Card className="border-l-4 border-l-success">
             <CardHeader className="pb-3">
               <CardDescription className="text-xs font-medium uppercase tracking-wide">Active Projects</CardDescription>
-              <CardTitle className="text-4xl font-bold mt-2 text-green-600 dark:text-green-400">{activeProjects}</CardTitle>
+              <CardTitle className="text-3xl sm:text-4xl font-bold mt-2 text-success">{activeProjects}</CardTitle>
             </CardHeader>
           </Card>
-          <Card className="border-l-4 border-l-purple-500 sm:col-span-2 lg:col-span-1">
+          <Card className="border-l-4 border-l-accent sm:col-span-2 lg:col-span-1">
             <CardHeader className="pb-3">
               <CardDescription className="text-xs font-medium uppercase tracking-wide">Completed Projects</CardDescription>
-              <CardTitle className="text-4xl font-bold mt-2 text-accent">{completedProjects}</CardTitle>
+              <CardTitle className="text-3xl sm:text-4xl font-bold mt-2 text-accent">{completedProjects}</CardTitle>
             </CardHeader>
           </Card>
         </div>
@@ -199,9 +199,9 @@ export function Dashboard() {
             
             return (
               <div key={teamId} className="space-y-4">
-                <div className="flex items-center gap-3 pb-2 border-b">
-                  <h2 className="text-xl font-semibold text-foreground">{teamName}</h2>
-                  <Badge variant="secondary" className="text-xs font-medium">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 pb-2 border-b">
+                  <h2 className="text-lg sm:text-xl font-semibold text-foreground">{teamName}</h2>
+                  <Badge variant="secondary" className="text-xs font-medium w-fit">
                     {teamProjects.length} {teamProjects.length === 1 ? 'project' : 'projects'}
                   </Badge>
                 </div>

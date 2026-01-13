@@ -227,10 +227,10 @@ export function Teams() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Teams</h1>
-        <p className="text-muted-foreground">Manage your teams and members</p>
-      </div>
+      <PageHeader
+        title="Teams"
+        description="Manage your teams and members"
+      />
 
       {error && (
         <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
