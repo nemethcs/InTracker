@@ -404,9 +404,10 @@ export function ProjectDetail() {
                       <span className="font-medium truncate">{lastWorkedFeature.name}</span>
                       <Badge 
                         variant={
-                          lastWorkedFeature.status === 'done' ? 'default' :
-                          lastWorkedFeature.status === 'tested' ? 'secondary' :
-                          lastWorkedFeature.status === 'in_progress' ? 'secondary' : 'outline'
+                          lastWorkedFeature.status === 'done' ? 'success' :
+                          lastWorkedFeature.status === 'tested' ? 'warning' :
+                          lastWorkedFeature.status === 'in_progress' ? 'info' :
+                          lastWorkedFeature.status === 'merged' ? 'accent' : 'muted'
                         }
                         className="text-xs"
                       >
