@@ -1,4 +1,4 @@
-import { Menu, Bell, User, Settings, LogOut } from 'lucide-react'
+import { Menu, Bell, User, Settings, LogOut, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Logo } from '@/components/ui/Logo'
 import {
@@ -14,10 +14,11 @@ import { useNavigate } from 'react-router-dom'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 interface HeaderProps {
+  sidebarOpen: boolean
   onMenuClick: () => void
 }
 
-export function Header({ onMenuClick }: HeaderProps) {
+export function Header({ sidebarOpen, onMenuClick }: HeaderProps) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
@@ -45,9 +46,14 @@ export function Header({ onMenuClick }: HeaderProps) {
             size="icon"
             className="mr-2 lg:hidden"
             onClick={onMenuClick}
-            aria-label="Toggle menu"
+            aria-label={sidebarOpen ? "Close menu" : "Open menu"}
+            aria-expanded={sidebarOpen}
           >
-            <Menu className="h-5 w-5" />
+            {sidebarOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
           </Button>
           <Logo className="mr-6" size="md" />
         </div>

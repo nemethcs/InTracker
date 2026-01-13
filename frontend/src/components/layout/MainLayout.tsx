@@ -9,21 +9,33 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  const toggleSidebar = () => {
+    setSidebarOpen(prev => !prev)
+  }
+
+  const closeSidebar = () => {
+    setSidebarOpen(false)
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+      <Header 
+        sidebarOpen={sidebarOpen}
+        onMenuClick={toggleSidebar}
+      />
       <div className="flex relative">
         {/* Mobile overlay */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity"
+            onClick={closeSidebar}
+            aria-hidden="true"
           />
         )}
         {/* Sidebar */}
         <Sidebar 
           isOpen={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
+          onClose={closeSidebar}
         />
         {/* Main content */}
         <main className="flex-1 min-w-0">

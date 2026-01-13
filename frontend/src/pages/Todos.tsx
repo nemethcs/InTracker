@@ -6,6 +6,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { CheckSquare } from 'lucide-react'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 export function Todos() {
   const { projects } = useProject()
@@ -40,10 +41,10 @@ export function Todos() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">All Todos</h1>
-        <p className="text-muted-foreground">View and manage todos across all projects</p>
-      </div>
+      <PageHeader
+        title="All Todos"
+        description="View and manage todos across all projects"
+      />
 
       {todosList.length === 0 ? (
         <EmptyState

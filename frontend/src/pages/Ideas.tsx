@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Lightbulb, Plus, Sparkles } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { Idea, IdeaConvertRequest } from '@/services/ideaService'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 export function Ideas() {
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
@@ -178,22 +179,24 @@ export function Ideas() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
             <Sparkles className="h-8 w-8" />
             Ideas
-          </h1>
-          <p className="text-muted-foreground mt-2">Capture and organize your project ideas</p>
-        </div>
-        <Button onClick={() => {
-          setEditingIdea(null)
-          setIdeaEditorOpen(true)
-        }}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Idea
-        </Button>
-      </div>
+          </span>
+        }
+        description="Capture and organize your project ideas"
+        actions={
+          <Button onClick={() => {
+            setEditingIdea(null)
+            setIdeaEditorOpen(true)
+          }}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Idea
+          </Button>
+        }
+      />
 
       <div className="flex items-center gap-4">
         <Select value={statusFilter || 'all'} onValueChange={(value) => setStatusFilter(value === 'all' ? undefined : value)}>

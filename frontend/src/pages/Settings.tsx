@@ -10,6 +10,7 @@ import { Settings as SettingsIcon, Key, Copy, CheckCircle2, RefreshCw, AlertCirc
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 export function Settings() {
   const { user, logout, checkAuth } = useAuthStore()
@@ -315,10 +316,10 @@ export function Settings() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">Manage your account and preferences</p>
-      </div>
+      <PageHeader
+        title="Settings"
+        description="Manage your account and preferences"
+      />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>

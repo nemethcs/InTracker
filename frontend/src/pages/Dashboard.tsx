@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FolderKanban, Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { format } from 'date-fns'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 export function Dashboard() {
   const [selectedTeamId, setSelectedTeamId] = useState<string | undefined>(undefined)
@@ -93,16 +94,16 @@ export function Dashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">{pageTitle}</h1>
-          <p className="text-muted-foreground text-sm">{pageDescription}</p>
-        </div>
-        <Button onClick={() => setProjectEditorOpen(true)} className="w-full sm:w-auto">
-          <Plus className="mr-2 h-4 w-4" />
-          New Project
-        </Button>
-      </div>
+      <PageHeader
+        title={pageTitle}
+        description={pageDescription}
+        actions={
+          <Button onClick={() => setProjectEditorOpen(true)} className="w-full sm:w-auto">
+            <Plus className="mr-2 h-4 w-4" />
+            New Project
+          </Button>
+        }
+      />
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
