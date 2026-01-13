@@ -24,6 +24,7 @@ from .broadcast_handlers import (
     broadcast_session_start,
     broadcast_session_end,
     broadcast_idea_update,
+    broadcast_mcp_verified,
 )
 
 __all__ = [
@@ -41,4 +42,5 @@ __all__ = [
     "broadcast_session_start",
     "broadcast_session_end",
     "broadcast_idea_update",
+    "broadcast_mcp_verified",
 ]

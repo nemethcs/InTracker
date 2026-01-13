@@ -13,6 +13,7 @@ from src.mcp.tools import (
     github,
     idea,
     import_tools,
+    onboarding,
 )
 from src.mcp.server_handlers import (
     handle_project_tool,
@@ -23,6 +24,7 @@ from src.mcp.server_handlers import (
     handle_github_tool,
     handle_idea_tool,
     handle_import_tool,
+    handle_onboarding_tool,
 )
 
 # Create MCP server
@@ -95,6 +97,8 @@ async def list_tools() -> list[Tool]:
         import_tools.get_import_github_issues_tool(),
         import_tools.get_import_github_milestones_tool(),
         import_tools.get_analyze_codebase_tool(),
+        # Onboarding tools
+        onboarding.get_verify_connection_tool(),
     ]
 
 
@@ -111,6 +115,7 @@ async def call_tool(name: str, arguments: dict):
         handle_github_tool,
         handle_idea_tool,
         handle_import_tool,
+        handle_onboarding_tool,
     ]
     
     for handler in handlers:

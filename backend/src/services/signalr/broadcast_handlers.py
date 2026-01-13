@@ -103,3 +103,23 @@ async def broadcast_idea_update(team_id: str, idea_id: str, changes: dict):
         }]
     }
     await connection_manager.broadcast_to_team(team_id, message)
+
+
+async def broadcast_mcp_verified(user_id: str, verified_at: str):
+    """Broadcast MCP verification event to user.
+    
+    This is used during onboarding to notify the frontend that MCP connection
+    has been verified via the mcp_verify_connection tool.
+    """
+    # SignalR message format
+    message = {
+        "type": 1,  # SignalR invocation
+        "target": "mcpVerified",
+        "arguments": [{
+            "user_id": user_id,
+            "verified_at": verified_at,
+            "message": "MCP connection verified successfully"
+        }]
+    }
+    # Broadcast to all connections (user might be on onboarding page)
+    await connection_manager.broadcast_to_all(message)

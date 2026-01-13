@@ -14,6 +14,7 @@ import { Register } from '@/pages/Register'
 import { AdminLogin } from '@/pages/AdminLogin'
 import { AdminDashboard } from '@/pages/AdminDashboard'
 import { Teams } from '@/pages/Teams'
+import { Onboarding } from '@/pages/Onboarding'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user } = useAuth()
@@ -29,6 +30,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
+  }
+
+  // Check if setup is completed - if not, redirect to onboarding (except for onboarding and settings routes)
+  if (!user?.setup_completed) {
+    const currentPath = location.pathname
+    const allowedPaths = ['/onboarding', '/settings', '/logout']
+    if (!allowedPaths.includes(currentPath) && !currentPath.startsWith('/onboarding')) {
+      return <Navigate to="/onboarding" replace />
+    }
   }
 
   // Admins should only access /admin and /teams routes
@@ -50,6 +60,14 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/register" element={<Register />} />
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute>
+              <Onboarding />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/"
           element={

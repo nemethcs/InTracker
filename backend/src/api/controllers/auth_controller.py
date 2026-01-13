@@ -19,6 +19,7 @@ from src.api.schemas.auth import (
 )
 from src.api.middleware.auth import get_current_user, get_optional_user
 from src.services.github_token_service import github_token_service
+from src.services.onboarding_service import update_setup_completed
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -48,6 +49,11 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
                 name=user.name,
                 github_username=user.github_username,
                 avatar_url=user.avatar_url,
+                github_connected_at=user.github_connected_at.isoformat() if user.github_connected_at else None,
+                github_token_expires_at=user.github_token_expires_at.isoformat() if user.github_token_expires_at else None,
+                onboarding_step=user.onboarding_step,
+                mcp_verified_at=user.mcp_verified_at.isoformat() if user.mcp_verified_at else None,
+                setup_completed=user.setup_completed,
                 is_active=user.is_active,
                 role=user.role,
             ),
@@ -79,6 +85,11 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
                 name=user.name,
                 github_username=user.github_username,
                 avatar_url=user.avatar_url,
+                github_connected_at=user.github_connected_at.isoformat() if user.github_connected_at else None,
+                github_token_expires_at=user.github_token_expires_at.isoformat() if user.github_token_expires_at else None,
+                onboarding_step=user.onboarding_step,
+                mcp_verified_at=user.mcp_verified_at.isoformat() if user.mcp_verified_at else None,
+                setup_completed=user.setup_completed,
                 is_active=user.is_active,
                 role=user.role,
             ),
@@ -114,6 +125,20 @@ async def get_me(current_user: dict = Depends(get_current_user), db: Session = D
             detail="User not found",
         )
 
+    # Update setup_completed status (always check on /auth/me call)
+    update_setup_completed(db, UUID(current_user["user_id"]))
+    
+    # Re-query user to get updated setup_completed and onboarding_step
+    # This ensures we get the latest values from the database
+    # Use merge=False to get a fresh instance from the database
+    user_id = UUID(current_user["user_id"])
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
     return UserResponse(
         id=str(user.id),
         email=user.email,
@@ -121,6 +146,10 @@ async def get_me(current_user: dict = Depends(get_current_user), db: Session = D
         github_username=user.github_username,
         avatar_url=user.avatar_url,
         github_connected_at=user.github_connected_at.isoformat() if user.github_connected_at else None,
+        github_token_expires_at=user.github_token_expires_at.isoformat() if user.github_token_expires_at else None,
+        onboarding_step=user.onboarding_step,
+        mcp_verified_at=user.mcp_verified_at.isoformat() if user.mcp_verified_at else None,
+        setup_completed=user.setup_completed,
         is_active=user.is_active,
         role=user.role,
     )
@@ -292,8 +321,15 @@ async def github_callback(
             user.github_username = user_info.get("login")
             user.avatar_url = user_info.get("avatar_url")
         
+        # Update onboarding_step to 4 (github_connected) if not already higher
+        if user.onboarding_step < 4:
+            user.onboarding_step = 4
+        
         db.commit()
         db.refresh(user)
+        
+        # Update setup_completed status
+        update_setup_completed(db, user_id)
         
         return {
             "message": "GitHub OAuth connection successful",
