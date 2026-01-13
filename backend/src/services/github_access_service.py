@@ -34,14 +34,17 @@ class GitHubAccessService:
         """
         # Get user's GitHub token
         token = github_token_service.get_user_token(db, user_id)
+        print(f"🔍 GitHubAccessService: user_id={user_id}, token={'exists' if token else 'None'}")
         if not token:
             # User has no GitHub token, return all projects with has_access=False
+            print(f"⚠️  User {user_id} has no GitHub OAuth token, returning projects with has_access=False")
             return GitHubAccessService._get_all_user_projects_without_access(db, user_id)
         
         # Initialize GitHub service with user's token
         github_service = GitHubService(user_id=user_id)
         if not github_service.client:
             # GitHub client initialization failed, return all projects with has_access=False
+            print(f"⚠️  GitHub client initialization failed for user {user_id}")
             return GitHubAccessService._get_all_user_projects_without_access(db, user_id)
         
         # Get all teams the user belongs to

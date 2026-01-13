@@ -24,10 +24,12 @@ class GitHubTokenService:
         """
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
+            print(f"⚠️  get_user_token: User {user_id} not found")
             return None
         
         # Check if user has a token
         if not user.github_access_token_encrypted:
+            print(f"⚠️  get_user_token: User {user_id} ({user.email}) has no github_access_token_encrypted")
             return None
         
         # Check if token is expired (with 5 minute buffer)
