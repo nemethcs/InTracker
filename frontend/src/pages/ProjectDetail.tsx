@@ -726,6 +726,7 @@ export function ProjectDetail() {
             })}
           </div>
         )}
+        </div>
       </div>
 
       {/* Feature Editor Dialog */}
