@@ -217,26 +217,18 @@ def is_setup_complete(user: User) -> bool:
 }
 ```
 
-#### GET /api/onboarding/mcp-verification-status
-**Request:** (no body, uses current user from auth)
-**Response:**
+#### SignalR Event: `mcpVerified`
+**Event Name:** `mcpVerified`
+**Triggered by:** `mcp_verify_connection` tool handler
+**Payload:**
 ```json
 {
-  "verified": true,
+  "user_id": "uuid",
   "verified_at": "2025-01-13T15:30:00Z",
   "message": "MCP connection verified successfully"
 }
 ```
-**Not Verified Response:**
-```json
-{
-  "verified": false,
-  "verified_at": null,
-  "message": "MCP connection not yet verified. Please add MCP to Cursor and use the verify tool."
-}
-```
-
-**Note:** This endpoint is polled by frontend every 2-3 seconds during onboarding Step 2.
+**Frontend:** Subscribes to this event via SignalR service. No polling needed - instant real-time update!
 
 ---
 
