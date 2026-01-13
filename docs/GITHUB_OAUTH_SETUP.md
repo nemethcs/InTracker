@@ -82,14 +82,11 @@ A callback URL-nek meg kell egyeznie a backend konfigurációval:
 - **Development**: `http://localhost:5173` (FRONTEND_URL)
 - **Production**: `https://intracker.kesmarki.com` (FRONTEND_URL)
 
-A backend automatikusan hozzáadja a `redirect_path`-et a callback URL-hez:
-- Settings oldal: `{FRONTEND_URL}/settings` (default)
-- Onboarding flow: `{FRONTEND_URL}/onboarding` (dinamikusan beállítva)
-
 **Fontos**: 
 - A GitHub OAuth App-ban csak egy callback URL-t lehet beállítani: `{FRONTEND_URL}/settings`
-- Az onboarding flow is ugyanezt a callback URL-t használja, de a backend dinamikusan kezeli a `redirect_path` paramétert
-- A frontend automatikusan kezeli az onboarding redirect-et a callback után (a `GitHubSetupStep` komponens kezeli a `code` és `state` paramétereket)
+- A backend mindig a `/settings` URL-t használja a GitHub OAuth flow-ban, függetlenül a `redirect_path` paramétertől
+- A `redirect_path` paraméter csak a frontend navigációhoz használatos (Redis-ben tárolva)
+- Az onboarding flow során a callback a `/settings` URL-re megy, és a Settings oldal automatikusan redirect-el az `/onboarding` oldalra, ha a user még onboarding flow-ban van (`setup_completed === false`)
 
 ## 5. Tesztelés
 
