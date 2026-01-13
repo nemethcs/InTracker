@@ -519,28 +519,21 @@ export function ProjectDetail() {
         )}
       </div>
 
-      {/* Element Tree Section - Collapsible, collapsed by default */}
-      <div>
-        <button
-          onClick={() => setShowProjectStructure(!showProjectStructure)}
-          className="flex items-center justify-between w-full mb-4 hover:bg-accent/50 rounded-md p-2 -ml-2 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            {showProjectStructure ? (
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            )}
-            <h2 className="text-2xl font-bold">Project Structure</h2>
-            {elementTree && elementTree.elements && elementTree.elements.length > 0 && (
-              <div className="text-sm text-muted-foreground">
-                ({elementTree.elements.length} {elementTree.elements.length === 1 ? 'element' : 'elements'})
-              </div>
-            )}
-          </div>
-        </button>
-        {showProjectStructure && (
-          <div>
+      {/* Element Tree Section - Collapsible with Accordion */}
+      <Accordion type="single" collapsible className="w-full">
+        <AccordionItem value="project-structure">
+          <AccordionTrigger className="text-xl sm:text-2xl font-bold">
+            <div className="flex items-center gap-2">
+              <Layers className={iconSize('md')} />
+              <span>Project Structure</span>
+              {elementTree && elementTree.elements && elementTree.elements.length > 0 && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({elementTree.elements.length} {elementTree.elements.length === 1 ? 'element' : 'elements'})
+                </span>
+              )}
+            </div>
+          </AccordionTrigger>
+          <AccordionContent>
             {isLoadingElements ? (
               <Card>
                 <CardContent className="py-8">
@@ -574,9 +567,9 @@ export function ProjectDetail() {
                 variant="compact"
               />
             )}
-          </div>
-        )}
-      </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
       {/* Documents Section */}
       <div>
