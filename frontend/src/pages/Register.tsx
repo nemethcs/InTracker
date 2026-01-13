@@ -33,7 +33,8 @@ export function Register() {
 
     try {
       await register(email, password, name || undefined, invitationCode)
-      navigate('/')
+      // Redirect to onboarding for new users
+      navigate('/onboarding')
     } catch (err: any) {
       // Handle different error formats
       let errorMessage = 'Registration failed'
