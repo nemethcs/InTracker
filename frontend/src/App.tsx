@@ -57,8 +57,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <ErrorBoundary>
-      <BrowserRouter>
+    <BrowserRouter>
+      <ErrorBoundary>
         <Toaster />
         <Routes>
         <Route path="/login" element={<Login />} />
@@ -184,8 +184,8 @@ function App() {
           </ProtectedRoute>
         } />
         </Routes>
-      </BrowserRouter>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </BrowserRouter>
   )
 }
 
