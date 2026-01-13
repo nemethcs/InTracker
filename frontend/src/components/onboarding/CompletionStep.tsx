@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { CheckCircle2, ArrowLeft, Sparkles } from 'lucide-react'
+import { useAuthStore } from '@/stores/authStore'
 
 interface CompletionStepProps {
   onComplete: () => void
@@ -10,6 +11,7 @@ interface CompletionStepProps {
 }
 
 export function CompletionStep({ onComplete, onBack }: CompletionStepProps) {
+  const { checkAuth } = useAuthStore()
   const [isCompleting, setIsCompleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -18,16 +20,23 @@ export function CompletionStep({ onComplete, onBack }: CompletionStepProps) {
       setIsCompleting(true)
       setError(null)
       
-      // Update user's setup_completed status
-      // This will be done automatically when both MCP and GitHub are set up,
-      // but we can also call an endpoint to mark it complete
-      // For now, just redirect - the backend will check setup_completed on next /auth/me call
+      // Refresh user data to get updated setup_completed status
+      // The backend automatically updates setup_completed when both MCP key and GitHub are connected
+      await checkAuth()
       
-      onComplete()
+      // Wait a moment for state to update, then check if setup is completed
+      const currentUser = useAuthStore.getState().user
+      if (currentUser?.setup_completed) {
+        // Setup is completed, navigate to dashboard
+        onComplete()
+      } else {
+        // Setup not completed yet, show error
+        setError('Setup is not yet complete. Please ensure both MCP key and GitHub are connected.')
+        setIsCompleting(false)
+      }
     } catch (err) {
       console.error('Failed to complete setup:', err)
       setError(err instanceof Error ? err.message : 'Failed to complete setup')
-    } finally {
       setIsCompleting(false)
     }
   }
