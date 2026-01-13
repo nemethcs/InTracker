@@ -95,22 +95,34 @@ function ElementNode({
         {/* Statistics */}
         <div className="flex items-center gap-3 text-xs text-muted-foreground flex-shrink-0">
           {element.todos_count !== undefined && element.todos_count > 0 && (
-            <span 
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/50" 
-              title={`${element.todos_done_count || 0}/${element.todos_count} todos done`}
-            >
-              <CheckSquare className="h-3 w-3" />
-              <span className="font-medium">{element.todos_done_count || 0}/{element.todos_count}</span>
-            </span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/50 cursor-help">
+                    <CheckSquare className="h-3 w-3" />
+                    <span className="font-medium">{element.todos_done_count || 0}/{element.todos_count}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{element.todos_done_count || 0}/{element.todos_count} todos done</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
           {element.features_count !== undefined && element.features_count > 0 && (
-            <span 
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/50 cursor-help" 
-              title={element.linked_features ? `Features: ${element.linked_features.join(', ')}` : `${element.features_count} features`}
-            >
-              <Package className="h-3 w-3" />
-              <span className="font-medium">{element.features_count}</span>
-            </span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/50 cursor-help">
+                    <Package className="h-3 w-3" />
+                    <span className="font-medium">{element.features_count}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{element.linked_features ? `Features: ${element.linked_features.join(', ')}` : `${element.features_count} features`}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
         <Badge

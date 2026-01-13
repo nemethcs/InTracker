@@ -15,6 +15,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { toast } from '@/hooks/useToast'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 export function Settings() {
   const { user, logout, checkAuth } = useAuthStore()
@@ -644,18 +645,26 @@ export function Settings() {
                   readOnly
                   className="font-mono text-sm"
                 />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleCopyKey}
-                  title="Copy to clipboard"
-                >
-                  {copied ? (
-                    <CheckCircle2 className={`${iconSize('sm')} text-success`} />
-                  ) : (
-                    <Copy className={iconSize('sm')} />
-                  )}
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleCopyKey}
+                      >
+                        {copied ? (
+                          <CheckCircle2 className={`${iconSize('sm')} text-success`} />
+                        ) : (
+                          <Copy className={iconSize('sm')} />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Copy to clipboard</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
             <Alert>
@@ -712,18 +721,26 @@ export function Settings() {
                         Add to Cursor
                       </Button>
                     </a>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleCopyDeeplink(newKey)}
-                      title="Copy install link"
-                    >
-                      {copiedConfig ? (
-                        <CheckCircle2 className={`${iconSize('sm')} text-success`} />
-                      ) : (
-                        <Copy className={iconSize('sm')} />
-                      )}
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleCopyDeeplink(newKey)}
+                          >
+                            {copiedConfig ? (
+                              <CheckCircle2 className={`${iconSize('sm')} text-success`} />
+                            ) : (
+                              <Copy className={iconSize('sm')} />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Copy install link</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Click the button above to automatically install InTracker in Cursor. 
