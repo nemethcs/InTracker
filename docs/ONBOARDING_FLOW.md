@@ -52,15 +52,19 @@ Frontend shows deeplink + manual config
   ↓
 User clicks "Add to Cursor" deeplink (opens Cursor, installs MCP)
   ↓
-User in Cursor: "Use the verify tool" (megkéri az agentet)
+Frontend shows "Verify Connection" button with Cursor prompt deeplink
+  ↓
+User clicks deeplink: cursor://anysphere.cursor-deeplink/prompt?text=Use+the+mcp_verify_connection+tool
+  ↓
+Cursor opens with prompt pre-filled: "Use the mcp_verify_connection tool"
+  ↓
+User confirms prompt in Cursor
   ↓
 Cursor Agent: Calls mcp_verify_connection tool
   ↓
-Backend: Saves mcp_verified_at timestamp for user
+Backend: Saves mcp_verified_at timestamp, broadcasts SignalR 'mcpVerified' event
   ↓
-Frontend: Polling GET /api/onboarding/mcp-verification-status
-  ↓
-Backend returns: {verified: true, verified_at: "2025-01-13T..."}
+Frontend: SignalR listener receives 'mcpVerified' event (real-time, no polling!)
   ↓
 Frontend: Shows success ✅, enables "Next" button, saves onboarding_step=3
   ↓
@@ -72,15 +76,27 @@ User clicks "Next" (only if verified)
 **MCP Verify Tool:**
 - **Tool name:** `mcp_verify_connection`
 - **Purpose:** Ellenőrzi, hogy a Cursor valóban csatlakozva van és kommunikál az MCP szerverrel
-- **Called by:** Cursor Agent (user requests: "Use the verify tool")
+- **Called by:** Cursor Agent (via prompt deeplink)
 - **Implementation:** 
   - Simple verification: Returns success if tool can be called
   - Backend saves `mcp_verified_at` timestamp to User model
+  - Backend broadcasts SignalR event: `mcpVerified` with user_id
   - Returns: `{verified: true, message: "MCP connection verified successfully"}`
 - **Frontend Integration:**
-  - Shows instruction: "Add MCP to Cursor, then ask the agent: 'Use the verify tool'"
-  - Polls `GET /api/onboarding/mcp-verification-status` every 2-3 seconds
-  - When verified=true, shows success and enables "Next"
+  - Shows "Verify Connection" button with Cursor prompt deeplink
+  - Deeplink format: `cursor://anysphere.cursor-deeplink/prompt?text=Use+the+mcp_verify_connection+tool`
+  - Frontend subscribes to SignalR `mcpVerified` event (real-time, no polling!)
+  - When event received, shows success ✅ and enables "Next" button
+  - Web fallback: `https://cursor.com/link/prompt?text=Use+the+mcp_verify_connection+tool`
+
+**Cursor Prompt Deeplink:**
+- **Format:** `cursor://anysphere.cursor-deeplink/prompt?text=Use+the+mcp_verify_connection+tool`
+- **Web format:** `https://cursor.com/link/prompt?text=Use+the+mcp_verify_connection+tool`
+- **Reference:** [Cursor Deeplinks Documentation](https://cursor.com/docs/integrations/deeplinks)
+- **Benefits:** 
+  - One-click verify (no manual typing)
+  - Pre-filled prompt in Cursor
+  - Better UX than instruction text
 
 ---
 
@@ -269,10 +285,13 @@ if (user.github_token_expires_at) {
 
 ### Frontend (React)
 - [ ] Create `WelcomeScreen.tsx`
-- [ ] Create `McpSetupStep.tsx` (with MCP verify polling)
+- [ ] Create `McpSetupStep.tsx` (with Cursor prompt deeplink + SignalR listener)
 - [ ] Create `GitHubSetupStep.tsx`
 - [ ] Create `CompletionStep.tsx`
 - [ ] Create `Onboarding.tsx` (main page with stepper + progress persistence)
+- [ ] Create `ProgressBar.tsx` component (visual progress indicator)
+- [ ] Add error handling to all onboarding steps
+- [ ] Add back button to all steps (except Welcome)
 - [ ] Update `Register.tsx` (redirect to `/onboarding`)
 - [ ] Add route guard in `App.tsx`
 - [ ] Create `ExpirationWarningBanner.tsx`
@@ -284,7 +303,7 @@ if (user.github_token_expires_at) {
 - [ ] Add `github_token_expires_at` to `/auth/me` response
 - [ ] Create Alembic migration for new fields
 - [ ] Create MCP verify tool (`mcp_verify_connection`) - saves `mcp_verified_at` when called
-- [ ] Create API endpoint `GET /api/onboarding/mcp-verification-status` (polling endpoint)
+- [ ] Add SignalR broadcast in `mcp_verify_connection` handler: `mcpVerified` event
 - [ ] Update `/auth/me` to return `onboarding_step` and `mcp_verified_at`
 
 ---
