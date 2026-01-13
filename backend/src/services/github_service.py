@@ -28,9 +28,12 @@ class GitHubService:
                 if token:
                     try:
                         self.client = Github(token)
+                        print(f"✅ GitHub client initialized with user {user_id} OAuth token")
                         return
                     except Exception as e:
                         print(f"⚠️  GitHub client initialization with user token failed: {e}")
+                else:
+                    print(f"⚠️  No GitHub OAuth token found for user {user_id}")
             finally:
                 db.close()
         
@@ -38,22 +41,29 @@ class GitHubService:
         if settings.GITHUB_TOKEN:
             try:
                 self.client = Github(settings.GITHUB_TOKEN)
+                print(f"ℹ️  GitHub client initialized with global GITHUB_TOKEN")
             except Exception as e:
                 print(f"⚠️  GitHub client initialization failed: {e}")
+        else:
+            print(f"⚠️  No GitHub token available (neither user OAuth nor global GITHUB_TOKEN)")
 
     def validate_repo_access(self, owner: str, repo: str) -> bool:
         """Validate access to a GitHub repository."""
         if not self.client:
+            print(f"⚠️  GitHub client not initialized for repo access validation: {owner}/{repo}")
             return False
 
         try:
             repository = self.client.get_repo(f"{owner}/{repo}")
             # Try to access repo info
             _ = repository.name
+            print(f"✅ GitHub repo access validated: {owner}/{repo}")
             return True
-        except GithubException:
+        except GithubException as e:
+            print(f"⚠️  GitHub API error validating access to {owner}/{repo}: {e.status} - {e.data}")
             return False
-        except Exception:
+        except Exception as e:
+            print(f"⚠️  Error validating access to {owner}/{repo}: {e}")
             return False
 
     def get_repo_info(self, owner: str, repo: str) -> Optional[Dict[str, Any]]:
