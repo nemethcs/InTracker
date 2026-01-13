@@ -236,16 +236,17 @@ export function FeatureDetail() {
 
       {/* Todos Section */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Todos</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <h2 className="text-xl sm:text-2xl font-bold">Todos</h2>
           <Button 
             onClick={() => {
               setEditingTodo(null)
               setTodoEditorOpen(true)
             }}
             disabled={todosLoading}
+            className="w-full sm:w-auto"
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className={`mr-2 ${iconSize('sm')}`} />
             New Todo
           </Button>
         </div>
@@ -279,7 +280,7 @@ export function FeatureDetail() {
               return (
                 <div key={status}>
                   <div className="flex items-center gap-2 mb-2">
-                    <StatusIcon className={`h-5 w-5 ${statusColor}`} />
+                    <StatusIcon className={`${iconSize('md')} ${statusColor}`} />
                     <h3 className="font-semibold capitalize">{status.replace('_', ' ')}</h3>
                     <Badge variant="outline" className="ml-2">{statusTodos.length}</Badge>
                   </div>
