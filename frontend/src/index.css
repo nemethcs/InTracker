@@ -29,25 +29,26 @@
 
   .dark {
     /* Dark mode - Deep Navy base with Electric Blue accents */
+    /* Refined for better contrast and readability - Cursor/Linear/Vercel aesthetic */
     --background: 222 47% 11%; /* #0F172A - Dark Navy */
-    --foreground: 210 40% 98%;
-    --card: 222 47% 11%;
+    --foreground: 210 40% 98%; /* High contrast text */
+    --card: 217 33% 15%; /* Slightly lighter than background for depth */
     --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
+    --popover: 217 33% 15%;
     --popover-foreground: 210 40% 98%;
-    --primary: 217 91% 60%; /* #2563EB - Electric Blue */
+    --primary: 217 91% 65%; /* Slightly brighter Electric Blue for better visibility */
     --primary-foreground: 0 0% 100%;
-    --secondary: 217 33% 18%; /* Slightly lighter than background */
+    --secondary: 217 33% 20%; /* More visible secondary surfaces */
     --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 18%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 188 78% 58%; /* #22D3EE - Cyan */
+    --muted: 217 33% 20%; /* Better contrast for muted elements */
+    --muted-foreground: 215 25% 70%; /* More readable muted text */
+    --accent: 188 78% 63%; /* Slightly brighter Cyan for better visibility */
     --accent-foreground: 222 47% 11%;
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 18%;
-    --input: 217 33% 18%;
-    --ring: 217 91% 60%; /* Electric Blue for focus rings */
+    --destructive: 0 72% 51%; /* More visible destructive color */
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 33% 25%; /* More visible borders */
+    --input: 217 33% 20%; /* Better input visibility */
+    --ring: 217 91% 65%; /* Brighter focus rings for better visibility */
   }
 }
 
@@ -85,17 +86,29 @@
     @apply transition-all duration-200 ease-in-out;
   }
   
-  /* Subtle shadows for depth */
+  /* Subtle shadows for depth - adapts to dark mode */
   .shadow-subtle {
     box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  }
+  
+  .dark .shadow-subtle {
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   }
   
   .shadow-soft {
     box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   }
   
+  .dark .shadow-soft {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.3);
+  }
+  
   .shadow-elevated {
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  }
+  
+  .dark .shadow-elevated {
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4);
   }
   
   /* Hover effects */
