@@ -39,6 +39,7 @@ export const settingsService = {
     message: string
     github_username?: string
     avatar_url?: string
+    redirect_path?: string
   }> {
     const response = await api.get('/auth/github/callback', {
       params: { code, state },
