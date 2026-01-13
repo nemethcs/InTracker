@@ -25,6 +25,9 @@ export function CompletionStep({ onComplete, onBack }: CompletionStepProps) {
       await checkAuth()
       
       // Wait a moment for state to update, then check if setup is completed
+      // Use setTimeout to ensure state has updated
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
       const currentUser = useAuthStore.getState().user
       if (currentUser?.setup_completed) {
         // Setup is completed, navigate to dashboard
