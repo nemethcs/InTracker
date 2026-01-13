@@ -21,6 +21,7 @@ import { ElementTree } from '@/components/elements/ElementTree'
 import { ElementDetailDialog } from '@/components/elements/ElementDetailDialog'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { ActiveUsers } from '@/components/collaboration/ActiveUsers'
+import { DocumentEditor } from '@/components/documents/DocumentEditor'
 import { Plus, Edit, FileText, CheckSquare, UsersRound, ChevronDown, ChevronRight, Clock, FolderKanban, Layers } from 'lucide-react'
 import { iconSize } from '@/components/ui/Icon'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -581,7 +582,10 @@ export function ProjectDetail() {
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
           <h2 className="text-xl sm:text-2xl font-bold">Documents</h2>
-          <Button>
+          <Button onClick={() => {
+            setEditingDocument(null)
+            setDocumentEditorOpen(true)
+          }}>
             <Plus className="mr-2 h-4 w-4" />
             New Document
           </Button>
