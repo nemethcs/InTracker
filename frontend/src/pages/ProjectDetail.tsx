@@ -22,6 +22,8 @@ import { ElementDetailDialog } from '@/components/elements/ElementDetailDialog'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { ActiveUsers } from '@/components/collaboration/ActiveUsers'
 import { Plus, Edit, FileText, CheckSquare, UsersRound, ChevronDown, ChevronRight, Clock, FolderKanban, Layers } from 'lucide-react'
+import { iconSize } from '@/components/ui/Icon'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { format } from 'date-fns'
 import type { Feature } from '@/services/featureService'
 import type { Todo } from '@/services/todoService'
@@ -300,20 +302,20 @@ export function ProjectDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold">{currentProject.name}</h1>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex-1 space-y-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl sm:text-3xl font-bold">{currentProject.name}</h1>
             {/* Small, unobtrusive active users display */}
             {id && <ActiveUsers projectId={id} />}
           </div>
           {currentProject.description && (
-            <p className="text-muted-foreground mt-2">{currentProject.description}</p>
+            <p className="text-muted-foreground text-sm sm:text-base">{currentProject.description}</p>
           )}
-          <div className="flex gap-2 mt-4">
+          <div className="flex flex-wrap gap-2">
             {currentProject.team_id && (
               <Badge variant="outline" className="flex items-center gap-1">
-                <UsersRound className="h-3 w-3" />
+                <UsersRound className={iconSize('xs')} />
                 {teams.find(t => t.id === currentProject.team_id)?.name || 'Unknown Team'}
               </Badge>
             )}
@@ -337,8 +339,9 @@ export function ProjectDetail() {
           variant="outline"
           size="sm"
           onClick={() => setProjectEditorOpen(true)}
+          className="w-full sm:w-auto"
         >
-          <Edit className="mr-2 h-4 w-4" />
+          <Edit className={`mr-2 ${iconSize('sm')}`} />
           Edit Project
         </Button>
       </div>
@@ -359,7 +362,7 @@ export function ProjectDetail() {
                 <div className="space-y-1.5">
                   {lastCompletedTodos.map((todo, idx) => (
                     <div key={todo.id} className="flex items-start gap-2 text-sm">
-                      <CheckSquare className="h-3.5 w-3.5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                      <CheckSquare className={`${iconSize('xs')} text-success mt-0.5 flex-shrink-0`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-medium truncate">{todo.title}</span>
@@ -370,7 +373,7 @@ export function ProjectDetail() {
                           )}
                         </div>
                         <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                          <Clock className="h-3 w-3" />
+                          <Clock className={iconSize('xs')} />
                           {format(new Date(todo.completed_at || todo.updated_at), 'MMM d, HH:mm')}
                         </div>
                       </div>
@@ -577,8 +580,8 @@ export function ProjectDetail() {
 
       {/* Documents Section */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Documents</h2>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <h2 className="text-xl sm:text-2xl font-bold">Documents</h2>
           <Button>
             <Plus className="mr-2 h-4 w-4" />
             New Document
