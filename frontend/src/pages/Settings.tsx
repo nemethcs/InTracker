@@ -764,23 +764,31 @@ export function Settings() {
                   className="flex-1 font-mono text-xs p-3 bg-muted rounded-md min-h-[150px] resize-none"
                   spellCheck={false}
                 />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => {
-                    if (newKey) {
-                      handleCopyCursorConfig(newKey)
-                    }
-                  }}
-                  title="Copy configuration to clipboard"
-                  disabled={!newKey}
-                >
-                  {copiedConfig ? (
-                    <CheckCircle2 className={`${iconSize('sm')} text-success`} />
-                  ) : (
-                    <Copy className={iconSize('sm')} />
-                  )}
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          if (newKey) {
+                            handleCopyCursorConfig(newKey)
+                          }
+                        }}
+                        disabled={!newKey}
+                      >
+                        {copiedConfig ? (
+                          <CheckCircle2 className={`${iconSize('sm')} text-success`} />
+                        ) : (
+                          <Copy className={iconSize('sm')} />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Copy configuration to clipboard</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
 
