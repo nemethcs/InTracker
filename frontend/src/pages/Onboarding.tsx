@@ -18,7 +18,8 @@ const TOTAL_STEPS = 4
 
 export function Onboarding() {
   const navigate = useNavigate()
-  const { user, checkAuth } = useAuth()
+  const { user } = useAuth()
+  const { checkAuth } = useAuthStore()
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -27,8 +28,9 @@ export function Onboarding() {
     const loadProgress = async () => {
       try {
         await checkAuth()
+        const currentUser = useAuthStore.getState().user
         // Restore step from user's onboarding_step
-        if (user?.onboarding_step) {
+        if (currentUser?.onboarding_step) {
           // Map backend step (0-5) to frontend step (1-4)
           // 0=not_started -> 1, 1=welcome -> 1, 2=mcp_key -> 2, 3=mcp_verified -> 2, 4=github -> 3, 5=complete -> 4
           const stepMap: Record<number, number> = {
@@ -39,7 +41,7 @@ export function Onboarding() {
             4: 3, // github -> GitHub Setup
             5: 4, // complete -> Completion
           }
-          const restoredStep = stepMap[user.onboarding_step] || 1
+          const restoredStep = stepMap[currentUser.onboarding_step] || 1
           setCurrentStep(restoredStep)
         }
       } catch (error) {
@@ -49,11 +51,12 @@ export function Onboarding() {
       }
     }
     loadProgress()
-  }, [checkAuth, user?.onboarding_step])
+  }, [checkAuth])
 
   // Redirect if setup is already completed
   useEffect(() => {
-    if (user?.setup_completed) {
+    const currentUser = useAuthStore.getState().user
+    if (currentUser?.setup_completed) {
       navigate('/')
     }
   }, [user?.setup_completed, navigate])
