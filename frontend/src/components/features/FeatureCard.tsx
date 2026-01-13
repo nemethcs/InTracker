@@ -14,7 +14,7 @@ interface FeatureCardProps {
 export function FeatureCard({ feature, projectId, onEdit, number }: FeatureCardProps) {
   return (
     <Link to={`/projects/${projectId}/features/${feature.id}`}>
-      <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full relative">
+      <Card className="hover:shadow-elevated hover-lift transition-smooth cursor-pointer h-full relative">
         {number !== undefined && (
           <div className="absolute top-2 left-2 z-10">
             <Badge variant="outline" className="text-xs font-mono h-5 px-1.5 min-w-[24px] justify-center bg-background">

@@ -44,7 +44,7 @@ export function TodoCard({ todo, onEdit, onDelete, onStatusChange, number }: Tod
   const statusColor = statusColors[todo.status] || 'text-muted-foreground'
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="hover:shadow-soft hover-lift transition-smooth">
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-2 flex-1">
