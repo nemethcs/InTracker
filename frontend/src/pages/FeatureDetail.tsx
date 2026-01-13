@@ -5,6 +5,7 @@ import { useTodos } from '@/hooks/useTodos'
 import { useFeatureStore } from '@/stores/featureStore'
 import { useTodoStore } from '@/stores/todoStore'
 import { signalrService } from '@/services/signalrService'
+import { elementService, type ElementTree } from '@/services/elementService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -32,25 +33,50 @@ const statusIcons = {
 const statusColors = {
   new: 'text-muted-foreground',
   in_progress: 'text-primary',
-  done: 'text-green-600 dark:text-green-400',
-  tested: 'text-yellow-600 dark:text-yellow-400',
+  done: 'text-success',
+  tested: 'text-warning',
   merged: 'text-accent',
 }
 
 export function FeatureDetail() {
   const { projectId, featureId } = useParams<{ projectId: string; featureId: string }>()
-  const { features, isLoading: featuresLoading } = useFeatures(projectId)
+  const { features, isLoading: featuresLoading, refetch: refetchFeatures } = useFeatures(projectId)
   const { todos, isLoading: todosLoading, refetch: refetchTodos } = useTodos(featureId)
   const { createTodo, updateTodo, deleteTodo, updateTodoStatus } = useTodoStore()
   const { updateFeature } = useFeatureStore()
   const [todoEditorOpen, setTodoEditorOpen] = useState(false)
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null)
   const [featureEditorOpen, setFeatureEditorOpen] = useState(false)
+  const [elementTree, setElementTree] = useState<ElementTree | null>(null)
+  const [isLoadingElements, setIsLoadingElements] = useState(false)
 
   const feature = features.find(f => f.id === featureId)
   
-  // Get first element ID for new todos (we'll improve this later)
-  const elementId = '40447518-f6da-4e7a-9857-d42dbd1ca352' // Real-time Sync & WebSocket element
+  // Get element ID for new todos - use first element from project tree or feature's linked elements
+  const elementId = useMemo(() => {
+    if (!elementTree || !elementTree.elements || elementTree.elements.length === 0) {
+      return undefined
+    }
+    
+    // Helper function to find first element in tree (recursive)
+    const findFirstElement = (elements: any[]): string | undefined => {
+      for (const el of elements) {
+        // Prefer component or module type elements
+        if (el.type === 'component' || el.type === 'module') {
+          return el.id
+        }
+        // Check children recursively
+        if (el.children && el.children.length > 0) {
+          const childId = findFirstElement(el.children)
+          if (childId) return childId
+        }
+      }
+      // Fallback to first element
+      return elements[0]?.id
+    }
+    
+    return findFirstElement(elementTree.elements)
+  }, [elementTree])
 
   // Sort todos by position (if available), then by created_at
   // IMPORTANT: This must be before any early returns to maintain hook order
@@ -76,6 +102,23 @@ export function FeatureDetail() {
     in_progress: sortedTodos.filter(t => t.status === 'in_progress'),
     done: sortedTodos.filter(t => t.status === 'done'),
   }
+
+  // Load element tree for project
+  useEffect(() => {
+    if (!projectId) return
+
+    setIsLoadingElements(true)
+    elementService.getProjectTree(projectId)
+      .then((tree) => {
+        setElementTree(tree)
+        setIsLoadingElements(false)
+      })
+      .catch((error) => {
+        console.error('Failed to load element tree:', error)
+        setElementTree(null)
+        setIsLoadingElements(false)
+      })
+  }, [projectId])
 
   // Subscribe to SignalR real-time updates
   useEffect(() => {
@@ -223,11 +266,11 @@ export function FeatureDetail() {
                 <div className="text-sm text-muted-foreground">In Progress</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{todosByStatus.done.length}</div>
+                <div className="text-2xl font-bold text-success">{todosByStatus.done.length}</div>
                 <div className="text-sm text-muted-foreground">Done</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{feature.completed_todos}</div>
+                <div className="text-2xl font-bold text-success">{feature.completed_todos}</div>
                 <div className="text-sm text-muted-foreground">Completed</div>
               </div>
             </div>
@@ -342,7 +385,7 @@ export function FeatureDetail() {
         }}
         todo={editingTodo}
         featureId={featureId}
-        elementId={elementId}
+        elementId={elementId || undefined}
         onSave={async (data) => {
           try {
             if (editingTodo) {
@@ -371,7 +414,7 @@ export function FeatureDetail() {
             try {
               await updateFeature(featureId, data as any)
               // Refetch features to update the current feature
-              window.location.reload() // Simple refresh for now
+              refetchFeatures()
             } catch (error) {
               console.error('Failed to update feature:', error)
               throw error // Re-throw to let FeatureEditor handle the error
