@@ -95,7 +95,8 @@ export function GitHubSetupStep({ onNext, onBack }: GitHubSetupStepProps) {
     try {
       setIsConnectingGitHub(true)
       setGitHubError(null)
-      const { authorization_url } = await settingsService.getGitHubOAuthUrl()
+      // Use /onboarding as redirect_path for onboarding flow
+      const { authorization_url } = await settingsService.getGitHubOAuthUrl('/onboarding')
       window.location.href = authorization_url
     } catch (error: any) {
       console.error('Failed to get GitHub OAuth URL:', error)

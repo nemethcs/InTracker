@@ -39,6 +39,7 @@ class GitHubOAuthService:
         state: Optional[str] = None,
         code_challenge: Optional[str] = None,
         code_challenge_method: str = "S256",
+        redirect_path: str = "/settings",
     ) -> Tuple[str, str]:
         """Generate GitHub OAuth authorization URL with PKCE.
         
@@ -46,6 +47,7 @@ class GitHubOAuthService:
             state: Optional state parameter for CSRF protection
             code_challenge: PKCE code challenge (if None, generates new pair)
             code_challenge_method: PKCE method (default: S256)
+            redirect_path: Frontend path for OAuth callback (default: /settings)
             
         Returns:
             Tuple of (authorization_url, code_verifier)
@@ -70,9 +72,14 @@ class GitHubOAuthService:
         # Build authorization URL
         # Use FRONTEND_URL for callback (frontend will handle the redirect)
         callback_url = settings.FRONTEND_URL.rstrip("/")
+        # Ensure redirect_path starts with /
+        if not redirect_path.startswith("/"):
+            redirect_path = f"/{redirect_path}"
+        redirect_uri = f"{callback_url}{redirect_path}"
+        
         params = {
             "client_id": settings.GITHUB_OAUTH_CLIENT_ID,
-            "redirect_uri": f"{callback_url}/settings",
+            "redirect_uri": redirect_uri,
             "scope": "repo read:org read:user user:email",
             "state": state,
             "code_challenge": code_challenge,
@@ -90,6 +97,7 @@ class GitHubOAuthService:
         code: str,
         code_verifier: str,
         state: Optional[str] = None,
+        redirect_path: str = "/settings",
     ) -> Dict[str, any]:
         """Exchange authorization code for access token using PKCE.
         
@@ -97,6 +105,7 @@ class GitHubOAuthService:
             code: Authorization code from GitHub callback
             code_verifier: PKCE code verifier (must match code_challenge used in authorization)
             state: Optional state parameter for CSRF protection
+            redirect_path: Frontend path for OAuth callback (must match the one used in authorization)
             
         Returns:
             Dictionary with:
@@ -112,7 +121,10 @@ class GitHubOAuthService:
         
         # Exchange code for token
         callback_url = settings.FRONTEND_URL.rstrip("/")
-        redirect_uri = f"{callback_url}/settings"
+        # Ensure redirect_path starts with /
+        if not redirect_path.startswith("/"):
+            redirect_path = f"/{redirect_path}"
+        redirect_uri = f"{callback_url}{redirect_path}"
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
