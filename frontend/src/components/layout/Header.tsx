@@ -1,6 +1,6 @@
-import { Link } from 'react-router-dom'
 import { Menu, Bell, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Logo } from '@/components/ui/Logo'
 
 export function Header() {
   return (
@@ -10,9 +10,7 @@ export function Header() {
           <Button variant="ghost" size="icon" className="mr-2">
             <Menu className="h-5 w-5" />
           </Button>
-          <Link to="/" className="mr-6 flex items-center space-x-2">
-            <span className="font-bold text-xl">InTracker</span>
-          </Link>
+          <Logo className="mr-6" size="md" />
         </div>
         <div className="flex flex-1 items-center justify-between space-x-2 md:justify-end">
           <div className="w-full flex-1 md:w-auto md:flex-none"></div>
