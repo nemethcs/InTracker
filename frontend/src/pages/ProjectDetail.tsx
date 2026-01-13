@@ -144,7 +144,6 @@ export function ProjectDetail() {
   const [selectedElement, setSelectedElement] = useState<any>(null)
   const [elementDetailOpen, setElementDetailOpen] = useState(false)
   const [teams, setTeams] = useState<Team[]>([])
-  const [showProjectStructure, setShowProjectStructure] = useState(false) // Default: collapsed
 
   useEffect(() => {
     loadTeams()
