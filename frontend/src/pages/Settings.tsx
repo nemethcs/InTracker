@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { toast } from '@/hooks/useToast'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 export function Settings() {
   const { user, logout, checkAuth } = useAuthStore()
@@ -538,23 +539,23 @@ export function Settings() {
               {githubStatus.accessible_projects && githubStatus.accessible_projects.length > 0 && (
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Project Access Status</p>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {githubStatus.accessible_projects.map((project) => (
-                      <div
-                        key={project.project_id}
-                        className={`flex items-center justify-between rounded border p-3 text-sm ${
-                          project.has_access
-                            ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950'
-                            : 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-950'
-                        }`}
-                      >
-                        <div className="flex-1">
-                          <p className="font-medium">{project.project_name}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <p className="text-xs text-muted-foreground">{project.team_name}</p>
-                            {project.github_repo_url && (
-                              <>
-                                <span className="text-xs text-muted-foreground">•</span>
+                  <div className="rounded-md border max-h-64 overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Project</TableHead>
+                          <TableHead>Team</TableHead>
+                          <TableHead>Repository</TableHead>
+                          <TableHead className="text-right">Access</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {githubStatus.accessible_projects.map((project) => (
+                          <TableRow key={project.project_id}>
+                            <TableCell className="font-medium">{project.project_name}</TableCell>
+                            <TableCell className="text-muted-foreground">{project.team_name}</TableCell>
+                            <TableCell>
+                              {project.github_repo_url ? (
                                 <a
                                   href={project.github_repo_url}
                                   target="_blank"
@@ -563,25 +564,27 @@ export function Settings() {
                                 >
                                   GitHub
                                 </a>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {project.has_access ? (
-                            <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                              <CheckCircle2 className="h-4 w-4" />
-                              {project.access_level || 'Access'}
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1 text-xs text-destructive">
-                              <AlertCircle className="h-4 w-4" />
-                              No access
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                              ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {project.has_access ? (
+                                <span className="flex items-center justify-end gap-1 text-xs text-green-600 dark:text-green-400">
+                                  <CheckCircle2 className="h-4 w-4" />
+                                  {project.access_level || 'Access'}
+                                </span>
+                              ) : (
+                                <span className="flex items-center justify-end gap-1 text-xs text-destructive">
+                                  <AlertCircle className="h-4 w-4" />
+                                  No access
+                                </span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                   {githubStatus.accessible_projects.filter((p) => !p.has_access).length > 0 && (
                     <Alert>
