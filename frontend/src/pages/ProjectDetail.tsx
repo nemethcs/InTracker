@@ -316,7 +316,17 @@ export function ProjectDetail() {
                 {teams.find(t => t.id === currentProject.team_id)?.name || 'Unknown Team'}
               </Badge>
             )}
-            <Badge variant="outline">{currentProject.status}</Badge>
+            <Badge 
+              variant={
+                currentProject.status === 'active' ? 'success' :
+                currentProject.status === 'paused' ? 'warning' :
+                currentProject.status === 'blocked' ? 'destructive' :
+                currentProject.status === 'completed' ? 'info' :
+                currentProject.status === 'archived' ? 'muted' : 'outline'
+              }
+            >
+              {currentProject.status}
+            </Badge>
             {currentProject.tags?.map((tag) => (
               <Badge key={tag} variant="secondary">{tag}</Badge>
             ))}

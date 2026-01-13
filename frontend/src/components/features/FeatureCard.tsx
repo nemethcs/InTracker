@@ -25,9 +25,10 @@ export function FeatureCard({ feature, projectId, onEdit, number }: FeatureCardP
         <div className="absolute top-2 right-2 z-10">
           <Badge 
             variant={
-              feature.status === 'done' ? 'default' :
-              feature.status === 'tested' ? 'secondary' :
-              feature.status === 'in_progress' ? 'secondary' : 'outline'
+              feature.status === 'done' ? 'success' :
+              feature.status === 'tested' ? 'warning' :
+              feature.status === 'in_progress' ? 'info' :
+              feature.status === 'merged' ? 'accent' : 'muted'
             }
           >
             {feature.status}

@@ -207,14 +207,14 @@ export function Dashboard() {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {teamProjects.map((project) => {
-                    const statusColors: Record<string, string> = {
-                      active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-                      paused: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-                      blocked: 'bg-destructive/10 text-destructive dark:bg-destructive/20',
-                      completed: 'bg-primary/10 text-primary dark:bg-primary/20',
-                      archived: 'bg-muted text-muted-foreground',
+                    const statusVariants: Record<string, 'success' | 'warning' | 'destructive' | 'info' | 'muted'> = {
+                      active: 'success',
+                      paused: 'warning',
+                      blocked: 'destructive',
+                      completed: 'info',
+                      archived: 'muted',
                     }
-                    const statusColor = statusColors[project.status] || 'bg-muted text-muted-foreground'
+                    const statusVariant = statusVariants[project.status] || 'muted'
                     
                     return (
                       <Link key={project.id} to={`/projects/${project.id}`} className="group">
@@ -224,7 +224,7 @@ export function Dashboard() {
                               <CardTitle className="text-lg font-semibold line-clamp-2 group-hover:text-primary transition-colors">
                                 {project.name}
                               </CardTitle>
-                              <Badge className={`${statusColor} text-xs font-medium shrink-0`}>
+                              <Badge variant={statusVariant} className="text-xs font-medium shrink-0">
                                 {project.status}
                               </Badge>
                             </div>
