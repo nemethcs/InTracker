@@ -114,6 +114,11 @@ export const adminService = {
     return response.data
   },
 
+  async setTeamLanguage(teamId: string, language: string): Promise<Team> {
+    const response = await api.post(`/teams/${teamId}/language`, { language })
+    return response.data
+  },
+
   async deleteTeam(teamId: string): Promise<void> {
     await api.delete(`/teams/${teamId}`)
   },

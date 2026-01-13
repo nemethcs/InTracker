@@ -9,9 +9,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { adminService, type Team, type Invitation, type TeamMember, type User } from '@/services/adminService'
 import { UsersRound, Mail, Plus, Edit, Trash2, Copy, CheckCircle2, XCircle, UserPlus, UserMinus } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useToast } from '@/hooks/useToast'
 
 export function Teams() {
   const { user } = useAuth()
+  const toast = useToast()
   const [teams, setTeams] = useState<Team[]>([])
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null)
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
@@ -206,6 +209,21 @@ export function Teams() {
     setTimeout(() => setCopiedCode(null), 2000)
   }
 
+  const handleSetTeamLanguage = async (teamId: string, language: string) => {
+    if (!selectedTeam) return
+    try {
+      const updatedTeam = await adminService.setTeamLanguage(teamId, language)
+      // Update the selected team and teams list
+      setSelectedTeam(updatedTeam)
+      setTeams(teams.map(t => t.id === teamId ? updatedTeam : t))
+      toast.success('Team language updated', 'The team language has been set successfully.')
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to set team language'
+      setError(errorMessage)
+      toast.error('Failed to set team language', errorMessage)
+    }
+  }
+
   // Get users not in team (for admin only)
   const getAvailableUsers = (teamId: string) => {
     if (!isAdmin) return []
@@ -314,14 +332,34 @@ export function Teams() {
                   <Label>Team Name</Label>
                   <p className="text-sm font-medium">{selectedTeam.name}</p>
                 </div>
-                {selectedTeam.language && (
-                  <div>
-                    <Label>Language</Label>
+                <div>
+                  <Label>Language</Label>
+                  {selectedTeam.language ? (
                     <p className="text-sm font-medium">
                       {selectedTeam.language === 'hu' ? 'Hungarian (Magyar)' : selectedTeam.language === 'en' ? 'English' : selectedTeam.language}
                     </p>
-                  </div>
-                )}
+                  ) : isTeamLeaderOfSelectedTeam ? (
+                    <div className="space-y-2">
+                      <Select
+                        value=""
+                        onValueChange={(value) => handleSetTeamLanguage(selectedTeam.id, value)}
+                      >
+                        <SelectTrigger className="w-full sm:w-[200px]">
+                          <SelectValue placeholder="Select language" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="hu">Hungarian (Magyar)</SelectItem>
+                          <SelectItem value="en">English</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Set the team language. This can only be set once and cannot be changed later.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Not set</p>
+                  )}
+                </div>
                 <div>
                   <Label>Created</Label>
                   <p className="text-sm text-muted-foreground">
