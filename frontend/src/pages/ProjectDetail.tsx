@@ -144,6 +144,8 @@ export function ProjectDetail() {
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false)
   const [selectedElement, setSelectedElement] = useState<any>(null)
   const [elementDetailOpen, setElementDetailOpen] = useState(false)
+  const [documentEditorOpen, setDocumentEditorOpen] = useState(false)
+  const [editingDocument, setEditingDocument] = useState<Document | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
 
   useEffect(() => {
@@ -772,6 +774,45 @@ export function ProjectDetail() {
           onOpenChange={setElementDetailOpen}
           element={selectedElement}
           projectId={id}
+        />
+      )}
+
+      {/* Document Editor Dialog */}
+      {id && (
+        <DocumentEditor
+          open={documentEditorOpen}
+          onOpenChange={(open) => {
+            setDocumentEditorOpen(open)
+            if (!open) {
+              setEditingDocument(null)
+            }
+          }}
+          document={editingDocument}
+          projectId={id}
+          elementId={selectedElement?.id}
+          onSave={async (data) => {
+            try {
+              if (editingDocument) {
+                await documentService.updateDocument(editingDocument.id, data as any)
+              } else {
+                await documentService.createDocument(data as any)
+              }
+              // Reload documents
+              setIsLoadingDocuments(true)
+              documentService.listDocuments(id)
+                .then((docs) => {
+                  setDocuments(docs)
+                  setIsLoadingDocuments(false)
+                })
+                .catch((error) => {
+                  console.error('Failed to reload documents:', error)
+                  setIsLoadingDocuments(false)
+                })
+            } catch (error) {
+              console.error('Failed to save document:', error)
+              throw error // Re-throw to let DocumentEditor handle the error
+            }
+          }}
         />
       )}
     </div>
