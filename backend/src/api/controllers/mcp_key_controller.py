@@ -70,6 +70,16 @@ async def regenerate_mcp_key(
         revoke_existing=True,  # Automatically revoke existing keys
     )
 
+    # Update onboarding_step to 2 (mcp_key_generated) if not already higher
+    from src.database.models import User
+    user = db.query(User).filter(User.id == user_id).first()
+    if user and user.onboarding_step < 2:
+        user.onboarding_step = 2
+        db.commit()
+    
+    # Update setup_completed status
+    update_setup_completed(db, user_id)
+
     return McpApiKeyCreateResponse(
         key=McpApiKeyResponse(
             id=api_key.id,
