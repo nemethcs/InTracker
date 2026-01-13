@@ -71,11 +71,10 @@ class GitHubOAuthService:
         
         # Build authorization URL
         # Use FRONTEND_URL for callback (frontend will handle the redirect)
+        # IMPORTANT: GitHub OAuth App only allows one callback URL, so we always use /settings
+        # The redirect_path parameter is stored in Redis for frontend navigation after callback
         callback_url = settings.FRONTEND_URL.rstrip("/")
-        # Ensure redirect_path starts with /
-        if not redirect_path.startswith("/"):
-            redirect_path = f"/{redirect_path}"
-        redirect_uri = f"{callback_url}{redirect_path}"
+        redirect_uri = f"{callback_url}/settings"  # Always use /settings for GitHub App compatibility
         
         params = {
             "client_id": settings.GITHUB_OAUTH_CLIENT_ID,
@@ -120,11 +119,10 @@ class GitHubOAuthService:
             raise ValueError("GitHub OAuth credentials are not configured")
         
         # Exchange code for token
+        # IMPORTANT: GitHub OAuth App only allows one callback URL, so we always use /settings
+        # The redirect_path parameter is only used for frontend navigation, not for GitHub OAuth
         callback_url = settings.FRONTEND_URL.rstrip("/")
-        # Ensure redirect_path starts with /
-        if not redirect_path.startswith("/"):
-            redirect_path = f"/{redirect_path}"
-        redirect_uri = f"{callback_url}{redirect_path}"
+        redirect_uri = f"{callback_url}/settings"  # Always use /settings for GitHub App compatibility
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
