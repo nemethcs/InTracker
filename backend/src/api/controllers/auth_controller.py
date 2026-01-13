@@ -40,19 +40,24 @@ async def register(request: RegisterRequest, db: Session = Depends(get_db)):
             "refresh_token": auth_service.create_refresh_token(token_data),
         }
 
-        return AuthResponse(
-            message="User registered successfully",
-            user=UserResponse(
-                id=str(user.id),
-                email=user.email,
-                name=user.name,
-                github_username=user.github_username,
-                avatar_url=user.avatar_url,
-                is_active=user.is_active,
-                role=user.role,
-            ),
-            tokens=TokenResponse(**tokens),
-        )
+            return AuthResponse(
+                message="User registered successfully",
+                user=UserResponse(
+                    id=str(user.id),
+                    email=user.email,
+                    name=user.name,
+                    github_username=user.github_username,
+                    avatar_url=user.avatar_url,
+                    github_connected_at=user.github_connected_at.isoformat() if user.github_connected_at else None,
+                    github_token_expires_at=user.github_token_expires_at.isoformat() if user.github_token_expires_at else None,
+                    onboarding_step=user.onboarding_step,
+                    mcp_verified_at=user.mcp_verified_at.isoformat() if user.mcp_verified_at else None,
+                    setup_completed=user.setup_completed,
+                    is_active=user.is_active,
+                    role=user.role,
+                ),
+                tokens=TokenResponse(**tokens),
+            )
     except ValueError as e:
         if "already exists" in str(e):
             raise HTTPException(
@@ -71,19 +76,24 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
     try:
         user, tokens = auth_service.login(db, request.email, request.password)
 
-        return AuthResponse(
-            message="Login successful",
-            user=UserResponse(
-                id=str(user.id),
-                email=user.email,
-                name=user.name,
-                github_username=user.github_username,
-                avatar_url=user.avatar_url,
-                is_active=user.is_active,
-                role=user.role,
-            ),
-            tokens=TokenResponse(**tokens),
-        )
+            return AuthResponse(
+                message="Login successful",
+                user=UserResponse(
+                    id=str(user.id),
+                    email=user.email,
+                    name=user.name,
+                    github_username=user.github_username,
+                    avatar_url=user.avatar_url,
+                    github_connected_at=user.github_connected_at.isoformat() if user.github_connected_at else None,
+                    github_token_expires_at=user.github_token_expires_at.isoformat() if user.github_token_expires_at else None,
+                    onboarding_step=user.onboarding_step,
+                    mcp_verified_at=user.mcp_verified_at.isoformat() if user.mcp_verified_at else None,
+                    setup_completed=user.setup_completed,
+                    is_active=user.is_active,
+                    role=user.role,
+                ),
+                tokens=TokenResponse(**tokens),
+            )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -121,6 +131,10 @@ async def get_me(current_user: dict = Depends(get_current_user), db: Session = D
         github_username=user.github_username,
         avatar_url=user.avatar_url,
         github_connected_at=user.github_connected_at.isoformat() if user.github_connected_at else None,
+        github_token_expires_at=user.github_token_expires_at.isoformat() if user.github_token_expires_at else None,
+        onboarding_step=user.onboarding_step,
+        mcp_verified_at=user.mcp_verified_at.isoformat() if user.mcp_verified_at else None,
+        setup_completed=user.setup_completed,
         is_active=user.is_active,
         role=user.role,
     )
