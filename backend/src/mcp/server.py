@@ -59,6 +59,7 @@ async def list_tools() -> list[Tool]:
         todo.get_list_todos_tool(),
         todo.get_assign_todo_tool(),
         todo.get_link_todo_to_feature_tool(),
+        todo.get_delete_todo_tool(),
         # Session tools
         session.get_start_session_tool(),
         session.get_update_session_tool(),

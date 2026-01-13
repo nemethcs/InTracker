@@ -11,6 +11,7 @@ from src.services.element_service import ElementService
 from src.services.todo_service import TodoService
 from github.GithubException import GithubException
 from .github_repository import get_github_service
+from src.mcp.utils.project_access import validate_project_access
 
 
 def get_link_todo_to_pr_tool() -> MCPTool:
@@ -114,6 +115,11 @@ async def handle_get_github_pr(project_id: str, pr_number: int) -> dict:
     """Handle get GitHub PR tool call."""
     db = SessionLocal()
     try:
+        # Validate project access using user's GitHub OAuth token
+        has_access, error_dict = validate_project_access(db, project_id)
+        if not has_access:
+            return error_dict or {"error": "Cannot access project"}
+        
         # Use ProjectService to get project
         project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project or not project.github_repo_url:
@@ -194,6 +200,11 @@ async def handle_create_github_pr(
     """Handle create GitHub PR tool call."""
     db = SessionLocal()
     try:
+        # Validate project access using user's GitHub OAuth token
+        has_access, error_dict = validate_project_access(db, project_id)
+        if not has_access:
+            return error_dict or {"error": "Cannot access project"}
+        
         # Use ProjectService to get project
         project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project or not project.github_repo_url:

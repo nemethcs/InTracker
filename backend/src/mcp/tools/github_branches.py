@@ -11,6 +11,7 @@ from src.services.project_service import ProjectService
 from src.services.feature_service import FeatureService
 from github.GithubException import GithubException
 from .github_repository import get_github_service
+from src.mcp.utils.project_access import validate_project_access
 
 
 def get_get_branches_tool() -> MCPTool:
@@ -33,6 +34,11 @@ async def handle_get_branches(project_id: str, feature_id: Optional[str] = None)
     """Handle get branches tool call."""
     db = SessionLocal()
     try:
+        # Validate project access using user's GitHub OAuth token
+        has_access, error_dict = validate_project_access(db, project_id)
+        if not has_access:
+            return error_dict or {"error": "Cannot access project"}
+        
         query = db.query(GitHubBranch).filter(GitHubBranch.project_id == UUID(project_id))
         if feature_id:
             query = query.filter(GitHubBranch.feature_id == UUID(feature_id))
@@ -81,6 +87,11 @@ async def handle_create_branch_for_feature(feature_id: str, base_branch: str = "
         if not feature:
             return {"error": "Feature not found"}
 
+        # Validate project access using user's GitHub OAuth token
+        has_access, error_dict = validate_project_access(db, str(feature.project_id))
+        if not has_access:
+            return error_dict or {"error": "Cannot access project"}
+        
         # Use ProjectService to get project
         project = ProjectService.get_project_by_id(db, feature.project_id)
         if not project or not project.github_repo_url:
@@ -161,6 +172,11 @@ async def handle_link_branch_to_feature(feature_id: str, branch_name: str) -> di
         if not feature:
             return {"error": "Feature not found"}
 
+        # Validate project access using user's GitHub OAuth token
+        has_access, error_dict = validate_project_access(db, str(feature.project_id))
+        if not has_access:
+            return error_dict or {"error": "Cannot access project"}
+        
         # Use ProjectService to get project
         project = ProjectService.get_project_by_id(db, feature.project_id)
         if not project:
@@ -237,6 +253,11 @@ async def handle_get_feature_branches(feature_id: str) -> dict:
         if not feature:
             return {"error": "Feature not found"}
 
+        # Validate project access using user's GitHub OAuth token
+        has_access, error_dict = validate_project_access(db, str(feature.project_id))
+        if not has_access:
+            return error_dict or {"error": "Cannot access project"}
+        
         branches = db.query(GitHubBranch).filter(
             GitHubBranch.feature_id == UUID(feature_id),
         ).order_by(GitHubBranch.created_at.desc()).all()
@@ -281,6 +302,11 @@ async def handle_get_branch_status(project_id: str, branch_name: str) -> dict:
     """Handle get branch status tool call."""
     db = SessionLocal()
     try:
+        # Validate project access using user's GitHub OAuth token
+        has_access, error_dict = validate_project_access(db, project_id)
+        if not has_access:
+            return error_dict or {"error": "Cannot access project"}
+        
         # Use ProjectService to get project
         project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project or not project.github_repo_url:
@@ -364,6 +390,11 @@ async def handle_get_commits_for_feature(feature_id: str) -> dict:
         if not feature:
             return {"error": "Feature not found"}
 
+        # Validate project access using user's GitHub OAuth token
+        has_access, error_dict = validate_project_access(db, str(feature.project_id))
+        if not has_access:
+            return error_dict or {"error": "Cannot access project"}
+        
         # Use ProjectService to get project
         project = ProjectService.get_project_by_id(db, feature.project_id)
         if not project or not project.github_repo_url:

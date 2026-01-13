@@ -1,18 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuthStore } from '@/stores/authStore'
 import { mcpKeyService, type McpApiKey } from '@/services/mcpKeyService'
-import { Settings as SettingsIcon, Key, Copy, CheckCircle2, RefreshCw, AlertCircle, Plus } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { settingsService, type GitHubOAuthStatus } from '@/services/settingsService'
+import { Settings as SettingsIcon, Key, Copy, CheckCircle2, RefreshCw, AlertCircle, Plus, Github, X } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export function Settings() {
-  const { user, logout } = useAuthStore()
+  const { user, logout, checkAuth } = useAuthStore()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [mcpKey, setMcpKey] = useState<McpApiKey | null>(null)
   const [isLoadingKey, setIsLoadingKey] = useState(true)
   const [newKey, setNewKey] = useState<string | null>(null)
@@ -21,9 +23,17 @@ export function Settings() {
   const [copied, setCopied] = useState(false)
   const [copiedConfig, setCopiedConfig] = useState(false)
   const [showCursorConfigDialog, setShowCursorConfigDialog] = useState(false)
+  const [githubStatus, setGitHubStatus] = useState<GitHubOAuthStatus | null>(null)
+  const [isLoadingGitHub, setIsLoadingGitHub] = useState(true)
+  const [isConnectingGitHub, setIsConnectingGitHub] = useState(false)
+  const [githubError, setGitHubError] = useState<string | null>(null)
+  const [isProcessingCallback, setIsProcessingCallback] = useState(false)
+  // Guard against React StrictMode / double-invoked effects (dev) processing the same callback twice
+  const processedOAuthStateRef = useRef<string | null>(null)
 
   useEffect(() => {
     loadCurrentKey()
+    loadGitHubStatus()
   }, [])
 
   // Auto-open deeplink when newKey is set (after regeneration from Add to Cursor)
@@ -183,6 +193,126 @@ export function Settings() {
     return new Date(dateString).toLocaleString()
   }
 
+  const loadGitHubStatus = async () => {
+    try {
+      setIsLoadingGitHub(true)
+      setGitHubError(null)
+      const status = await settingsService.getGitHubStatus()
+      setGitHubStatus(status)
+    } catch (error) {
+      console.error('Failed to load GitHub status:', error)
+      setGitHubError(error instanceof Error ? error.message : 'Failed to load GitHub status')
+      setGitHubStatus({
+        connected: false,
+        accessible_projects: [],
+      })
+    } finally {
+      setIsLoadingGitHub(false)
+    }
+  }
+
+  const handleConnectGitHub = async () => {
+    try {
+      setIsConnectingGitHub(true)
+      setGitHubError(null)
+      const { authorization_url } = await settingsService.getGitHubOAuthUrl()
+      // Redirect to GitHub OAuth authorization page
+      window.location.href = authorization_url
+    } catch (error) {
+      console.error('Failed to get GitHub OAuth URL:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to connect GitHub'
+      setGitHubError(
+        errorMessage.includes('not configured')
+          ? 'GitHub OAuth is not configured on the server. Please contact your administrator or see the setup documentation.'
+          : errorMessage
+      )
+      setIsConnectingGitHub(false)
+    }
+  }
+
+  const handleDisconnectGitHub = async () => {
+    try {
+      setGitHubError(null)
+      await settingsService.disconnectGitHub()
+      await loadGitHubStatus() // Reload status after disconnect
+    } catch (error) {
+      console.error('Failed to disconnect GitHub:', error)
+      setGitHubError(error instanceof Error ? error.message : 'Failed to disconnect GitHub')
+    }
+  }
+
+  // Handle OAuth callback from GitHub
+  useEffect(() => {
+    const code = searchParams.get('code')
+    const state = searchParams.get('state')
+    const error = searchParams.get('error')
+    const errorDescription = searchParams.get('error_description')
+
+    if (error) {
+      // GitHub OAuth error
+      setGitHubError(errorDescription || error || 'GitHub OAuth authorization failed')
+      // Remove error params from URL
+      searchParams.delete('error')
+      searchParams.delete('error_description')
+      setSearchParams(searchParams, { replace: true })
+      return
+    }
+
+    // Only process callback if we have both code and state
+    // This prevents the callback from running when the page first loads
+    if (!code || !state) {
+      return // Don't process if code or state is missing
+    }
+
+    // Prevent processing the same state twice (can happen in dev StrictMode)
+    if (processedOAuthStateRef.current === state) {
+      return
+    }
+    processedOAuthStateRef.current = state
+
+    // Process OAuth callback
+    const processCallback = async () => {
+      if (isProcessingCallback) {
+        return // Prevent multiple calls
+      }
+
+      try {
+        setIsProcessingCallback(true)
+        setGitHubError(null)
+
+        // Call backend to exchange code for tokens
+        const result = await settingsService.handleOAuthCallback(code, state)
+
+        // Remove callback params from URL
+        searchParams.delete('code')
+        searchParams.delete('state')
+        setSearchParams(searchParams, { replace: true })
+
+        // Refresh user data to get updated GitHub info
+        await checkAuth()
+
+        // Reload GitHub status to show updated connection
+        await loadGitHubStatus()
+
+        // Show success message (optional - could use a toast notification)
+        console.log('GitHub OAuth connection successful:', result.message)
+      } catch (error) {
+        console.error('Failed to process OAuth callback:', error)
+        setGitHubError(error instanceof Error ? error.message : 'Failed to connect GitHub account')
+        
+        // Remove callback params from URL even on error
+        searchParams.delete('code')
+        searchParams.delete('state')
+        setSearchParams(searchParams, { replace: true })
+      } finally {
+        setIsProcessingCallback(false)
+      }
+    }
+
+    processCallback()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.get('code'), searchParams.get('state')]) // Only depend on code and state values
+
   return (
     <div className="space-y-6">
       <div>
@@ -334,6 +464,158 @@ export function Settings() {
                   Add to Cursor
                 </Button>
               )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* GitHub OAuth Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Github className="h-5 w-5" />
+            GitHub Integration
+          </CardTitle>
+          <CardDescription>
+            Connect your GitHub account to access repositories and manage projects
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {githubError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{githubError}</AlertDescription>
+            </Alert>
+          )}
+
+          {isProcessingCallback ? (
+            <div className="flex items-center justify-center py-4">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span className="ml-2 text-sm text-muted-foreground">Connecting GitHub account...</span>
+            </div>
+          ) : isLoadingGitHub ? (
+            <div className="flex items-center justify-center py-4">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading GitHub status...</span>
+            </div>
+          ) : githubStatus?.connected ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    {githubStatus.avatar_url && (
+                      <img
+                        src={githubStatus.avatar_url}
+                        alt={githubStatus.github_username}
+                        className="h-8 w-8 rounded-full"
+                      />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">
+                        Connected as {githubStatus.github_username}
+                      </p>
+                      {githubStatus.connected_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Connected {formatDate(githubStatus.connected_at)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDisconnectGitHub}
+                  className="flex items-center gap-2"
+                >
+                  <X className="h-4 w-4" />
+                  Disconnect
+                </Button>
+              </div>
+
+              {githubStatus.accessible_projects && githubStatus.accessible_projects.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Project Access Status</p>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {githubStatus.accessible_projects.map((project) => (
+                      <div
+                        key={project.project_id}
+                        className={`flex items-center justify-between rounded border p-3 text-sm ${
+                          project.has_access
+                            ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950'
+                            : 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-950'
+                        }`}
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium">{project.project_name}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="text-xs text-muted-foreground">{project.team_name}</p>
+                            {project.github_repo_url && (
+                              <>
+                                <span className="text-xs text-muted-foreground">•</span>
+                                <a
+                                  href={project.github_repo_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+                                >
+                                  GitHub
+                                </a>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {project.has_access ? (
+                            <span className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+                              <CheckCircle2 className="h-4 w-4" />
+                              {project.access_level || 'Access'}
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-xs text-red-700 dark:text-red-400">
+                              <AlertCircle className="h-4 w-4" />
+                              No access
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {githubStatus.accessible_projects.filter((p) => !p.has_access).length > 0 && (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Some projects show "No access" because your GitHub token doesn't have
+                        permission to access their repositories. You may need to grant additional
+                        permissions or request access to those repositories.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Connect your GitHub account to enable repository access and project management.
+              </p>
+              <Button
+                onClick={handleConnectGitHub}
+                disabled={isConnectingGitHub}
+                className="flex items-center gap-2"
+              >
+                {isConnectingGitHub ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <Github className="h-4 w-4" />
+                    Connect with GitHub
+                  </>
+                )}
+              </Button>
             </div>
           )}
         </CardContent>

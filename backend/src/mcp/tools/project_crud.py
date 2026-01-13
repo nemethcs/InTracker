@@ -76,7 +76,7 @@ async def handle_create_project(
             db=db,
             team_id=UUID(team_id),
             name=name,
-            user_id=user_id,
+            current_user_id=user_id,
             description=description,
             status=status,
             tags=tags,

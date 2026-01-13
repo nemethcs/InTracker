@@ -68,6 +68,7 @@ class UserResponse(BaseModel):
     name: Optional[str]
     github_username: Optional[str]
     avatar_url: Optional[str]
+    github_connected_at: Optional[str] = None
     is_active: bool
     role: Optional[str] = None
 

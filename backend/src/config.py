@@ -17,6 +17,11 @@ class Settings(BaseSettings):
 
     # GitHub
     GITHUB_TOKEN: Optional[str] = None
+    
+    # GitHub OAuth
+    GITHUB_OAUTH_CLIENT_ID: Optional[str] = None
+    GITHUB_OAUTH_CLIENT_SECRET: Optional[str] = None
+    GITHUB_OAUTH_ENCRYPTION_KEY: Optional[str] = None  # Fernet key for token encryption (base64 encoded)
 
     # Redis
     REDIS_URL: Optional[str] = None
@@ -39,6 +44,7 @@ class Settings(BaseSettings):
     AZURE_EMAIL_SENDER_ADDRESS: str = "DoNotReply@kesmarki.com"
     AZURE_EMAIL_SERVICE_NAME: str = "intracker-email-service"
     FRONTEND_URL: str = "https://intracker.kesmarki.com"
+    BACKEND_URL: Optional[str] = None  # For OAuth callback URL (defaults to FRONTEND_URL if not set)
 
     class Config:
         env_file = ".env"

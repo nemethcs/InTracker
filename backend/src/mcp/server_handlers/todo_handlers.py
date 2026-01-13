@@ -49,6 +49,12 @@ async def handle_todo_tool(name: str, arguments: dict) -> list[TextContent] | No
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 
+        elif name == "mcp_delete_todo":
+            result = await todo.handle_delete_todo(
+                arguments["todoId"],
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+
         return None
     except Exception as e:
         return [TextContent(type="text", text=f"Error: {str(e)}")]
