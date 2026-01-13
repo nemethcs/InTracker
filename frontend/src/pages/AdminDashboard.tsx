@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { adminService, type User, type Team, type Invitation, type TeamMember } from '@/services/adminService'
 import { Users, UsersRound, Mail, Shield, Trash2, Edit, Plus, Copy, CheckCircle2, XCircle, UserPlus, UserMinus, ChevronDown, ChevronUp } from 'lucide-react'
 
@@ -47,50 +48,33 @@ export function AdminDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b">
-        <nav className="flex space-x-8">
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'users'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
-            }`}
-          >
-            <Users className="inline mr-2 h-4 w-4" />
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as Tab)} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
             Users
-          </button>
-          <button
-            onClick={() => setActiveTab('teams')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'teams'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
-            }`}
-          >
-            <UsersRound className="inline mr-2 h-4 w-4" />
+          </TabsTrigger>
+          <TabsTrigger value="teams" className="flex items-center gap-2">
+            <UsersRound className="h-4 w-4" />
             Teams
-          </button>
-          <button
-            onClick={() => setActiveTab('invitations')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'invitations'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
-            }`}
-          >
-            <Mail className="inline mr-2 h-4 w-4" />
+          </TabsTrigger>
+          <TabsTrigger value="invitations" className="flex items-center gap-2">
+            <Mail className="h-4 w-4" />
             Invitations
-          </button>
-        </nav>
-      </div>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Tab Content */}
-      <div>
-        {activeTab === 'users' && <UsersTab />}
-        {activeTab === 'teams' && <TeamsTab />}
-        {activeTab === 'invitations' && <InvitationsTab />}
-      </div>
+        {/* Tab Content */}
+        <TabsContent value="users" className="mt-6">
+          <UsersTab />
+        </TabsContent>
+        <TabsContent value="teams" className="mt-6">
+          <TeamsTab />
+        </TabsContent>
+        <TabsContent value="invitations" className="mt-6">
+          <InvitationsTab />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
