@@ -302,49 +302,55 @@ export function ProjectDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div className="flex-1 space-y-4">
+      <PageHeader
+        title={
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl sm:text-3xl font-bold">{currentProject.name}</h1>
+            <span>{currentProject.name}</span>
             {/* Small, unobtrusive active users display */}
             {id && <ActiveUsers projectId={id} />}
           </div>
-          {currentProject.description && (
-            <p className="text-muted-foreground text-sm sm:text-base">{currentProject.description}</p>
-          )}
-          <div className="flex flex-wrap gap-2">
-            {currentProject.team_id && (
-              <Badge variant="outline" className="flex items-center gap-1">
-                <UsersRound className={iconSize('xs')} />
-                {teams.find(t => t.id === currentProject.team_id)?.name || 'Unknown Team'}
-              </Badge>
+        }
+        description={
+          <div className="space-y-2">
+            {currentProject.description && (
+              <p className="text-muted-foreground text-sm sm:text-base">{currentProject.description}</p>
             )}
-            <Badge 
-              variant={
-                currentProject.status === 'active' ? 'success' :
-                currentProject.status === 'paused' ? 'warning' :
-                currentProject.status === 'blocked' ? 'destructive' :
-                currentProject.status === 'completed' ? 'info' :
-                currentProject.status === 'archived' ? 'muted' : 'outline'
-              }
-            >
-              {currentProject.status}
-            </Badge>
-            {currentProject.tags?.map((tag) => (
-              <Badge key={tag} variant="secondary">{tag}</Badge>
-            ))}
+            <div className="flex flex-wrap gap-2">
+              {currentProject.team_id && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <UsersRound className={iconSize('xs')} />
+                  {teams.find(t => t.id === currentProject.team_id)?.name || 'Unknown Team'}
+                </Badge>
+              )}
+              <Badge 
+                variant={
+                  currentProject.status === 'active' ? 'success' :
+                  currentProject.status === 'paused' ? 'warning' :
+                  currentProject.status === 'blocked' ? 'destructive' :
+                  currentProject.status === 'completed' ? 'info' :
+                  currentProject.status === 'archived' ? 'muted' : 'outline'
+                }
+              >
+                {currentProject.status}
+              </Badge>
+              {currentProject.tags?.map((tag) => (
+                <Badge key={tag} variant="secondary">{tag}</Badge>
+              ))}
+            </div>
           </div>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setProjectEditorOpen(true)}
-          className="w-full sm:w-auto"
-        >
-          <Edit className={`mr-2 ${iconSize('sm')}`} />
-          Edit Project
-        </Button>
-      </div>
+        }
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setProjectEditorOpen(true)}
+            className="w-full sm:w-auto"
+          >
+            <Edit className={`mr-2 ${iconSize('sm')}`} />
+            Edit Project
+          </Button>
+        }
+      />
 
       {/* Recent Activity - Compact display */}
       {(lastCompletedTodos.length > 0 || lastWorkedFeature) && (
