@@ -456,7 +456,7 @@ export function ProjectDetail() {
           )}
         </div>
         {isLoadingTodos ? (
-          <LoadingSpinner />
+          <LoadingState variant="combined" size="md" skeletonCount={3} />
         ) : todos.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
@@ -485,7 +485,7 @@ export function ProjectDetail() {
           </Button>
         </div>
         {featuresLoading ? (
-          <LoadingSpinner />
+          <LoadingState variant="combined" size="md" skeletonCount={3} />
         ) : features.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
@@ -531,7 +531,7 @@ export function ProjectDetail() {
             {isLoadingElements ? (
               <Card>
                 <CardContent className="py-8">
-                  <LoadingSpinner />
+                  <LoadingState variant="combined" size="md" skeletonCount={3} />
                 </CardContent>
               </Card>
             ) : elementTree && elementTree.elements && elementTree.elements.length > 0 ? (
@@ -575,7 +575,7 @@ export function ProjectDetail() {
           </Button>
         </div>
         {isLoadingDocuments ? (
-          <LoadingSpinner />
+          <LoadingState variant="combined" size="md" skeletonCount={3} />
         ) : documents.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
