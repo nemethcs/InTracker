@@ -69,7 +69,9 @@ class EncryptionService:
             decrypted_bytes = self.cipher.decrypt(encrypted_bytes)
             return decrypted_bytes.decode('utf-8')
         except Exception as e:
-            print(f"⚠️  Decryption failed: {e}")
+            print(f"⚠️  Decryption failed: {type(e).__name__}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return None
 
 
