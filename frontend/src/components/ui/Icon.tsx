@@ -1,4 +1,4 @@
-import { LucideIcon } from 'lucide-react'
+import React from 'react'
 import { cn } from '@/lib/utils'
 
 export type IconSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
@@ -12,7 +12,7 @@ const iconSizeClasses: Record<IconSize, string> = {
 }
 
 interface IconProps {
-  icon: LucideIcon
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>
   size?: IconSize
   className?: string
 }
