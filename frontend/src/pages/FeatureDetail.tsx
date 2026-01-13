@@ -246,9 +246,7 @@ export function FeatureDetail() {
         </div>
 
         {todosLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <LoadingSpinner />
-          </div>
+          <LoadingState variant="combined" size="md" skeletonCount={3} />
         ) : todos.length === 0 ? (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
