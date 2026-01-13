@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { toast } from '@/hooks/useToast'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
 
 export function Settings() {
   const { user, logout, checkAuth } = useAuthStore()
@@ -381,13 +382,9 @@ export function Settings() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Key Status</Label>
-                  <span className={`text-xs px-2 py-1 rounded ${
-                    mcpKey.is_active
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      : 'bg-muted text-muted-foreground'
-                  }`}>
+                  <Badge variant={mcpKey.is_active ? 'success' : 'muted'}>
                     {mcpKey.is_active ? 'Active' : 'Inactive'}
-                  </span>
+                  </Badge>
                 </div>
                 {mcpKey.name && (
                   <div>
@@ -571,7 +568,7 @@ export function Settings() {
                             </TableCell>
                             <TableCell className="text-right">
                               {project.has_access ? (
-                                <span className="flex items-center justify-end gap-1 text-xs text-green-600 dark:text-green-400">
+                                <span className="flex items-center justify-end gap-1 text-xs text-success">
                                   <CheckCircle2 className={iconSize('sm')} />
                                   {project.access_level || 'Access'}
                                 </span>
@@ -654,7 +651,7 @@ export function Settings() {
                   title="Copy to clipboard"
                 >
                   {copied ? (
-                    <CheckCircle2 className={`${iconSize('sm')} text-green-600`} />
+                    <CheckCircle2 className={`${iconSize('sm')} text-success`} />
                   ) : (
                     <Copy className={iconSize('sm')} />
                   )}
