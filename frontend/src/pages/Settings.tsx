@@ -296,6 +296,14 @@ export function Settings() {
 
         // Refresh user data to get updated GitHub info
         await checkAuth()
+        
+        // Check if user is in onboarding flow and redirect to onboarding if needed
+        const currentUser = useAuthStore.getState().user
+        if (currentUser && !currentUser.setup_completed) {
+          // User is in onboarding flow, redirect to onboarding page
+          navigate('/onboarding')
+          return
+        }
 
         // Reload GitHub status to show updated connection
         await loadGitHubStatus()

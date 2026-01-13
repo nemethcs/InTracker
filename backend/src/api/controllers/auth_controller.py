@@ -159,17 +159,28 @@ async def get_me(current_user: dict = Depends(get_current_user), db: Session = D
 async def github_authorize(
     current_user: dict = Depends(get_current_user),
     state: Optional[str] = Query(None),
+    redirect_path: str = Query("/settings", description="Frontend path for OAuth callback"),
 ):
     """Generate GitHub OAuth authorization URL with PKCE.
     
     Returns authorization URL and stores code_verifier in Redis with state as key.
-    Also stores user_id in Redis for callback authentication.
+    Also stores user_id and redirect_path in Redis for callback authentication.
+    
+    Args:
+        redirect_path: Frontend path for OAuth callback (default: /settings, can be /onboarding)
     """
     try:
         user_id = UUID(current_user["user_id"])
         
+        # Ensure redirect_path starts with /
+        if not redirect_path.startswith("/"):
+            redirect_path = f"/{redirect_path}"
+        
         # Generate authorization URL with PKCE
-        authorization_url, code_verifier = github_oauth_service.generate_authorization_url(state=state)
+        authorization_url, code_verifier = github_oauth_service.generate_authorization_url(
+            state=state,
+            redirect_path=redirect_path
+        )
         
         # Store code_verifier in Redis with state as key (expires in 10 minutes)
         # Use the state from the generated URL (it might have been generated)
@@ -192,6 +203,8 @@ async def github_authorize(
             redis_client.setex(cache_key, 600, code_verifier)  # 10 minutes TTL
             # Also store user_id for callback authentication
             redis_client.setex(f"github_oauth:user:{state_value}", 600, str(user_id))  # 10 minutes TTL
+            # Store redirect_path for callback validation
+            redis_client.setex(f"github_oauth:redirect_path:{state_value}", 600, redirect_path)  # 10 minutes TTL
         else:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -255,7 +268,7 @@ async def github_callback(
                 detail="User not found",
             )
         
-        # Retrieve code_verifier from Redis
+        # Retrieve code_verifier and redirect_path from Redis
         # State parameter comes from URL, might be URL-encoded by GitHub
         # Try both the original state and URL-decoded version
         import urllib.parse
@@ -269,9 +282,11 @@ async def github_callback(
             )
         
         code_verifier = None
+        redirect_path = "/settings"  # Default fallback
         # Try original state first
         cache_key = f"github_oauth:state:{state}"
         code_verifier_raw = redis_client.get(cache_key)
+        redirect_path_raw = redis_client.get(f"github_oauth:redirect_path:{state}")
         
         # If not found, try URL-decoded state
         if not code_verifier_raw and decoded_state != state:
@@ -279,6 +294,7 @@ async def github_callback(
             code_verifier_raw = redis_client.get(cache_key_decoded)
             if code_verifier_raw:
                 cache_key = cache_key_decoded
+                redirect_path_raw = redis_client.get(f"github_oauth:redirect_path:{decoded_state}")
         
         # Delete state from cache (one-time use)
         if code_verifier_raw:
@@ -288,6 +304,17 @@ async def github_callback(
                 code_verifier = code_verifier_raw.decode('utf-8')
             else:
                 code_verifier = code_verifier_raw
+            
+            # Get redirect_path if stored
+            if redirect_path_raw:
+                if isinstance(redirect_path_raw, bytes):
+                    redirect_path = redirect_path_raw.decode('utf-8')
+                else:
+                    redirect_path = redirect_path_raw
+                # Clean up redirect_path from cache
+                redis_client.delete(f"github_oauth:redirect_path:{state}")
+                if decoded_state != state:
+                    redis_client.delete(f"github_oauth:redirect_path:{decoded_state}")
         
         if not code_verifier:
             raise HTTPException(
@@ -295,11 +322,12 @@ async def github_callback(
                 detail=f"Invalid or expired state parameter. State: {state[:20]}...",
             )
         
-        # Exchange code for tokens
+        # Exchange code for tokens (use the redirect_path from Redis)
         token_data = await github_oauth_service.exchange_code_for_tokens(
             code=code,
             code_verifier=code_verifier,
             state=state,
+            redirect_path=redirect_path,
         )
         
         # Encrypt tokens
