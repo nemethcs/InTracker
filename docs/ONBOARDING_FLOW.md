@@ -36,9 +36,11 @@ Teljes onboarding folyamat új felhasználók számára regisztráció után.
 - ✅ **Generate MCP API Key** gomb
 - ✅ **Add to Cursor** deeplink (one-click install)
 - ✅ **Manual Config** fallback (copy/paste JSON)
-- 🔍 **Optional:** Verify connection (ping MCP endpoint)
+- ✅ **Verify Connection** gomb (KÖTELEZŐ!) - Hívja az `mcp_verify_connection` tool-t
 
-**Validáció:** Nem lehet továbblépni, amíg nincs API key generálva.
+**Validáció:** 
+- Nem lehet továbblépni, amíg nincs API key generálva
+- **KÖTELEZŐ:** MCP verify sikeresen lefutott (Cursor tényleg csatlakozva van)
 
 **Flow:**
 ```
@@ -48,12 +50,37 @@ Backend generates key
   ↓
 Frontend shows deeplink + manual config
   ↓
-User clicks "Add to Cursor" OR copies config
+User clicks "Add to Cursor" deeplink (opens Cursor, installs MCP)
   ↓
-User clicks "Next" (key existence validated)
+User in Cursor: "Use the verify tool" (megkéri az agentet)
   ↓
-→ Step 3
+Cursor Agent: Calls mcp_verify_connection tool
+  ↓
+Backend: Saves mcp_verified_at timestamp for user
+  ↓
+Frontend: Polling GET /api/onboarding/mcp-verification-status
+  ↓
+Backend returns: {verified: true, verified_at: "2025-01-13T..."}
+  ↓
+Frontend: Shows success ✅, enables "Next" button, saves onboarding_step=3
+  ↓
+User clicks "Next" (only if verified)
+  ↓
+→ Step 3 (GitHub Setup)
 ```
+
+**MCP Verify Tool:**
+- **Tool name:** `mcp_verify_connection`
+- **Purpose:** Ellenőrzi, hogy a Cursor valóban csatlakozva van és kommunikál az MCP szerverrel
+- **Called by:** Cursor Agent (user requests: "Use the verify tool")
+- **Implementation:** 
+  - Simple verification: Returns success if tool can be called
+  - Backend saves `mcp_verified_at` timestamp to User model
+  - Returns: `{verified: true, message: "MCP connection verified successfully"}`
+- **Frontend Integration:**
+  - Shows instruction: "Add MCP to Cursor, then ask the agent: 'Use the verify tool'"
+  - Polls `GET /api/onboarding/mcp-verification-status` every 2-3 seconds
+  - When verified=true, shows success and enables "Next"
 
 ---
 
@@ -141,8 +168,18 @@ if (!user.setup_completed) {
 class User(Base):
     # ... existing fields
     setup_completed = Column(Boolean, default=False, nullable=False)
+    onboarding_step = Column(Integer, default=0, nullable=False)  # 0=not started, 1=welcome, 2=mcp_setup, 3=mcp_verify, 4=github_setup, 5=complete
+    mcp_verified_at = Column(DateTime, nullable=True)  # Timestamp when mcp_verify_connection was successfully called
     # Computed: MCP key exists AND GitHub connected
 ```
+
+**Onboarding Step Values:**
+- `0` = Not started (new user)
+- `1` = Welcome screen completed
+- `2` = MCP key generated
+- `3` = MCP connection verified
+- `4` = GitHub connected
+- `5` = Complete (setup_completed = true)
 
 ### Setup Completion Logic
 ```python
@@ -152,15 +189,38 @@ def is_setup_complete(user: User) -> bool:
     return has_mcp_key and has_github
 ```
 
-### API Endpoint
-```
-GET /auth/me
-Response:
+### API Endpoints
+
+#### GET /auth/me
+```json
 {
   ...user fields,
-  "setup_completed": true/false
+  "setup_completed": true/false,
+  "onboarding_step": 3,
+  "github_token_expires_at": "2025-01-13T..."
 }
 ```
+
+#### GET /api/onboarding/mcp-verification-status
+**Request:** (no body, uses current user from auth)
+**Response:**
+```json
+{
+  "verified": true,
+  "verified_at": "2025-01-13T15:30:00Z",
+  "message": "MCP connection verified successfully"
+}
+```
+**Not Verified Response:**
+```json
+{
+  "verified": false,
+  "verified_at": null,
+  "message": "MCP connection not yet verified. Please add MCP to Cursor and use the verify tool."
+}
+```
+
+**Note:** This endpoint is polled by frontend every 2-3 seconds during onboarding Step 2.
 
 ---
 
@@ -209,18 +269,23 @@ if (user.github_token_expires_at) {
 
 ### Frontend (React)
 - [ ] Create `WelcomeScreen.tsx`
-- [ ] Create `McpSetupStep.tsx`
+- [ ] Create `McpSetupStep.tsx` (with MCP verify polling)
 - [ ] Create `GitHubSetupStep.tsx`
 - [ ] Create `CompletionStep.tsx`
-- [ ] Create `Onboarding.tsx` (main page with stepper)
+- [ ] Create `Onboarding.tsx` (main page with stepper + progress persistence)
 - [ ] Update `Register.tsx` (redirect to `/onboarding`)
 - [ ] Add route guard in `App.tsx`
 - [ ] Create `ExpirationWarningBanner.tsx`
 
 ### Backend (FastAPI)
 - [ ] Add `setup_completed` field to User model
+- [ ] Add `onboarding_step` field to User model (INTEGER, default=0)
+- [ ] Add `mcp_verified_at` field to User model (DateTime, nullable=True)
 - [ ] Add `github_token_expires_at` to `/auth/me` response
-- [ ] Create Alembic migration for new field
+- [ ] Create Alembic migration for new fields
+- [ ] Create MCP verify tool (`mcp_verify_connection`) - saves `mcp_verified_at` when called
+- [ ] Create API endpoint `GET /api/onboarding/mcp-verification-status` (polling endpoint)
+- [ ] Update `/auth/me` to return `onboarding_step` and `mcp_verified_at`
 
 ---
 
