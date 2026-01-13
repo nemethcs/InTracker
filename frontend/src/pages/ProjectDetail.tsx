@@ -267,7 +267,7 @@ export function ProjectDetail() {
 
   if (projectLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <LoadingState variant="combined" size="md" skeletonCount={8} />
       </div>
     )
@@ -304,7 +304,7 @@ export function ProjectDetail() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title={
           <div className="flex items-center gap-3 flex-wrap">
@@ -447,8 +447,8 @@ export function ProjectDetail() {
 
       {/* Open Todos Section - Next tasks (most important after resume context) */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Next Tasks</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xl sm:text-2xl font-bold">Next Tasks</h2>
           {features.length > 0 && (
             <Link to={`/projects/${id}/features/${features[0]?.id}`}>
               <Button variant="outline" size="sm">
@@ -572,7 +572,7 @@ export function ProjectDetail() {
 
       {/* Documents Section */}
       <div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
           <h2 className="text-xl sm:text-2xl font-bold">Documents</h2>
           <Button onClick={() => {
             setEditingDocument(null)

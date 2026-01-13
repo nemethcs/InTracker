@@ -219,7 +219,7 @@ export function FeatureDetail() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PageHeader
         title={
           <div className="flex items-center gap-2 sm:gap-4">
@@ -305,7 +305,7 @@ export function FeatureDetail() {
 
       {/* Todos Section */}
       <div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
           <h2 className="text-xl sm:text-2xl font-bold">Todos</h2>
           <Button 
             onClick={() => {
