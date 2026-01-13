@@ -26,15 +26,25 @@ export function CompletionStep({ onComplete, onBack }: CompletionStepProps) {
       
       // Wait a moment for state to update, then check if setup is completed
       // Use setTimeout to ensure state has updated
-      await new Promise(resolve => setTimeout(resolve, 200))
+      await new Promise(resolve => setTimeout(resolve, 300))
       
-      const currentUser = useAuthStore.getState().user
+      // Check multiple times to ensure state has updated
+      let attempts = 0
+      let currentUser = useAuthStore.getState().user
+      while (!currentUser?.setup_completed && attempts < 3) {
+        await new Promise(resolve => setTimeout(resolve, 200))
+        await checkAuth()
+        currentUser = useAuthStore.getState().user
+        attempts++
+      }
+      
       if (currentUser?.setup_completed) {
         // Setup is completed, navigate to dashboard
         // The Onboarding component's useEffect will also handle this automatically
         onComplete()
       } else {
-        // Setup not completed yet, show error
+        // Setup not completed yet, show error with debug info
+        console.error('Setup not completed. User state:', currentUser)
         setError('Setup is not yet complete. Please ensure both MCP key and GitHub are connected.')
         setIsCompleting(false)
       }
