@@ -61,6 +61,16 @@ export function Onboarding() {
     }
   }, [user?.setup_completed, navigate])
 
+  // Also listen to store changes for setup_completed
+  useEffect(() => {
+    const unsubscribe = useAuthStore.subscribe((state) => {
+      if (state.user?.setup_completed) {
+        navigate('/')
+      }
+    })
+    return unsubscribe
+  }, [navigate])
+
   const handleNext = () => {
     if (currentStep < TOTAL_STEPS) {
       setCurrentStep(currentStep + 1)
