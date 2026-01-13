@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { mcpKeyService, type McpApiKey } from '@/services/mcpKeyService'
 import { settingsService, type GitHubOAuthStatus } from '@/services/settingsService'
 import { Settings as SettingsIcon, Key, Copy, CheckCircle2, RefreshCw, AlertCircle, Plus, Github, X } from 'lucide-react'
+import { iconSize } from '@/components/ui/Icon'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -364,7 +365,7 @@ export function Settings() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5" />
+            <Key className={iconSize('md')} />
             MCP API Key
           </CardTitle>
           <CardDescription>
@@ -411,7 +412,7 @@ export function Settings() {
               </div>
 
               <Alert>
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className={iconSize('sm')} />
                 <AlertDescription>
                   The API key value cannot be retrieved after creation. If you've lost your key,
                   regenerate a new one below.
@@ -423,7 +424,7 @@ export function Settings() {
                   onClick={handleAddToCursor}
                   className="flex-1"
                 >
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus className={`mr-2 ${iconSize('sm')}`} />
                   Add to Cursor
                 </Button>
                 <Button
@@ -432,7 +433,7 @@ export function Settings() {
                   variant="outline"
                   className="flex-1"
                 >
-                  <RefreshCw className={`mr-2 h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`mr-2 ${iconSize('sm')} ${isRegenerating ? 'animate-spin' : ''}`} />
                   {isRegenerating ? 'Regenerating...' : 'Regenerate Key'}
                 </Button>
               </div>
@@ -440,7 +441,7 @@ export function Settings() {
           ) : (
             <div className="space-y-4">
               <Alert>
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className={iconSize('sm')} />
                 <AlertDescription>
                   You don't have an MCP API key yet. Generate one to connect Cursor and other AI assistants.
                 </AlertDescription>
@@ -451,7 +452,7 @@ export function Settings() {
                 disabled={isRegenerating}
                 className="w-full"
               >
-                <Key className={`mr-2 h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
+                <Key className={`mr-2 ${iconSize('sm')} ${isRegenerating ? 'animate-spin' : ''}`} />
                 {isRegenerating ? 'Generating...' : 'Generate MCP API Key'}
               </Button>
               {newKey && (
@@ -463,7 +464,7 @@ export function Settings() {
                   className="w-full mt-2"
                   variant="outline"
                 >
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus className={`mr-2 ${iconSize('sm')}`} />
                   Add to Cursor
                 </Button>
               )}
@@ -476,7 +477,7 @@ export function Settings() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Github className="h-5 w-5" />
+            <Github className={iconSize('md')} />
             GitHub Integration
           </CardTitle>
           <CardDescription>
@@ -493,12 +494,12 @@ export function Settings() {
 
           {isProcessingCallback ? (
             <div className="flex items-center justify-center py-4">
-              <RefreshCw className="h-4 w-4 animate-spin" />
+              <RefreshCw className={`${iconSize('sm')} animate-spin`} />
               <span className="ml-2 text-sm text-muted-foreground">Connecting GitHub account...</span>
             </div>
           ) : isLoadingGitHub ? (
             <div className="flex items-center justify-center py-4">
-              <RefreshCw className="h-4 w-4 animate-spin" />
+              <RefreshCw className={`${iconSize('sm')} animate-spin`} />
               <span className="ml-2 text-sm text-muted-foreground">Loading GitHub status...</span>
             </div>
           ) : githubStatus?.connected ? (
@@ -531,7 +532,7 @@ export function Settings() {
                   onClick={handleDisconnectGitHub}
                   className="flex items-center gap-2"
                 >
-                  <X className="h-4 w-4" />
+                  <X className={iconSize('sm')} />
                   Disconnect
                 </Button>
               </div>
@@ -571,12 +572,12 @@ export function Settings() {
                             <TableCell className="text-right">
                               {project.has_access ? (
                                 <span className="flex items-center justify-end gap-1 text-xs text-green-600 dark:text-green-400">
-                                  <CheckCircle2 className="h-4 w-4" />
+                                  <CheckCircle2 className={iconSize('sm')} />
                                   {project.access_level || 'Access'}
                                 </span>
                               ) : (
                                 <span className="flex items-center justify-end gap-1 text-xs text-destructive">
-                                  <AlertCircle className="h-4 w-4" />
+                                  <AlertCircle className={iconSize('sm')} />
                                   No access
                                 </span>
                               )}
@@ -588,7 +589,7 @@ export function Settings() {
                   </div>
                   {githubStatus.accessible_projects.filter((p) => !p.has_access).length > 0 && (
                     <Alert>
-                      <AlertCircle className="h-4 w-4" />
+                      <AlertCircle className={iconSize('sm')} />
                       <AlertDescription className="text-xs">
                         Some projects show "No access" because your GitHub token doesn't have
                         permission to access their repositories. You may need to grant additional
@@ -611,12 +612,12 @@ export function Settings() {
               >
                 {isConnectingGitHub ? (
                   <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <RefreshCw className={`${iconSize('sm')} animate-spin`} />
                     Connecting...
                   </>
                 ) : (
                   <>
-                    <Github className="h-4 w-4" />
+                    <Github className={iconSize('sm')} />
                     Connect with GitHub
                   </>
                 )}
@@ -653,9 +654,9 @@ export function Settings() {
                   title="Copy to clipboard"
                 >
                   {copied ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <CheckCircle2 className={`${iconSize('sm')} text-green-600`} />
                   ) : (
-                    <Copy className="h-4 w-4" />
+                    <Copy className={iconSize('sm')} />
                   )}
                 </Button>
               </div>
@@ -710,7 +711,7 @@ export function Settings() {
                       }}
                     >
                       <Button className="w-full" size="lg">
-                        <Plus className="mr-2 h-4 w-4" />
+                        <Plus className={`mr-2 ${iconSize('sm')}`} />
                         Add to Cursor
                       </Button>
                     </a>
@@ -721,9 +722,9 @@ export function Settings() {
                       title="Copy install link"
                     >
                       {copiedConfig ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        <CheckCircle2 className={`${iconSize('sm')} text-green-600`} />
                       ) : (
-                        <Copy className="h-4 w-4" />
+                        <Copy className={iconSize('sm')} />
                       )}
                     </Button>
                   </div>
@@ -761,9 +762,9 @@ export function Settings() {
                   disabled={!newKey}
                 >
                   {copiedConfig ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <CheckCircle2 className={`${iconSize('sm')} text-green-600`} />
                   ) : (
-                    <Copy className="h-4 w-4" />
+                    <Copy className={iconSize('sm')} />
                   )}
                 </Button>
               </div>
@@ -771,7 +772,7 @@ export function Settings() {
 
             {newKey && (
               <Alert>
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className={iconSize('sm')} />
                 <AlertDescription>
                   <strong>Manual installation:</strong>
                   <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">

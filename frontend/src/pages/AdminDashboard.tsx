@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { adminService, type User, type Team, type Invitation, type TeamMember } from '@/services/adminService'
 import { Users, UsersRound, Mail, Shield, Trash2, Edit, Plus, Copy, CheckCircle2, XCircle, UserPlus, UserMinus, ChevronDown, ChevronUp } from 'lucide-react'
+import { iconSize } from '@/components/ui/Icon'
 
 type Tab = 'users' | 'teams' | 'invitations'
 
@@ -52,15 +53,15 @@ export function AdminDashboard() {
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as Tab)} className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-3">
           <TabsTrigger value="users" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
+            <Users className={iconSize('sm')} />
             Users
           </TabsTrigger>
           <TabsTrigger value="teams" className="flex items-center gap-2">
-            <UsersRound className="h-4 w-4" />
+            <UsersRound className={iconSize('sm')} />
             Teams
           </TabsTrigger>
           <TabsTrigger value="invitations" className="flex items-center gap-2">
-            <Mail className="h-4 w-4" />
+            <Mail className={iconSize('sm')} />
             Invitations
           </TabsTrigger>
         </TabsList>
