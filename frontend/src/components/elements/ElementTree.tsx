@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ChevronRight, ChevronDown, Folder, Package, Component, CheckSquare } from 'lucide-react'
 import { useState } from 'react'
 import type { Element } from '@/services/elementService'
