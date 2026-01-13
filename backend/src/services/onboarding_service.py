@@ -30,13 +30,17 @@ def update_setup_completed(db: Session, user_id: UUID) -> bool:
     # Update setup_completed
     new_setup_completed = has_mcp_key and has_github
     
+    # Always update setup_completed to ensure it's correct (even if it's already set)
+    # This handles cases where the user already had GitHub connected before onboarding
     if user.setup_completed != new_setup_completed:
         user.setup_completed = new_setup_completed
-        
-        # If setup is complete, update onboarding_step to 5 (complete)
-        if new_setup_completed and user.onboarding_step < 5:
-            user.onboarding_step = 5
-        
+    
+    # If setup is complete, update onboarding_step to 5 (complete)
+    if new_setup_completed and user.onboarding_step < 5:
+        user.onboarding_step = 5
+    
+    # Commit changes if any were made
+    if user.setup_completed != new_setup_completed or (new_setup_completed and user.onboarding_step == 5):
         db.commit()
         db.refresh(user)
     
