@@ -1,18 +1,26 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuthStore } from '@/stores/authStore'
 import { mcpKeyService, type McpApiKey } from '@/services/mcpKeyService'
-import { Settings as SettingsIcon, Key, Copy, CheckCircle2, RefreshCw, AlertCircle, Plus } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { settingsService, type GitHubOAuthStatus } from '@/services/settingsService'
+import { Settings as SettingsIcon, Key, Copy, CheckCircle2, RefreshCw, AlertCircle, Plus, Github, X } from 'lucide-react'
+import { iconSize } from '@/components/ui/Icon'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { toast } from '@/hooks/useToast'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 export function Settings() {
-  const { user, logout } = useAuthStore()
+  const { user, logout, checkAuth } = useAuthStore()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [mcpKey, setMcpKey] = useState<McpApiKey | null>(null)
   const [isLoadingKey, setIsLoadingKey] = useState(true)
   const [newKey, setNewKey] = useState<string | null>(null)
@@ -21,9 +29,17 @@ export function Settings() {
   const [copied, setCopied] = useState(false)
   const [copiedConfig, setCopiedConfig] = useState(false)
   const [showCursorConfigDialog, setShowCursorConfigDialog] = useState(false)
+  const [githubStatus, setGitHubStatus] = useState<GitHubOAuthStatus | null>(null)
+  const [isLoadingGitHub, setIsLoadingGitHub] = useState(true)
+  const [isConnectingGitHub, setIsConnectingGitHub] = useState(false)
+  const [githubError, setGitHubError] = useState<string | null>(null)
+  const [isProcessingCallback, setIsProcessingCallback] = useState(false)
+  // Guard against React StrictMode / double-invoked effects (dev) processing the same callback twice
+  const processedOAuthStateRef = useRef<string | null>(null)
 
   useEffect(() => {
     loadCurrentKey()
+    loadGitHubStatus()
   }, [])
 
   // Auto-open deeplink when newKey is set (after regeneration from Add to Cursor)
@@ -69,7 +85,7 @@ export function Settings() {
       await loadCurrentKey() // Reload to get the new key metadata
     } catch (error) {
       console.error('Failed to regenerate MCP key:', error)
-      alert('Failed to regenerate MCP key. Please try again.')
+      toast.error('Failed to regenerate MCP key', 'Please try again.')
     } finally {
       setIsRegenerating(false)
     }
@@ -183,12 +199,132 @@ export function Settings() {
     return new Date(dateString).toLocaleString()
   }
 
+  const loadGitHubStatus = async () => {
+    try {
+      setIsLoadingGitHub(true)
+      setGitHubError(null)
+      const status = await settingsService.getGitHubStatus()
+      setGitHubStatus(status)
+    } catch (error) {
+      console.error('Failed to load GitHub status:', error)
+      setGitHubError(error instanceof Error ? error.message : 'Failed to load GitHub status')
+      setGitHubStatus({
+        connected: false,
+        accessible_projects: [],
+      })
+    } finally {
+      setIsLoadingGitHub(false)
+    }
+  }
+
+  const handleConnectGitHub = async () => {
+    try {
+      setIsConnectingGitHub(true)
+      setGitHubError(null)
+      const { authorization_url } = await settingsService.getGitHubOAuthUrl()
+      // Redirect to GitHub OAuth authorization page
+      window.location.href = authorization_url
+    } catch (error) {
+      console.error('Failed to get GitHub OAuth URL:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Failed to connect GitHub'
+      setGitHubError(
+        errorMessage.includes('not configured')
+          ? 'GitHub OAuth is not configured on the server. Please contact your administrator or see the setup documentation.'
+          : errorMessage
+      )
+      setIsConnectingGitHub(false)
+    }
+  }
+
+  const handleDisconnectGitHub = async () => {
+    try {
+      setGitHubError(null)
+      await settingsService.disconnectGitHub()
+      await loadGitHubStatus() // Reload status after disconnect
+    } catch (error) {
+      console.error('Failed to disconnect GitHub:', error)
+      setGitHubError(error instanceof Error ? error.message : 'Failed to disconnect GitHub')
+    }
+  }
+
+  // Handle OAuth callback from GitHub
+  useEffect(() => {
+    const code = searchParams.get('code')
+    const state = searchParams.get('state')
+    const error = searchParams.get('error')
+    const errorDescription = searchParams.get('error_description')
+
+    if (error) {
+      // GitHub OAuth error
+      setGitHubError(errorDescription || error || 'GitHub OAuth authorization failed')
+      // Remove error params from URL
+      searchParams.delete('error')
+      searchParams.delete('error_description')
+      setSearchParams(searchParams, { replace: true })
+      return
+    }
+
+    // Only process callback if we have both code and state
+    // This prevents the callback from running when the page first loads
+    if (!code || !state) {
+      return // Don't process if code or state is missing
+    }
+
+    // Prevent processing the same state twice (can happen in dev StrictMode)
+    if (processedOAuthStateRef.current === state) {
+      return
+    }
+    processedOAuthStateRef.current = state
+
+    // Process OAuth callback
+    const processCallback = async () => {
+      if (isProcessingCallback) {
+        return // Prevent multiple calls
+      }
+
+      try {
+        setIsProcessingCallback(true)
+        setGitHubError(null)
+
+        // Call backend to exchange code for tokens
+        const result = await settingsService.handleOAuthCallback(code, state)
+
+        // Remove callback params from URL
+        searchParams.delete('code')
+        searchParams.delete('state')
+        setSearchParams(searchParams, { replace: true })
+
+        // Refresh user data to get updated GitHub info
+        await checkAuth()
+
+        // Reload GitHub status to show updated connection
+        await loadGitHubStatus()
+
+        // Show success message (optional - could use a toast notification)
+        console.log('GitHub OAuth connection successful:', result.message)
+      } catch (error) {
+        console.error('Failed to process OAuth callback:', error)
+        setGitHubError(error instanceof Error ? error.message : 'Failed to connect GitHub account')
+        
+        // Remove callback params from URL even on error
+        searchParams.delete('code')
+        searchParams.delete('state')
+        setSearchParams(searchParams, { replace: true })
+      } finally {
+        setIsProcessingCallback(false)
+      }
+    }
+
+    processCallback()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.get('code'), searchParams.get('state')]) // Only depend on code and state values
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">Manage your account and preferences</p>
-      </div>
+      <PageHeader
+        title="Settings"
+        description="Manage your account and preferences"
+      />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
@@ -231,7 +367,7 @@ export function Settings() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5" />
+            <Key className={iconSize('md')} />
             MCP API Key
           </CardTitle>
           <CardDescription>
@@ -247,13 +383,9 @@ export function Settings() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>Key Status</Label>
-                  <span className={`text-xs px-2 py-1 rounded ${
-                    mcpKey.is_active
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                  }`}>
+                  <Badge variant={mcpKey.is_active ? 'success' : 'muted'}>
                     {mcpKey.is_active ? 'Active' : 'Inactive'}
-                  </span>
+                  </Badge>
                 </div>
                 {mcpKey.name && (
                   <div>
@@ -278,7 +410,7 @@ export function Settings() {
               </div>
 
               <Alert>
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className={iconSize('sm')} />
                 <AlertDescription>
                   The API key value cannot be retrieved after creation. If you've lost your key,
                   regenerate a new one below.
@@ -290,7 +422,7 @@ export function Settings() {
                   onClick={handleAddToCursor}
                   className="flex-1"
                 >
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus className={`mr-2 ${iconSize('sm')}`} />
                   Add to Cursor
                 </Button>
                 <Button
@@ -299,7 +431,7 @@ export function Settings() {
                   variant="outline"
                   className="flex-1"
                 >
-                  <RefreshCw className={`mr-2 h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`mr-2 ${iconSize('sm')} ${isRegenerating ? 'animate-spin' : ''}`} />
                   {isRegenerating ? 'Regenerating...' : 'Regenerate Key'}
                 </Button>
               </div>
@@ -307,7 +439,7 @@ export function Settings() {
           ) : (
             <div className="space-y-4">
               <Alert>
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className={iconSize('sm')} />
                 <AlertDescription>
                   You don't have an MCP API key yet. Generate one to connect Cursor and other AI assistants.
                 </AlertDescription>
@@ -318,7 +450,7 @@ export function Settings() {
                 disabled={isRegenerating}
                 className="w-full"
               >
-                <Key className={`mr-2 h-4 w-4 ${isRegenerating ? 'animate-spin' : ''}`} />
+                <Key className={`mr-2 ${iconSize('sm')} ${isRegenerating ? 'animate-spin' : ''}`} />
                 {isRegenerating ? 'Generating...' : 'Generate MCP API Key'}
               </Button>
               {newKey && (
@@ -330,10 +462,164 @@ export function Settings() {
                   className="w-full mt-2"
                   variant="outline"
                 >
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus className={`mr-2 ${iconSize('sm')}`} />
                   Add to Cursor
                 </Button>
               )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* GitHub OAuth Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Github className={iconSize('md')} />
+            GitHub Integration
+          </CardTitle>
+          <CardDescription>
+            Connect your GitHub account to access repositories and manage projects
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {githubError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{githubError}</AlertDescription>
+            </Alert>
+          )}
+
+          {isProcessingCallback ? (
+            <div className="flex items-center justify-center py-4">
+              <RefreshCw className={`${iconSize('sm')} animate-spin`} />
+              <span className="ml-2 text-sm text-muted-foreground">Connecting GitHub account...</span>
+            </div>
+          ) : isLoadingGitHub ? (
+            <div className="flex items-center justify-center py-4">
+              <RefreshCw className={`${iconSize('sm')} animate-spin`} />
+              <span className="ml-2 text-sm text-muted-foreground">Loading GitHub status...</span>
+            </div>
+          ) : githubStatus?.connected ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    {githubStatus.avatar_url && (
+                      <img
+                        src={githubStatus.avatar_url}
+                        alt={githubStatus.github_username}
+                        className="h-8 w-8 rounded-full"
+                      />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">
+                        Connected as {githubStatus.github_username}
+                      </p>
+                      {githubStatus.connected_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Connected {formatDate(githubStatus.connected_at)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDisconnectGitHub}
+                  className="flex items-center gap-2"
+                >
+                  <X className={iconSize('sm')} />
+                  Disconnect
+                </Button>
+              </div>
+
+              {githubStatus.accessible_projects && githubStatus.accessible_projects.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Project Access Status</p>
+                  <div className="rounded-md border max-h-64 overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Project</TableHead>
+                          <TableHead>Team</TableHead>
+                          <TableHead>Repository</TableHead>
+                          <TableHead className="text-right">Access</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {githubStatus.accessible_projects.map((project) => (
+                          <TableRow key={project.project_id}>
+                            <TableCell className="font-medium">{project.project_name}</TableCell>
+                            <TableCell className="text-muted-foreground">{project.team_name}</TableCell>
+                            <TableCell>
+                              {project.github_repo_url ? (
+                                <a
+                                  href={project.github_repo_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-primary hover:underline"
+                                >
+                                  GitHub
+                                </a>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {project.has_access ? (
+                                <span className="flex items-center justify-end gap-1 text-xs text-success">
+                                  <CheckCircle2 className={iconSize('sm')} />
+                                  {project.access_level || 'Access'}
+                                </span>
+                              ) : (
+                                <span className="flex items-center justify-end gap-1 text-xs text-destructive">
+                                  <AlertCircle className={iconSize('sm')} />
+                                  No access
+                                </span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {githubStatus.accessible_projects.filter((p) => !p.has_access).length > 0 && (
+                    <Alert>
+                      <AlertCircle className={iconSize('sm')} />
+                      <AlertDescription className="text-xs">
+                        Some projects show "No access" because your GitHub token doesn't have
+                        permission to access their repositories. You may need to grant additional
+                        permissions or request access to those repositories.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Connect your GitHub account to enable repository access and project management.
+              </p>
+              <Button
+                onClick={handleConnectGitHub}
+                disabled={isConnectingGitHub}
+                className="flex items-center gap-2"
+              >
+                {isConnectingGitHub ? (
+                  <>
+                    <RefreshCw className={`${iconSize('sm')} animate-spin`} />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <Github className={iconSize('sm')} />
+                    Connect with GitHub
+                  </>
+                )}
+              </Button>
             </div>
           )}
         </CardContent>
@@ -359,18 +645,26 @@ export function Settings() {
                   readOnly
                   className="font-mono text-sm"
                 />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleCopyKey}
-                  title="Copy to clipboard"
-                >
-                  {copied ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleCopyKey}
+                      >
+                        {copied ? (
+                          <CheckCircle2 className={`${iconSize('sm')} text-success`} />
+                        ) : (
+                          <Copy className={iconSize('sm')} />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Copy to clipboard</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
             <Alert>
@@ -423,22 +717,30 @@ export function Settings() {
                       }}
                     >
                       <Button className="w-full" size="lg">
-                        <Plus className="mr-2 h-4 w-4" />
+                        <Plus className={`mr-2 ${iconSize('sm')}`} />
                         Add to Cursor
                       </Button>
                     </a>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => handleCopyDeeplink(newKey)}
-                      title="Copy install link"
-                    >
-                      {copiedConfig ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleCopyDeeplink(newKey)}
+                          >
+                            {copiedConfig ? (
+                              <CheckCircle2 className={`${iconSize('sm')} text-success`} />
+                            ) : (
+                              <Copy className={iconSize('sm')} />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Copy install link</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Click the button above to automatically install InTracker in Cursor. 
@@ -462,29 +764,37 @@ export function Settings() {
                   className="flex-1 font-mono text-xs p-3 bg-muted rounded-md min-h-[150px] resize-none"
                   spellCheck={false}
                 />
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => {
-                    if (newKey) {
-                      handleCopyCursorConfig(newKey)
-                    }
-                  }}
-                  title="Copy configuration to clipboard"
-                  disabled={!newKey}
-                >
-                  {copiedConfig ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          if (newKey) {
+                            handleCopyCursorConfig(newKey)
+                          }
+                        }}
+                        disabled={!newKey}
+                      >
+                        {copiedConfig ? (
+                          <CheckCircle2 className={`${iconSize('sm')} text-success`} />
+                        ) : (
+                          <Copy className={iconSize('sm')} />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Copy configuration to clipboard</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
 
             {newKey && (
               <Alert>
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className={iconSize('sm')} />
                 <AlertDescription>
                   <strong>Manual installation:</strong>
                   <ol className="list-decimal list-inside mt-2 space-y-1 text-sm">

@@ -24,6 +24,11 @@ export interface User {
   role?: string
   github_username?: string
   avatar_url?: string
+  github_connected_at?: string
+  github_token_expires_at?: string
+  onboarding_step?: number
+  mcp_verified_at?: string
+  setup_completed?: boolean
 }
 
 export const authService = {

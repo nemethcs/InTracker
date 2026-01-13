@@ -10,7 +10,8 @@ import { elementService, type ElementTree as ElementTreeData } from '@/services/
 import { documentService, type Document } from '@/services/documentService'
 import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { LoadingState } from '@/components/ui/LoadingState'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { FeatureEditor } from '@/components/features/FeatureEditor'
@@ -20,7 +21,11 @@ import { ElementTree } from '@/components/elements/ElementTree'
 import { ElementDetailDialog } from '@/components/elements/ElementDetailDialog'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { ActiveUsers } from '@/components/collaboration/ActiveUsers'
-import { Plus, Edit, FileText, CheckSquare, UsersRound, ChevronDown, ChevronRight, Clock } from 'lucide-react'
+import { DocumentEditor } from '@/components/documents/DocumentEditor'
+import { Plus, Edit, FileText, CheckSquare, UsersRound, ChevronDown, ChevronRight, Clock, FolderKanban, Layers } from 'lucide-react'
+import { iconSize } from '@/components/ui/Icon'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { format } from 'date-fns'
 import type { Feature } from '@/services/featureService'
 import type { Todo } from '@/services/todoService'
@@ -139,8 +144,9 @@ export function ProjectDetail() {
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false)
   const [selectedElement, setSelectedElement] = useState<any>(null)
   const [elementDetailOpen, setElementDetailOpen] = useState(false)
+  const [documentEditorOpen, setDocumentEditorOpen] = useState(false)
+  const [editingDocument, setEditingDocument] = useState<Document | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
-  const [showProjectStructure, setShowProjectStructure] = useState(false) // Default: collapsed
 
   useEffect(() => {
     loadTeams()
@@ -261,8 +267,8 @@ export function ProjectDetail() {
 
   if (projectLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner size="lg" />
+      <div className="space-y-4">
+        <LoadingState variant="combined" size="md" skeletonCount={8} />
       </div>
     )
   }
@@ -298,71 +304,83 @@ export function ProjectDetail() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold">{currentProject.name}</h1>
+    <div className="space-y-4">
+      <PageHeader
+        title={
+          <div className="flex items-center gap-3 flex-wrap">
+            <span>{currentProject.name}</span>
             {/* Small, unobtrusive active users display */}
             {id && <ActiveUsers projectId={id} />}
           </div>
-          {currentProject.description && (
-            <p className="text-muted-foreground mt-2">{currentProject.description}</p>
-          )}
-          <div className="flex gap-2 mt-4">
-            {currentProject.team_id && (
-              <Badge variant="outline" className="flex items-center gap-1">
-                <UsersRound className="h-3 w-3" />
-                {teams.find(t => t.id === currentProject.team_id)?.name || 'Unknown Team'}
-              </Badge>
+        }
+        description={
+          <div className="space-y-2">
+            {currentProject.description && (
+              <p className="text-muted-foreground text-sm sm:text-base">{currentProject.description}</p>
             )}
-            <Badge variant="outline">{currentProject.status}</Badge>
-            {currentProject.tags?.map((tag) => (
-              <Badge key={tag} variant="secondary">{tag}</Badge>
-            ))}
+            <div className="flex flex-wrap gap-2">
+              {currentProject.team_id && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <UsersRound className={iconSize('xs')} />
+                  {teams.find(t => t.id === currentProject.team_id)?.name || 'Unknown Team'}
+                </Badge>
+              )}
+              <Badge 
+                variant={
+                  currentProject.status === 'active' ? 'success' :
+                  currentProject.status === 'paused' ? 'warning' :
+                  currentProject.status === 'blocked' ? 'destructive' :
+                  currentProject.status === 'completed' ? 'info' :
+                  currentProject.status === 'archived' ? 'muted' : 'outline'
+                }
+              >
+                {currentProject.status}
+              </Badge>
+              {currentProject.tags?.map((tag) => (
+                <Badge key={tag} variant="secondary">{tag}</Badge>
+              ))}
+            </div>
           </div>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setProjectEditorOpen(true)}
-        >
-          <Edit className="mr-2 h-4 w-4" />
-          Edit Project
-        </Button>
-      </div>
+        }
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setProjectEditorOpen(true)}
+            className="w-full sm:w-auto"
+          >
+            <Edit className={`mr-2 ${iconSize('sm')}`} />
+            Edit Project
+          </Button>
+        }
+      />
 
       {/* Recent Activity - Compact display */}
       {(lastCompletedTodos.length > 0 || lastWorkedFeature) && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Recent Activity</CardTitle>
+        <Card className="border-l-4 border-l-primary">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Recent Activity</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-2 pt-0">
             {/* Last 3 completed todos */}
             {lastCompletedTodos.length > 0 && (
               <div>
-                <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
-                  Last 3 Completed
+                <h3 className="text-xs font-medium text-muted-foreground mb-1.5">
+                  Last Completed
                 </h3>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   {lastCompletedTodos.map((todo, idx) => (
-                    <div key={todo.id} className="flex items-start gap-2 text-sm">
-                      <CheckSquare className="h-3.5 w-3.5 text-green-500 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium truncate">{todo.title}</span>
-                          {todo.featureName && (
-                            <Badge variant="outline" className="text-xs px-1.5 py-0">
-                              {todo.featureName}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                          <Clock className="h-3 w-3" />
-                          {format(new Date(todo.completed_at || todo.updated_at), 'MMM d, HH:mm')}
-                        </div>
-                      </div>
+                    <div key={todo.id} className="flex items-center gap-2 text-xs">
+                      <CheckSquare className={`${iconSize('xs')} text-success flex-shrink-0`} />
+                      <span className="font-medium truncate flex-1">{todo.title}</span>
+                      {todo.featureName && (
+                        <Badge variant="outline" className="text-xs px-1 py-0 h-4 shrink-0">
+                          {todo.featureName}
+                        </Badge>
+                      )}
+                      <span className="text-muted-foreground text-xs shrink-0">
+                        {format(new Date(todo.completed_at || todo.updated_at), 'MMM d')}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -371,30 +389,26 @@ export function ProjectDetail() {
             
             {/* Last worked feature */}
             {lastWorkedFeature && (
-              <div className="pt-2 border-t">
-                <h3 className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
+              <div className={lastCompletedTodos.length > 0 ? "pt-2 border-t" : ""}>
+                <h3 className="text-xs font-medium text-muted-foreground mb-1.5">
                   Last Worked On
                 </h3>
-                <div className="flex items-start gap-2 text-sm">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium truncate">{lastWorkedFeature.name}</span>
-                      <Badge 
-                        variant={
-                          lastWorkedFeature.status === 'done' ? 'default' :
-                          lastWorkedFeature.status === 'tested' ? 'secondary' :
-                          lastWorkedFeature.status === 'in_progress' ? 'secondary' : 'outline'
-                        }
-                        className="text-xs"
-                      >
-                        {lastWorkedFeature.status}
-                      </Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                      <Clock className="h-3 w-3" />
-                      {format(new Date(lastWorkedFeature.updated_at), 'MMM d, HH:mm')}
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="font-medium truncate flex-1">{lastWorkedFeature.name}</span>
+                  <Badge 
+                    variant={
+                      lastWorkedFeature.status === 'done' ? 'success' :
+                      lastWorkedFeature.status === 'tested' ? 'warning' :
+                      lastWorkedFeature.status === 'in_progress' ? 'info' :
+                      lastWorkedFeature.status === 'merged' ? 'accent' : 'muted'
+                    }
+                    className="text-xs px-1.5 py-0 h-4 shrink-0"
+                  >
+                    {lastWorkedFeature.status}
+                  </Badge>
+                  <span className="text-muted-foreground text-xs shrink-0">
+                    {format(new Date(lastWorkedFeature.updated_at), 'MMM d')}
+                  </span>
                 </div>
               </div>
             )}
@@ -404,28 +418,27 @@ export function ProjectDetail() {
 
       {/* Resume Context - Most important: what was done, what's next */}
       {currentProject.resume_context && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Resume Context</CardTitle>
-            <CardDescription>Quick overview of recent work and next steps</CardDescription>
+        <Card className="border-l-4 border-l-accent">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Resume Context</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-2 pt-0">
             {currentProject.resume_context.last && (
               <div>
-                <h3 className="font-semibold mb-1 text-sm">Last</h3>
-                <p className="text-sm text-muted-foreground">{currentProject.resume_context.last}</p>
+                <h3 className="text-xs font-medium text-muted-foreground mb-1">Last</h3>
+                <p className="text-xs text-foreground line-clamp-2">{currentProject.resume_context.last}</p>
               </div>
             )}
             {currentProject.resume_context.now && (
               <div>
-                <h3 className="font-semibold mb-1 text-sm">Now</h3>
-                <p className="text-sm text-muted-foreground">{currentProject.resume_context.now}</p>
+                <h3 className="text-xs font-medium text-muted-foreground mb-1">Now</h3>
+                <p className="text-xs text-foreground line-clamp-2">{currentProject.resume_context.now}</p>
               </div>
             )}
             {currentProject.resume_context.next && (
               <div>
-                <h3 className="font-semibold mb-1 text-sm">Next</h3>
-                <p className="text-sm text-muted-foreground">{currentProject.resume_context.next}</p>
+                <h3 className="text-xs font-medium text-muted-foreground mb-1">Next</h3>
+                <p className="text-xs text-foreground line-clamp-2">{currentProject.resume_context.next}</p>
               </div>
             )}
           </CardContent>
@@ -434,8 +447,8 @@ export function ProjectDetail() {
 
       {/* Open Todos Section - Next tasks (most important after resume context) */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Next Tasks</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xl sm:text-2xl font-bold">Next Tasks</h2>
           {features.length > 0 && (
             <Link to={`/projects/${id}/features/${features[0]?.id}`}>
               <Button variant="outline" size="sm">
@@ -446,13 +459,14 @@ export function ProjectDetail() {
           )}
         </div>
         {isLoadingTodos ? (
-          <LoadingSpinner />
+          <LoadingState variant="combined" size="md" skeletonCount={3} />
         ) : todos.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No open todos. All tasks are completed!
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={<CheckSquare className="h-12 w-12 text-muted-foreground" />}
+            title="No open todos"
+            description="All tasks are completed! Great job!"
+            variant="compact"
+          />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {todos.map((todo) => (
@@ -475,13 +489,21 @@ export function ProjectDetail() {
           </Button>
         </div>
         {featuresLoading ? (
-          <LoadingSpinner />
+          <LoadingState variant="combined" size="md" skeletonCount={3} />
         ) : features.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No features yet. Create your first feature to get started.
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={<FolderKanban className="h-12 w-12 text-muted-foreground" />}
+            title="No features yet"
+            description="Create your first feature to get started"
+            action={{
+              label: 'Create Feature',
+              onClick: () => {
+                setEditingFeature(null)
+                setFeatureEditorOpen(true)
+              }
+            }}
+            variant="compact"
+          />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {sortedFeatures.map((feature, index) => (
@@ -496,32 +518,25 @@ export function ProjectDetail() {
         )}
       </div>
 
-      {/* Element Tree Section - Collapsible, collapsed by default */}
-      <div>
-        <button
-          onClick={() => setShowProjectStructure(!showProjectStructure)}
-          className="flex items-center justify-between w-full mb-4 hover:bg-accent/50 rounded-md p-2 -ml-2 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            {showProjectStructure ? (
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
-            ) : (
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-            )}
-            <h2 className="text-2xl font-bold">Project Structure</h2>
-            {elementTree && elementTree.elements && elementTree.elements.length > 0 && (
-              <div className="text-sm text-muted-foreground">
-                ({elementTree.elements.length} {elementTree.elements.length === 1 ? 'element' : 'elements'})
-              </div>
-            )}
-          </div>
-        </button>
-        {showProjectStructure && (
-          <div>
+      {/* Element Tree Section - Collapsible with Accordion */}
+      <Accordion type="single" collapsible className="w-full">
+        <AccordionItem value="project-structure">
+          <AccordionTrigger className="text-xl sm:text-2xl font-bold">
+            <div className="flex items-center gap-2">
+              <Layers className={iconSize('md')} />
+              <span>Project Structure</span>
+              {elementTree && elementTree.elements && elementTree.elements.length > 0 && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({elementTree.elements.length} {elementTree.elements.length === 1 ? 'element' : 'elements'})
+                </span>
+              )}
+            </div>
+          </AccordionTrigger>
+          <AccordionContent>
             {isLoadingElements ? (
               <Card>
                 <CardContent className="py-8">
-                  <LoadingSpinner />
+                  <LoadingState variant="combined" size="md" skeletonCount={3} />
                 </CardContent>
               </Card>
             ) : elementTree && elementTree.elements && elementTree.elements.length > 0 ? (
@@ -544,34 +559,38 @@ export function ProjectDetail() {
                 </CardContent>
               </Card>
             ) : (
-              <Card>
-                <CardContent className="py-8 text-center text-muted-foreground">
-                  <p>No elements yet. Project structure will appear here.</p>
-                  <p className="text-xs mt-2">Elements are created automatically when you add features and todos to the project.</p>
-                </CardContent>
-              </Card>
+              <EmptyState
+                icon={<Layers className="h-12 w-12 text-muted-foreground" />}
+                title="No elements yet"
+                description="Elements are created automatically when you add features and todos to the project."
+                variant="compact"
+              />
             )}
-          </div>
-        )}
-      </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
       {/* Documents Section */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Documents</h2>
-          <Button>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+          <h2 className="text-xl sm:text-2xl font-bold">Documents</h2>
+          <Button onClick={() => {
+            setEditingDocument(null)
+            setDocumentEditorOpen(true)
+          }}>
             <Plus className="mr-2 h-4 w-4" />
             New Document
           </Button>
         </div>
         {isLoadingDocuments ? (
-          <LoadingSpinner />
+          <LoadingState variant="combined" size="md" skeletonCount={3} />
         ) : documents.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No documents yet. Create your first document to get started.
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={<FileText className="h-12 w-12 text-muted-foreground" />}
+            title="No documents yet"
+            description="Create your first document to get started"
+            variant="compact"
+          />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {documents.map((document) => {
@@ -745,6 +764,45 @@ export function ProjectDetail() {
           onOpenChange={setElementDetailOpen}
           element={selectedElement}
           projectId={id}
+        />
+      )}
+
+      {/* Document Editor Dialog */}
+      {id && (
+        <DocumentEditor
+          open={documentEditorOpen}
+          onOpenChange={(open) => {
+            setDocumentEditorOpen(open)
+            if (!open) {
+              setEditingDocument(null)
+            }
+          }}
+          document={editingDocument}
+          projectId={id}
+          elementId={selectedElement?.id}
+          onSave={async (data) => {
+            try {
+              if (editingDocument) {
+                await documentService.updateDocument(editingDocument.id, data as any)
+              } else {
+                await documentService.createDocument(data as any)
+              }
+              // Reload documents
+              setIsLoadingDocuments(true)
+              documentService.listDocuments(id)
+                .then((docs) => {
+                  setDocuments(docs)
+                  setIsLoadingDocuments(false)
+                })
+                .catch((error) => {
+                  console.error('Failed to reload documents:', error)
+                  setIsLoadingDocuments(false)
+                })
+            } catch (error) {
+              console.error('Failed to save document:', error)
+              throw error // Re-throw to let DocumentEditor handle the error
+            }
+          }}
         />
       )}
     </div>

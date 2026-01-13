@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { FormField, FormInput, FormTextarea, FormSelect } from '@/components/ui/form'
 import {
   Select,
   SelectContent,
@@ -92,32 +93,27 @@ export function FeatureEditor({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Name *</Label>
-            <Input
-              id="name"
+          <FormField label="Name" required>
+            <FormInput
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter feature name"
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
+          </FormField>
+          <FormField label="Description">
+            <FormTextarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Enter feature description"
               rows={4}
             />
-          </div>
+          </FormField>
           {feature && (
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
+            <FormField label="Status">
               <Select value={status} onValueChange={(value) => setStatus(value as Feature['status'])}>
-                <SelectTrigger id="status">
+                <FormSelect>
                   <SelectValue />
-                </SelectTrigger>
+                </FormSelect>
                 <SelectContent>
                   <SelectItem value="new">New</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
@@ -126,7 +122,7 @@ export function FeatureEditor({
                   <SelectItem value="merged">Merged</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </FormField>
           )}
         </div>
         <DialogFooter>

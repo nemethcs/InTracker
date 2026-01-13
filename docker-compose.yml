@@ -52,6 +52,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-secret-key-min-32-chars-long-for-testing}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-min-32-chars-long-for-testing}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:-}
+      GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:-}
+      GITHUB_OAUTH_ENCRYPTION_KEY: ${GITHUB_OAUTH_ENCRYPTION_KEY:-}
+      BACKEND_URL: ${BACKEND_URL:-http://localhost:3000}
       MCP_API_KEY: ${MCP_API_KEY:-test}
       NODE_ENV: development
       PORT: 3000

@@ -10,6 +10,7 @@ from src.services.element_service import ElementService
 from src.services.todo_service import TodoService
 from github.GithubException import GithubException
 from .github_repository import get_github_service
+from src.mcp.utils.project_access import validate_project_access
 
 
 def get_import_github_issues_tool() -> MCPTool:
@@ -55,6 +56,11 @@ async def handle_import_github_issues(
     """Handle import GitHub issues tool call."""
     db = SessionLocal()
     try:
+        # Validate project access using user's GitHub OAuth token
+        has_access, error_dict = validate_project_access(db, project_id)
+        if not has_access:
+            return error_dict or {"error": "Cannot access project"}
+        
         # Verify project exists and has GitHub repo
         project = db.query(Project).filter(Project.id == UUID(project_id)).first()
         if not project:

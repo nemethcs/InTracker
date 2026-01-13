@@ -193,6 +193,12 @@ class SignalRService {
       const eventData = Array.isArray(data) ? data[0] : (data?.arguments?.[0] || data)
       this.emit('ideaUpdated', eventData)
     })
+
+    // MCP verification (onboarding)
+    this.connection.on('mcpVerified', (data: any) => {
+      const eventData = Array.isArray(data) ? data[0] : (data?.arguments?.[0] || data)
+      this.emit('mcpVerified', eventData)
+    })
   }
 
   /**

@@ -4,33 +4,66 @@ from uuid import UUID
 from github import Github
 from github.GithubException import GithubException
 from src.config import settings
+from src.services.github_token_service import github_token_service
+from src.database.base import SessionLocal
 
 
 class GitHubService:
     """Service for GitHub operations."""
 
-    def __init__(self):
-        """Initialize GitHub client."""
+    def __init__(self, user_id: Optional[UUID] = None):
+        """Initialize GitHub client.
+        
+        Args:
+            user_id: Optional user ID to use user's OAuth token instead of global token
+        """
         self.client: Optional[Github] = None
+        self.user_id = user_id
+        
+        # If user_id is provided, try to use user's OAuth token
+        if user_id:
+            db = SessionLocal()
+            try:
+                token = github_token_service.get_user_token(db, user_id)
+                if token:
+                    try:
+                        self.client = Github(token)
+                        print(f"✅ GitHub client initialized with user {user_id} OAuth token")
+                        return
+                    except Exception as e:
+                        print(f"⚠️  GitHub client initialization with user token failed: {e}")
+                else:
+                    print(f"⚠️  No GitHub OAuth token found for user {user_id}")
+            finally:
+                db.close()
+        
+        # Fallback to global token or no client
         if settings.GITHUB_TOKEN:
             try:
                 self.client = Github(settings.GITHUB_TOKEN)
+                print(f"ℹ️  GitHub client initialized with global GITHUB_TOKEN")
             except Exception as e:
                 print(f"⚠️  GitHub client initialization failed: {e}")
+        else:
+            print(f"⚠️  No GitHub token available (neither user OAuth nor global GITHUB_TOKEN)")
 
     def validate_repo_access(self, owner: str, repo: str) -> bool:
         """Validate access to a GitHub repository."""
         if not self.client:
+            print(f"⚠️  GitHub client not initialized for repo access validation: {owner}/{repo}")
             return False
 
         try:
             repository = self.client.get_repo(f"{owner}/{repo}")
             # Try to access repo info
             _ = repository.name
+            print(f"✅ GitHub repo access validated: {owner}/{repo}")
             return True
-        except GithubException:
+        except GithubException as e:
+            print(f"⚠️  GitHub API error validating access to {owner}/{repo}: {e.status} - {e.data}")
             return False
-        except Exception:
+        except Exception as e:
+            print(f"⚠️  Error validating access to {owner}/{repo}: {e}")
             return False
 
     def get_repo_info(self, owner: str, repo: str) -> Optional[Dict[str, Any]]:

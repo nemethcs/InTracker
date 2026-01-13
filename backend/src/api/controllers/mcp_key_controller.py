@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from src.database.base import get_db
 from src.api.middleware.auth import get_current_user
 from src.services.mcp_key_service import mcp_key_service
+from src.services.onboarding_service import update_setup_completed
 from src.api.schemas.mcp_key import (
     McpApiKeyCreate,
     McpApiKeyResponse,
@@ -69,6 +70,16 @@ async def regenerate_mcp_key(
         revoke_existing=True,  # Automatically revoke existing keys
     )
 
+    # Update onboarding_step to 2 (mcp_key_generated) if not already higher
+    from src.database.models import User
+    user = db.query(User).filter(User.id == user_id).first()
+    if user and user.onboarding_step < 2:
+        user.onboarding_step = 2
+        db.commit()
+    
+    # Update setup_completed status
+    update_setup_completed(db, user_id)
+
     return McpApiKeyCreateResponse(
         key=McpApiKeyResponse(
             id=api_key.id,
@@ -105,6 +116,16 @@ async def create_mcp_key(
         expires_in_days=key_data.expires_in_days,
         revoke_existing=True,  # Automatically revoke existing keys
     )
+
+    # Update onboarding_step to 2 (mcp_key_generated) if not already higher
+    from src.database.models import User
+    user = db.query(User).filter(User.id == user_id).first()
+    if user and user.onboarding_step < 2:
+        user.onboarding_step = 2
+        db.commit()
+    
+    # Update setup_completed status
+    update_setup_completed(db, user_id)
 
     return McpApiKeyCreateResponse(
         key=McpApiKeyResponse(

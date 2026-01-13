@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { FormField, FormInput, FormTextarea, FormSelect } from '@/components/ui/form'
 import {
   Select,
   SelectContent,
@@ -101,44 +102,38 @@ export function TodoEditor({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
-            <Input
-              id="title"
+          <FormField label="Title" required>
+            <FormInput
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Enter todo title"
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
+          </FormField>
+          <FormField label="Description">
+            <FormTextarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Enter todo description"
               rows={4}
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="status">Status</Label>
+          </FormField>
+          <FormField label="Status">
             <Select value={status} onValueChange={(value) => setStatus(value as Todo['status'])}>
-              <SelectTrigger id="status">
+              <FormSelect>
                 <SelectValue />
-              </SelectTrigger>
+              </FormSelect>
               <SelectContent>
                 <SelectItem value="new">New</SelectItem>
                 <SelectItem value="in_progress">In Progress</SelectItem>
                 <SelectItem value="done">Done</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="priority">Priority</Label>
+          </FormField>
+          <FormField label="Priority">
             <Select value={priority || 'medium'} onValueChange={(value) => setPriority(value as Todo['priority'])}>
-              <SelectTrigger id="priority">
+              <FormSelect>
                 <SelectValue />
-              </SelectTrigger>
+              </FormSelect>
               <SelectContent>
                 <SelectItem value="low">Low</SelectItem>
                 <SelectItem value="medium">Medium</SelectItem>
@@ -146,7 +141,7 @@ export function TodoEditor({
                 <SelectItem value="critical">Critical</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </FormField>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

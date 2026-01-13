@@ -564,3 +564,91 @@ async def handle_link_todo_to_feature(
         return {"error": str(e)}
     finally:
         db.close()
+
+
+def get_delete_todo_tool() -> MCPTool:
+    """Get delete todo tool definition."""
+    return MCPTool(
+        name="mcp_delete_todo",
+        description="Delete a todo item. This action cannot be undone. Returns success status and deleted todo ID.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "todoId": {"type": "string", "description": "Todo UUID to delete"},
+            },
+            "required": ["todoId"],
+        },
+    )
+
+
+async def handle_delete_todo(todo_id: str) -> dict:
+    """Handle delete todo tool call."""
+    db = SessionLocal()
+    try:
+        # Get todo before deletion for broadcast and cache invalidation
+        todo = TodoService.get_todo_by_id(db, UUID(todo_id))
+        if not todo:
+            return {"error": "Todo not found"}
+
+        # Store information needed for broadcast and cache invalidation
+        element_id = todo.element_id
+        feature_id = todo.feature_id
+        
+        # Get element for project_id
+        element = db.query(ProjectElement).filter(ProjectElement.id == element_id).first()
+        if not element:
+            return {"error": "Element not found for todo"}
+
+        # Delete todo using TodoService
+        success = TodoService.delete_todo(db=db, todo_id=UUID(todo_id))
+        if not success:
+            return {"error": "Failed to delete todo"}
+
+        # Invalidate cache
+        cache_service.clear_pattern(f"project:{element.project_id}:*")
+        if feature_id:
+            cache_service.delete(f"feature:{feature_id}")
+
+        # Broadcast SignalR update (fire and forget)
+        import asyncio
+        # Get user_id from todo (assigned_to or created_by)
+        user_id = todo.assigned_to or todo.created_by
+        if not user_id:
+            # Use system user ID for MCP updates
+            user_id = UUID("00000000-0000-0000-0000-000000000000")
+        
+        asyncio.create_task(
+            broadcast_todo_update(
+                str(element.project_id),
+                str(todo_id),
+                user_id,
+                {
+                    "action": "deleted",
+                    "todoId": str(todo_id)
+                }
+            )
+        )
+        
+        # Broadcast feature progress update if feature exists
+        if feature_id:
+            feature = FeatureService.get_feature_by_id(db, feature_id)
+            if feature:
+                progress = FeatureService.calculate_feature_progress(db, feature_id)
+                asyncio.create_task(
+                    broadcast_feature_update(
+                        str(element.project_id),
+                        str(feature_id),
+                        progress["percentage"],
+                        feature.status
+                    )
+                )
+
+        return {
+            "success": True,
+            "deleted_todo_id": str(todo_id),
+            "message": "Todo deleted successfully",
+        }
+    except ValueError as e:
+        return {"error": str(e)}
+    finally:
+        db.close()

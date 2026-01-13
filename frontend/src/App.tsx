@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { useAuth } from '@/hooks/useAuth'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { Toaster } from '@/components/ui/toast'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { Dashboard } from '@/pages/Dashboard'
 import { ProjectDetail } from '@/pages/ProjectDetail'
 import { FeatureDetail } from '@/pages/FeatureDetail'
@@ -14,6 +16,7 @@ import { Register } from '@/pages/Register'
 import { AdminLogin } from '@/pages/AdminLogin'
 import { AdminDashboard } from '@/pages/AdminDashboard'
 import { Teams } from '@/pages/Teams'
+import { Onboarding } from '@/pages/Onboarding'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user } = useAuth()
@@ -31,6 +34,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />
   }
 
+  // Check if setup is completed - if not, redirect to onboarding (except for onboarding and settings routes)
+  if (!user?.setup_completed) {
+    const currentPath = location.pathname
+    const allowedPaths = ['/onboarding', '/settings', '/logout']
+    if (!allowedPaths.includes(currentPath) && !currentPath.startsWith('/onboarding')) {
+      return <Navigate to="/onboarding" replace />
+    }
+  }
+
   // Admins should only access /admin and /teams routes
   // Redirect them to /admin if they try to access other routes
   if (user?.role === 'admin') {
@@ -46,10 +58,20 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
+      <ErrorBoundary>
+        <Toaster />
+        <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/register" element={<Register />} />
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute>
+              <Onboarding />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/"
           element={
@@ -161,7 +183,8 @@ function App() {
             </MainLayout>
           </ProtectedRoute>
         } />
-      </Routes>
+        </Routes>
+      </ErrorBoundary>
     </BrowserRouter>
   )
 }
