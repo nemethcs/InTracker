@@ -259,44 +259,44 @@ export function FeatureDetail() {
       />
 
       {/* Progress Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Progress Overview</CardTitle>
+      <Card className="border-l-4 border-l-primary">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Progress Overview</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="pt-0">
+          <div className="space-y-3">
             <div>
-              <div className="flex items-center justify-between text-sm mb-2">
+              <div className="flex items-center justify-between text-xs mb-1.5">
                 <span className="text-muted-foreground">Overall Progress</span>
-                <span className="font-medium text-lg">{feature.progress_percentage}%</span>
+                <span className="font-semibold text-base">{feature.progress_percentage}%</span>
               </div>
-              <div className="w-full bg-secondary rounded-full h-3">
+              <div className="w-full bg-secondary rounded-full h-2">
                 <div
-                  className="bg-primary h-3 rounded-full transition-all"
+                  className="bg-primary h-2 rounded-full transition-all"
                   style={{ width: `${feature.progress_percentage}%` }}
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className="grid grid-cols-5 gap-2">
               <div className="text-center">
-                <div className="text-2xl font-bold">{feature.total_todos}</div>
-                <div className="text-sm text-muted-foreground">Total</div>
+                <div className="text-lg font-bold">{feature.total_todos}</div>
+                <div className="text-xs text-muted-foreground">Total</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-muted-foreground">{todosByStatus.new.length}</div>
-                <div className="text-sm text-muted-foreground">New</div>
+                <div className="text-lg font-bold text-muted-foreground">{todosByStatus.new.length}</div>
+                <div className="text-xs text-muted-foreground">New</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-primary">{todosByStatus.in_progress.length}</div>
-                <div className="text-sm text-muted-foreground">In Progress</div>
+                <div className="text-lg font-bold text-primary">{todosByStatus.in_progress.length}</div>
+                <div className="text-xs text-muted-foreground">In Progress</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-success">{todosByStatus.done.length}</div>
-                <div className="text-sm text-muted-foreground">Done</div>
+                <div className="text-lg font-bold text-success">{todosByStatus.done.length}</div>
+                <div className="text-xs text-muted-foreground">Done</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-success">{feature.completed_todos}</div>
-                <div className="text-sm text-muted-foreground">Completed</div>
+                <div className="text-lg font-bold text-success">{feature.completed_todos}</div>
+                <div className="text-xs text-muted-foreground">Completed</div>
               </div>
             </div>
           </div>
