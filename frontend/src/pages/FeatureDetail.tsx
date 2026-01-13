@@ -28,10 +28,10 @@ const statusIcons = {
 
 const statusColors = {
   new: 'text-muted-foreground',
-  in_progress: 'text-blue-500',
-  done: 'text-green-500',
-  tested: 'text-yellow-500',
-  merged: 'text-purple-500',
+  in_progress: 'text-primary',
+  done: 'text-green-600 dark:text-green-400',
+  tested: 'text-yellow-600 dark:text-yellow-400',
+  merged: 'text-accent',
 }
 
 export function FeatureDetail() {
@@ -213,15 +213,15 @@ export function FeatureDetail() {
                 <div className="text-sm text-muted-foreground">New</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-500">{todosByStatus.in_progress.length}</div>
+                <div className="text-2xl font-bold text-primary">{todosByStatus.in_progress.length}</div>
                 <div className="text-sm text-muted-foreground">In Progress</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-500">{todosByStatus.done.length}</div>
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{todosByStatus.done.length}</div>
                 <div className="text-sm text-muted-foreground">Done</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-500">{feature.completed_todos}</div>
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{feature.completed_todos}</div>
                 <div className="text-sm text-muted-foreground">Completed</div>
               </div>
             </div>

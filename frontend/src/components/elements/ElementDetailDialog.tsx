@@ -47,10 +47,10 @@ export function ElementDetailDialog({ open, onOpenChange, element, projectId }: 
   if (!element) return null
 
   const statusColors = {
-    new: 'bg-gray-100 text-gray-800',
-    in_progress: 'bg-blue-100 text-blue-800',
-    tested: 'bg-yellow-100 text-yellow-800',
-    done: 'bg-green-100 text-green-800',
+    new: 'bg-muted text-muted-foreground',
+    in_progress: 'bg-primary/10 text-primary dark:bg-primary/20',
+    tested: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+    done: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
   }
 
   return (
@@ -182,7 +182,7 @@ export function ElementDetailDialog({ open, onOpenChange, element, projectId }: 
                   href={element.github_issue_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                  className="text-sm text-primary hover:underline flex items-center gap-1"
                 >
                   <ExternalLink className="h-3 w-3" />
                   GitHub Issue #{element.github_issue_number}

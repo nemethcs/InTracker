@@ -348,7 +348,7 @@ export function ProjectDetail() {
                 <div className="space-y-1.5">
                   {lastCompletedTodos.map((todo, idx) => (
                     <div key={todo.id} className="flex items-start gap-2 text-sm">
-                      <CheckSquare className="h-3.5 w-3.5 text-green-500 mt-0.5 flex-shrink-0" />
+                      <CheckSquare className="h-3.5 w-3.5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-medium truncate">{todo.title}</span>

@@ -382,7 +382,7 @@ export function Settings() {
                   <span className={`text-xs px-2 py-1 rounded ${
                     mcpKey.is_active
                       ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                      : 'bg-muted text-muted-foreground'
                   }`}>
                     {mcpKey.is_active ? 'Active' : 'Inactive'}
                   </span>
@@ -559,7 +559,7 @@ export function Settings() {
                                   href={project.github_repo_url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-xs text-blue-600 hover:underline dark:text-blue-400"
+                                  className="text-xs text-primary hover:underline"
                                 >
                                   GitHub
                                 </a>
@@ -569,12 +569,12 @@ export function Settings() {
                         </div>
                         <div className="flex items-center gap-2">
                           {project.has_access ? (
-                            <span className="flex items-center gap-1 text-xs text-green-700 dark:text-green-400">
+                            <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
                               <CheckCircle2 className="h-4 w-4" />
                               {project.access_level || 'Access'}
                             </span>
                           ) : (
-                            <span className="flex items-center gap-1 text-xs text-red-700 dark:text-red-400">
+                            <span className="flex items-center gap-1 text-xs text-destructive">
                               <AlertCircle className="h-4 w-4" />
                               No access
                             </span>

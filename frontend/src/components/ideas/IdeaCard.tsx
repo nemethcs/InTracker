@@ -21,7 +21,7 @@ export function IdeaCard({ idea, teams, onConvert }: IdeaCardProps) {
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <Lightbulb className="h-4 w-4 text-yellow-500" />
+              <Lightbulb className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
               <CardTitle>{idea.title}</CardTitle>
             </div>
             {idea.description && (

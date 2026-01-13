@@ -186,14 +186,14 @@ function UsersTab() {
                     <h3 className="font-semibold">{user.email}</h3>
                     {user.name && <span className="text-muted-foreground">({user.name})</span>}
                     <span className={`px-2 py-1 rounded text-xs ${
-                      user.role === 'admin' ? 'bg-red-100 text-red-800' :
-                      user.role === 'team_leader' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
+                      user.role === 'admin' ? 'bg-destructive/10 text-destructive dark:bg-destructive/20' :
+                      user.role === 'team_leader' ? 'bg-primary/10 text-primary dark:bg-primary/20' :
+                      'bg-muted text-muted-foreground'
                     }`}>
                       {user.role}
                     </span>
                     {!user.is_active && (
-                      <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">
+                      <span className="px-2 py-1 rounded text-xs bg-muted text-muted-foreground">
                         Inactive
                       </span>
                     )}
@@ -735,7 +735,7 @@ function InvitationsTab() {
                       {inv.code}
                     </code>
                     <span className={`px-2 py-1 rounded text-xs ${
-                      inv.type === 'admin' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
+                      inv.type === 'admin' ? 'bg-destructive/10 text-destructive dark:bg-destructive/20' : 'bg-primary/10 text-primary dark:bg-primary/20'
                     }`}>
                       {inv.type}
                     </span>

@@ -13,15 +13,15 @@ const statusIcons = {
 
 const statusColors = {
   new: 'text-muted-foreground',
-  in_progress: 'text-blue-500',
-  done: 'text-green-500',
+  in_progress: 'text-primary',
+  done: 'text-green-600 dark:text-green-400',
 }
 
 const priorityColors = {
-  low: 'text-gray-500',
-  medium: 'text-blue-500',
-  high: 'text-orange-500',
-  critical: 'text-red-500',
+  low: 'text-muted-foreground',
+  medium: 'text-primary',
+  high: 'text-yellow-600 dark:text-yellow-400',
+  critical: 'text-destructive',
 }
 
 const priorityLabels = {

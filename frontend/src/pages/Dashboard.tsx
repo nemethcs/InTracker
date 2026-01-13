@@ -168,7 +168,7 @@ export function Dashboard() {
           <Card className="border-l-4 border-l-purple-500 sm:col-span-2 lg:col-span-1">
             <CardHeader className="pb-3">
               <CardDescription className="text-xs font-medium uppercase tracking-wide">Completed Projects</CardDescription>
-              <CardTitle className="text-4xl font-bold mt-2 text-purple-600 dark:text-purple-400">{completedProjects}</CardTitle>
+              <CardTitle className="text-4xl font-bold mt-2 text-accent">{completedProjects}</CardTitle>
             </CardHeader>
           </Card>
         </div>
@@ -210,11 +210,11 @@ export function Dashboard() {
                     const statusColors: Record<string, string> = {
                       active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
                       paused: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-                      blocked: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-                      completed: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-                      archived: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
+                      blocked: 'bg-destructive/10 text-destructive dark:bg-destructive/20',
+                      completed: 'bg-primary/10 text-primary dark:bg-primary/20',
+                      archived: 'bg-muted text-muted-foreground',
                     }
-                    const statusColor = statusColors[project.status] || 'bg-gray-100 text-gray-800'
+                    const statusColor = statusColors[project.status] || 'bg-muted text-muted-foreground'
                     
                     return (
                       <Link key={project.id} to={`/projects/${project.id}`} className="group">

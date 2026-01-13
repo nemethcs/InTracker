@@ -16,10 +16,10 @@ const typeIcons = {
 }
 
 const typeColors = {
-  milestone: 'text-purple-500',
-  module: 'text-blue-500',
-  component: 'text-green-500',
-  task: 'text-orange-500',
+  milestone: 'text-accent',
+  module: 'text-primary',
+  component: 'text-green-600 dark:text-green-400',
+  task: 'text-yellow-600 dark:text-yellow-400',
 }
 
 export function ElementTree({ 
@@ -58,7 +58,7 @@ function ElementNode({
   const [isExpanded, setIsExpanded] = useState(false)
   const hasChildren = element.children && element.children.length > 0
   const Icon = typeIcons[element.type] || Folder
-  const typeColor = typeColors[element.type] || 'text-gray-500'
+  const typeColor = typeColors[element.type] || 'text-muted-foreground'
 
   return (
     <div className="select-none">

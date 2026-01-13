@@ -379,7 +379,7 @@ export function Teams() {
                           </div>
                           <div className="flex items-center gap-2">
                             {member.role === 'team_leader' && (
-                              <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
+                              <span className="px-2 py-1 rounded text-xs bg-primary/10 text-primary dark:bg-primary/20">
                                 Leader
                               </span>
                             )}
