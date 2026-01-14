@@ -442,6 +442,19 @@ async def delete_user_by_id(
         for key in mcp_keys:
             db.delete(key)
 
+        # Delete team memberships explicitly to avoid NOT NULL constraint violations
+        # The CASCADE should handle this, but we delete explicitly to ensure it works in all environments
+        # Also handle created_by and updated_by fields if they exist in the database (from old migrations)
+        team_memberships = db.query(TeamMember).filter(TeamMember.user_id == user.id).all()
+        for team_member in team_memberships:
+            # If created_by or updated_by fields exist and point to this user, set them to NULL first
+            # (These fields might exist in prod DB from old migrations but not in the model)
+            if hasattr(team_member, 'created_by') and team_member.created_by == user.id:
+                team_member.created_by = None
+            if hasattr(team_member, 'updated_by') and team_member.updated_by == user.id:
+                team_member.updated_by = None
+            db.delete(team_member)
+
         # Before deleting user, we need to handle related records that have NOT NULL created_by constraints
         # For teams, we can't set created_by to NULL, so we need to either:
         # 1. Delete teams created by this user (CASCADE will handle team_members), or

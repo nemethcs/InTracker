@@ -15,7 +15,8 @@ import { McpSetupStep } from '@/components/onboarding/McpSetupStep'
 import { GitHubSetupStep } from '@/components/onboarding/GitHubSetupStep'
 import { CompletionStep } from '@/components/onboarding/CompletionStep'
 
-const TOTAL_STEPS = 5
+const TOTAL_STEPS_TEAM_LEADER = 5
+const TOTAL_STEPS_MEMBER = 4
 
 export function Onboarding() {
   const navigate = useNavigate()
@@ -23,6 +24,9 @@ export function Onboarding() {
   const { checkAuth } = useAuthStore()
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
+
+  // Calculate total steps based on user role
+  const totalSteps = user?.role === 'team_leader' ? TOTAL_STEPS_TEAM_LEADER : TOTAL_STEPS_MEMBER
 
   // Track if we've already loaded progress to prevent re-loading on every checkAuth call
   const hasLoadedProgressRef = useRef(false)
@@ -89,16 +93,17 @@ export function Onboarding() {
       const currentUser = useAuthStore.getState().user
       // Only redirect if setup is completed AND user is not on the last step (completion step)
       // This allows user to complete the onboarding flow even if setup_completed is true
-      if (currentUser?.setup_completed && currentStep !== TOTAL_STEPS) {
+      const currentTotalSteps = currentUser?.role === 'team_leader' ? TOTAL_STEPS_TEAM_LEADER : TOTAL_STEPS_MEMBER
+      if (currentUser?.setup_completed && currentStep !== currentTotalSteps) {
         // Only redirect if user is not actively progressing through onboarding
         // Check if user is on completion step - if so, let them finish
-        if (currentStep < TOTAL_STEPS) {
+        if (currentStep < currentTotalSteps) {
           // User completed setup but hasn't reached completion step yet
           // This can happen if they manually navigate back or if setup_completed was set externally
           // In this case, we should still allow them to continue to completion step
           // So we don't redirect, just update the step to completion
           if (currentUser.onboarding_step === 5) {
-            setCurrentStep(TOTAL_STEPS)
+            setCurrentStep(currentTotalSteps)
           }
         }
       }
@@ -111,10 +116,11 @@ export function Onboarding() {
     const unsubscribe = useAuthStore.subscribe((state) => {
       // Only redirect if setup is completed AND we're not on the completion step
       // This prevents redirecting while user is actively completing onboarding
-      if (state.user?.setup_completed && currentStep < TOTAL_STEPS) {
+      const currentTotalSteps = state.user?.role === 'team_leader' ? TOTAL_STEPS_TEAM_LEADER : TOTAL_STEPS_MEMBER
+      if (state.user?.setup_completed && currentStep < currentTotalSteps) {
         // If onboarding_step is 5 (complete), move to completion step instead of redirecting
         if (state.user.onboarding_step === 5) {
-          setCurrentStep(TOTAL_STEPS)
+          setCurrentStep(currentTotalSteps)
         }
       }
     })
@@ -123,7 +129,7 @@ export function Onboarding() {
   }, [navigate, currentStep])
 
   const handleNext = () => {
-    if (currentStep < TOTAL_STEPS) {
+    if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1)
     }
   }
@@ -149,7 +155,7 @@ export function Onboarding() {
           <CardTitle>Welcome to InTracker</CardTitle>
           <CardDescription>Let's get you set up in just a few steps</CardDescription>
           <div className="mt-4">
-            <ProgressBar currentStep={currentStep} totalSteps={TOTAL_STEPS} />
+            <ProgressBar currentStep={currentStep} totalSteps={totalSteps} />
           </div>
         </CardHeader>
         <CardContent>
