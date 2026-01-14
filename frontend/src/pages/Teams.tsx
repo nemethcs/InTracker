@@ -28,10 +28,12 @@ export function Teams() {
   const [editTeamOpen, setEditTeamOpen] = useState(false)
   const [addMemberOpen, setAddMemberOpen] = useState(false)
   const [inviteEmailOpen, setInviteEmailOpen] = useState(false)
+  const [teamLeaderInviteOpen, setTeamLeaderInviteOpen] = useState(false)
   const [teamForm, setTeamForm] = useState({ name: '', description: '' })
   const [selectedUserId, setSelectedUserId] = useState('')
   const [selectedMemberRole, setSelectedMemberRole] = useState('member')
   const [inviteEmail, setInviteEmail] = useState('')
+  const [teamLeaderInviteEmail, setTeamLeaderInviteEmail] = useState('')
 
   // Check if user is admin or team leader
   const isAdmin = user?.role === 'admin'
@@ -184,17 +186,45 @@ export function Teams() {
         setInviteEmailOpen(false)
         setInviteEmail('')
       }
-      toast.success(
-        memberRole === 'team_leader' ? 'Team leader invitation created' : 'Invitation created',
-        memberRole === 'team_leader' 
-          ? 'Team leader invitation has been created successfully.'
-          : 'Team invitation has been created successfully.'
-      )
+      toast.success('Invitation created', 'Team invitation has been created successfully.')
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create invitation'
       setError(errorMessage)
       toast.error('Failed to create invitation', errorMessage)
     }
+  }
+
+  const handleCreateTeamLeaderInvitation = async (email?: string) => {
+    try {
+      const invitation = await adminService.createAdminInvitation(30)
+      if (email) {
+        // TODO: Send email with invitation code
+        // For now, just show the code
+        setTeamLeaderInviteOpen(false)
+        setTeamLeaderInviteEmail('')
+        toast.success('Team Leader Invitation created', `Invitation code: ${invitation.code}`)
+      } else {
+        toast.success('Team Leader Invitation created', `Invitation code: ${invitation.code}`)
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create team leader invitation'
+      setError(errorMessage)
+      toast.error('Failed to create team leader invitation', errorMessage)
+    }
+  }
+
+  const handleTeamLeaderInviteEmailSubmit = async () => {
+    if (!teamLeaderInviteEmail.trim()) {
+      setError('Please enter an email address')
+      return
+    }
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(teamLeaderInviteEmail)) {
+      setError('Please enter a valid email address')
+      return
+    }
+    await handleCreateTeamLeaderInvitation(teamLeaderInviteEmail.trim())
   }
 
   const handleInviteEmailSubmit = async () => {
@@ -261,6 +291,25 @@ export function Teams() {
         title="Teams"
         description="Manage your teams and members"
       />
+
+      {/* Global Team Leader Invitation - Only for admins */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Team Leader Invitation</CardTitle>
+            <CardDescription>Create an invitation for a new team leader who will get their own team</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={() => setTeamLeaderInviteOpen(true)}
+              className="w-full sm:w-auto"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              Send Team Leader Invitation
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {error && (
         <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
@@ -478,33 +527,12 @@ export function Teams() {
                       <Mail className="h-4 w-4 mr-2" />
                       Send Member Invitation
                     </Button>
-                    {isAdmin && (
-                      <Button
-                        onClick={() => {
-                          setInviteEmailOpen(true)
-                          setSelectedMemberRole('team_leader')
-                        }}
-                        variant="default"
-                        className="flex-1"
-                      >
-                        <Mail className="h-4 w-4 mr-2" />
-                        Send Team Leader Invitation
-                      </Button>
-                    )}
                     <Button
                       onClick={() => handleCreateTeamInvitation(selectedTeam.id)}
                       variant="outline"
                     >
                       Create Code Only
                     </Button>
-                    {isAdmin && (
-                      <Button
-                        onClick={() => handleCreateTeamInvitation(selectedTeam.id, undefined, 'team_leader')}
-                        variant="outline"
-                      >
-                        Create Team Leader Code
-                      </Button>
-                    )}
                   </div>
 
                 {teamInvitations.length > 0 && (
