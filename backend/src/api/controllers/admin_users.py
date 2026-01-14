@@ -2,17 +2,20 @@
 from typing import Optional
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, status, Header, Depends, Query
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from src.database.base import get_db
 from src.database.models import User, TeamMember, Team
 from src.services.auth_service import AuthService
 from src.services.team_service import TeamService
-from src.api.middleware.auth import get_current_admin_user
+from src.api.middleware.auth import get_current_admin_user, get_optional_user
 from src.config import settings
 
 # Import shared router from admin_controller
 from .admin_controller import router
+
+security = HTTPBearer(auto_error=False)
 
 
 @router.post("/create-user")
@@ -22,8 +25,8 @@ async def create_user(
     name: str = None,
     role: str = "member",
     team_id: str = None,
-    api_key: str = Header(..., alias="X-API-Key"),
-    current_user: dict = Depends(get_current_admin_user),
+    api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db),
 ):
     """Create a user. Requires admin role or API key.
@@ -31,12 +34,18 @@ async def create_user(
     Non-admin users (member, team_leader) must be assigned to a team.
     If team_id is not provided for non-admin users, a default team will be created.
     """
-    # Check API key (for MCP/admin scripts) OR admin role
-    if api_key != settings.MCP_API_KEY and current_user.get("role") != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid API key or admin access required",
-        )
+    # Check API key first (for MCP/admin scripts)
+    if api_key and api_key == settings.MCP_API_KEY:
+        # API key is valid, allow access
+        pass
+    else:
+        # No valid API key, check for admin user via JWT
+        current_user = await get_optional_user(credentials, db)
+        if not current_user or current_user.get("role") != "admin":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid API key or admin access required",
+            )
     
     # Validate role
     valid_roles = ["admin", "team_leader", "member"]
