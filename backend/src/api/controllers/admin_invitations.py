@@ -42,7 +42,8 @@ async def create_admin_invitation(
             frontend_url = settings.FRONTEND_URL
             if not frontend_url or frontend_url == "*":
                 frontend_url = "https://intracker.kesmarki.com"
-            invitation_url = f"{frontend_url}/register?code={invitation.code}"
+            # Include email in URL if sending to specific email
+            invitation_url = f"{frontend_url}/register?code={invitation.code}&email={send_email_to}"
             
             # Get inviter name
             inviter_name = current_user.get("name") or current_user.get("email", "Admin")

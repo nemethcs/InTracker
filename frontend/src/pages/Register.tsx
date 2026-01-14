@@ -18,11 +18,16 @@ export function Register() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Load invitation code from URL query parameter
+  // Load invitation code and email from URL query parameters
   useEffect(() => {
     const code = searchParams.get('code')
     if (code) {
       setInvitationCode(code)
+    }
+    
+    const emailParam = searchParams.get('email')
+    if (emailParam) {
+      setEmail(emailParam)
     }
   }, [searchParams])
 
