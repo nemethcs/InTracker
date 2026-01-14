@@ -31,6 +31,8 @@ export interface Invitation {
   used_at?: string
   used_by?: string
   created_at: string
+  email_sent_to?: string
+  email_sent_at?: string
 }
 
 export interface UserListResponse {
@@ -162,8 +164,11 @@ export const adminService = {
     return response.data
   },
 
-  async createAdminInvitation(expiresInDays?: number): Promise<Invitation> {
-    const response = await api.post('/admin/invitations/admin', null, { params: { expires_in_days: expiresInDays || 30 } })
+  async createAdminInvitation(expiresInDays?: number, sendEmailTo?: string): Promise<Invitation> {
+    const params: { expires_in_days?: number; send_email_to?: string } = {}
+    if (expiresInDays) params.expires_in_days = expiresInDays
+    if (sendEmailTo) params.send_email_to = sendEmailTo
+    const response = await api.post('/admin/invitations/admin', null, { params })
     return response.data.invitation
   },
 

@@ -445,19 +445,32 @@ async def create_team_invitation(
         
         # Send email if email address provided
         if send_email_to:
-            from src.services.email_service import email_service
-            email_sent = email_service.send_invitation_email(
-                to_email=send_email_to,
-                invitation_code=invitation.code,
-                team_name=team.name,
-                inviter_name=inviter_name,
-                expires_in_days=expires_in_days,
-            )
-            if not email_sent:
-                # Log warning but don't fail the request
+            # Check if email was already sent to this address for this invitation
+            if invitation.email_sent_to and invitation.email_sent_to.lower() == send_email_to.lower():
+                # Email already sent, don't send again
                 import logging
                 logger = logging.getLogger(__name__)
-                logger.warning(f"Failed to send invitation email to {send_email_to}, but invitation was created")
+                logger.info(f"Invitation email already sent to {send_email_to} for invitation {invitation.code}")
+            else:
+                from src.services.email_service import email_service
+                from datetime import datetime
+                email_sent = email_service.send_invitation_email(
+                    to_email=send_email_to,
+                    invitation_code=invitation.code,
+                    team_name=team.name,
+                    inviter_name=inviter_name,
+                    expires_in_days=expires_in_days,
+                )
+                if email_sent:
+                    # Mark email as sent
+                    invitation.email_sent_to = send_email_to
+                    invitation.email_sent_at = datetime.utcnow()
+                    db.commit()
+                else:
+                    # Log warning but don't fail the request
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Failed to send invitation email to {send_email_to}, but invitation was created")
         
         return TeamInvitationResponse(
             code=invitation.code,
@@ -465,6 +478,8 @@ async def create_team_invitation(
             team_id=str(invitation.team_id) if invitation.team_id else None,
             expires_at=invitation.expires_at.isoformat() if invitation.expires_at else None,
             created_at=invitation.created_at.isoformat(),
+            email_sent_to=invitation.email_sent_to,
+            email_sent_at=invitation.email_sent_at.isoformat() if invitation.email_sent_at else None,
         )
     except ValueError as e:
         raise HTTPException(

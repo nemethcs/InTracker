@@ -57,12 +57,25 @@ export function GitHubSetupStep({ onNext, onBack }: GitHubSetupStepProps) {
       try {
         setIsProcessingCallback(true)
         setGitHubError(null)
-        await settingsService.handleOAuthCallback(code, state)
-        await checkAuth()
+        const result = await settingsService.handleOAuthCallback(code, state)
+        
+        // Load GitHub status first (before checkAuth to avoid step reset)
         await loadGitHubStatus()
+        
+        // Then refresh user data
+        await checkAuth()
+        
         searchParams.delete('code')
         searchParams.delete('state')
         setSearchParams(searchParams, { replace: true })
+        
+        // After successful GitHub connection, the backend sets onboarding_step to 4 (github)
+        // and potentially setup_completed to true if MCP key is also connected
+        // We should stay on the GitHub step and show success message
+        // User can then proceed to completion step manually
+        // No automatic redirect - let user continue through onboarding flow
+        // Note: We don't need to update the step here because we're already on the GitHub step
+        // and the Onboarding component's loadProgress only runs once on mount
       } catch (error) {
         console.error('Failed to process OAuth callback:', error)
         setGitHubError(error instanceof Error ? error.message : 'Failed to connect GitHub account')

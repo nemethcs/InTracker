@@ -96,3 +96,5 @@ class TeamInvitationResponse(BaseModel):
     team_id: Optional[str]
     expires_at: Optional[str]
     created_at: str
+    email_sent_to: Optional[str] = None
+    email_sent_at: Optional[str] = None

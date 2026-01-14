@@ -196,13 +196,11 @@ export function Teams() {
 
   const handleCreateTeamLeaderInvitation = async (email?: string) => {
     try {
-      const invitation = await adminService.createAdminInvitation(30)
+      const invitation = await adminService.createAdminInvitation(30, email)
+      setTeamLeaderInviteOpen(false)
+      setTeamLeaderInviteEmail('')
       if (email) {
-        // TODO: Send email with invitation code
-        // For now, just show the code
-        setTeamLeaderInviteOpen(false)
-        setTeamLeaderInviteEmail('')
-        toast.success('Team Leader Invitation created', `Invitation code: ${invitation.code}`)
+        toast.success('Team Leader Invitation sent', `Invitation email has been sent to ${email}`)
       } else {
         toast.success('Team Leader Invitation created', `Invitation code: ${invitation.code}`)
       }
@@ -238,6 +236,17 @@ export function Teams() {
       setError('Please enter a valid email address')
       return
     }
+    
+    // Check if email was already sent to this address for this team
+    const emailLower = inviteEmail.trim().toLowerCase()
+    const alreadySent = teamInvitations.some(
+      inv => inv.email_sent_to && inv.email_sent_to.toLowerCase() === emailLower
+    )
+    if (alreadySent) {
+      setError('Invitation email has already been sent to this address')
+      return
+    }
+    
     const memberRole = selectedMemberRole === 'team_leader' ? 'team_leader' : 'member'
     await handleCreateTeamInvitation(selectedTeam.id, inviteEmail.trim(), memberRole)
     // Reset role to member after sending
@@ -690,63 +699,80 @@ export function Teams() {
                     setInviteEmail('')
                     setSelectedMemberRole('member')
                   }}>Cancel</Button>
-                  <Button onClick={handleInviteEmailSubmit} disabled={!inviteEmail.trim()}>
+                  <Button 
+                    onClick={handleInviteEmailSubmit} 
+                    disabled={
+                      !inviteEmail.trim() || 
+                      teamInvitations.some(
+                        inv => inv.email_sent_to && inv.email_sent_to.toLowerCase() === inviteEmail.trim().toLowerCase()
+                      )
+                    }
+                  >
                     <Mail className="h-4 w-4 mr-2" />
-                    Send Invitation
+                    {teamInvitations.some(
+                      inv => inv.email_sent_to && inv.email_sent_to.toLowerCase() === inviteEmail.trim().toLowerCase()
+                    ) ? 'Email Already Sent' : 'Send Invitation'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
 
-            {/* Send Team Leader Invitation Dialog */}
-            <Dialog open={teamLeaderInviteOpen} onOpenChange={(open) => {
-              setTeamLeaderInviteOpen(open)
-              if (!open) {
-                setTeamLeaderInviteEmail('')
-              }
-            }}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Send Team Leader Invitation</DialogTitle>
-                  <DialogDescription>
-                    Create an invitation for a new team leader. They will register with team_leader role and get their own team automatically created.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="team-leader-invite-email">Email Address (Optional)</Label>
-                    <Input
-                      id="team-leader-invite-email"
-                      type="email"
-                      placeholder="user@example.com"
-                      value={teamLeaderInviteEmail}
-                      onChange={(e) => setTeamLeaderInviteEmail(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleTeamLeaderInviteEmailSubmit()
-                        }
-                      }}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      If provided, an invitation email will be sent. Otherwise, you'll get an invitation code to share manually.
-                    </p>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => {
-                    setTeamLeaderInviteOpen(false)
-                    setTeamLeaderInviteEmail('')
-                  }}>Cancel</Button>
-                  <Button onClick={handleTeamLeaderInviteEmailSubmit}>
-                    <Mail className="h-4 w-4 mr-2" />
-                    {teamLeaderInviteEmail.trim() ? 'Send Invitation' : 'Create Invitation Code'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
           </div>
         )}
       </div>
+
+      {/* Send Team Leader Invitation Dialog - Outside selectedTeam block so it's always accessible */}
+      {isAdmin && (
+        <Dialog open={teamLeaderInviteOpen} onOpenChange={(open) => {
+          setTeamLeaderInviteOpen(open)
+          if (open) {
+            // Pre-fill email with current user's email when dialog opens
+            setTeamLeaderInviteEmail(user?.email || '')
+          } else {
+            setTeamLeaderInviteEmail('')
+          }
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Send Team Leader Invitation</DialogTitle>
+              <DialogDescription>
+                Create an invitation for a new team leader. They will register with team_leader role and get their own team automatically created.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="team-leader-invite-email">Email Address (Optional)</Label>
+                <Input
+                  id="team-leader-invite-email"
+                  type="email"
+                  placeholder="user@example.com"
+                  value={teamLeaderInviteEmail}
+                  onChange={(e) => setTeamLeaderInviteEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleTeamLeaderInviteEmailSubmit()
+                    }
+                  }}
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">
+                  If provided, an invitation email will be sent. Otherwise, you'll get an invitation code to share manually.
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setTeamLeaderInviteOpen(false)
+                setTeamLeaderInviteEmail('')
+              }}>Cancel</Button>
+              <Button onClick={handleTeamLeaderInviteEmailSubmit}>
+                <Mail className="h-4 w-4 mr-2" />
+                {teamLeaderInviteEmail.trim() ? 'Send Invitation' : 'Create Invitation Code'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

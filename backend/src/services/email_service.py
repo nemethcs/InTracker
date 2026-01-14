@@ -55,7 +55,8 @@ class EmailService:
         frontend_url = settings.FRONTEND_URL
         if not frontend_url or frontend_url == "*":
             frontend_url = "https://intracker.kesmarki.com"
-        invitation_url = f"{frontend_url}/register?code={invitation_code}"
+        # Include email in URL if sending to specific email
+        invitation_url = f"{frontend_url}/register?code={invitation_code}&email={to_email}"
         
         # Build email content
         inviter_text = f" from {inviter_name}" if inviter_name else ""

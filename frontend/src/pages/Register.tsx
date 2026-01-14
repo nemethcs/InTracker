@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import { useAuthStore } from '@/stores/authStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,7 +10,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 export function Register() {
   const navigate = useNavigate()
-  const { register } = useAuth()
+  const { register, isAuthenticated } = useAuth()
   const [searchParams] = useSearchParams()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -18,11 +19,16 @@ export function Register() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Load invitation code from URL query parameter
+  // Load invitation code and email from URL query parameters
   useEffect(() => {
     const code = searchParams.get('code')
     if (code) {
       setInvitationCode(code)
+    }
+    
+    const emailParam = searchParams.get('email')
+    if (emailParam) {
+      setEmail(emailParam)
     }
   }, [searchParams])
 
@@ -32,9 +38,21 @@ export function Register() {
     setIsLoading(true)
 
     try {
+      // Clear any existing tokens before registration to avoid conflicts
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+      
       await register(email, password, name || undefined, invitationCode)
-      // Redirect to onboarding for new users
-      navigate('/onboarding')
+      
+      // Verify that the user state is set correctly
+      const currentUser = useAuthStore.getState().user
+      if (!currentUser) {
+        throw new Error('Registration succeeded but user state was not set')
+      }
+      
+      // Use window.location.href for a full page reload to ensure all state is properly initialized
+      // This is necessary because the ProtectedRoute and useAuth hook might not have updated yet
+      window.location.href = '/onboarding'
     } catch (err: any) {
       // Handle different error formats
       let errorMessage = 'Registration failed'
