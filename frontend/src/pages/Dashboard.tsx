@@ -75,10 +75,8 @@ export function Dashboard() {
 
   // Determine title based on route
   const isProjectsPage = location.pathname === '/projects'
-  const pageTitle = isProjectsPage ? 'Projects' : 'Dashboard'
-  const pageDescription = isProjectsPage 
-    ? 'View and manage all your projects' 
-    : 'Manage your projects and track progress'
+  const pageTitle = 'Projects' // Both Dashboard and Projects pages show the same content
+  const pageDescription = 'View and manage all your projects'
 
   if (isLoading || isLoadingTeams) {
     return (

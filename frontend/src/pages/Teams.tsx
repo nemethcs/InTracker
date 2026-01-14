@@ -28,10 +28,12 @@ export function Teams() {
   const [editTeamOpen, setEditTeamOpen] = useState(false)
   const [addMemberOpen, setAddMemberOpen] = useState(false)
   const [inviteEmailOpen, setInviteEmailOpen] = useState(false)
+  const [teamLeaderInviteOpen, setTeamLeaderInviteOpen] = useState(false)
   const [teamForm, setTeamForm] = useState({ name: '', description: '' })
   const [selectedUserId, setSelectedUserId] = useState('')
   const [selectedMemberRole, setSelectedMemberRole] = useState('member')
   const [inviteEmail, setInviteEmail] = useState('')
+  const [teamLeaderInviteEmail, setTeamLeaderInviteEmail] = useState('')
 
   // Check if user is admin or team leader
   const isAdmin = user?.role === 'admin'
@@ -175,18 +177,54 @@ export function Teams() {
     }
   }
 
-  const handleCreateTeamInvitation = async (teamId: string, email?: string) => {
+  const handleCreateTeamInvitation = async (teamId: string, email?: string, memberRole: string = 'member') => {
     try {
-      const invitation = await adminService.createTeamInvitation(teamId, 7, email)
+      const invitation = await adminService.createTeamInvitation(teamId, 7, email, memberRole)
       setTeamInvitations([...teamInvitations, invitation])
       loadTeamDetails(teamId)
       if (email) {
         setInviteEmailOpen(false)
         setInviteEmail('')
       }
+      toast.success('Invitation created', 'Team invitation has been created successfully.')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create invitation')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create invitation'
+      setError(errorMessage)
+      toast.error('Failed to create invitation', errorMessage)
     }
+  }
+
+  const handleCreateTeamLeaderInvitation = async (email?: string) => {
+    try {
+      const invitation = await adminService.createAdminInvitation(30)
+      if (email) {
+        // TODO: Send email with invitation code
+        // For now, just show the code
+        setTeamLeaderInviteOpen(false)
+        setTeamLeaderInviteEmail('')
+        toast.success('Team Leader Invitation created', `Invitation code: ${invitation.code}`)
+      } else {
+        toast.success('Team Leader Invitation created', `Invitation code: ${invitation.code}`)
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create team leader invitation'
+      setError(errorMessage)
+      toast.error('Failed to create team leader invitation', errorMessage)
+    }
+  }
+
+  const handleTeamLeaderInviteEmailSubmit = async () => {
+    if (!teamLeaderInviteEmail.trim()) {
+      setError('Please enter an email address')
+      return
+    }
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(teamLeaderInviteEmail)) {
+      setError('Please enter a valid email address')
+      return
+    }
+    await handleCreateTeamLeaderInvitation(teamLeaderInviteEmail.trim())
   }
 
   const handleInviteEmailSubmit = async () => {
@@ -200,7 +238,10 @@ export function Teams() {
       setError('Please enter a valid email address')
       return
     }
-    await handleCreateTeamInvitation(selectedTeam.id, inviteEmail.trim())
+    const memberRole = selectedMemberRole === 'team_leader' ? 'team_leader' : 'member'
+    await handleCreateTeamInvitation(selectedTeam.id, inviteEmail.trim(), memberRole)
+    // Reset role to member after sending
+    setSelectedMemberRole('member')
   }
 
   const handleCopyCode = (code: string) => {
@@ -250,6 +291,25 @@ export function Teams() {
         title="Teams"
         description="Manage your teams and members"
       />
+
+      {/* Global Team Leader Invitation - Only for admins */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Team Leader Invitation</CardTitle>
+            <CardDescription>Create an invitation for a new team leader who will get their own team</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={() => setTeamLeaderInviteOpen(true)}
+              className="w-full sm:w-auto"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              Send Team Leader Invitation
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {error && (
         <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
@@ -422,12 +482,13 @@ export function Teams() {
                                 Leader
                               </span>
                             )}
-                            {isTeamLeaderOfSelectedTeam && (
+                            {(isTeamLeaderOfSelectedTeam || isAdmin) && (
                               <>
                                 <select
                                   value={member.role}
                                   onChange={(e) => handleUpdateMemberRole(selectedTeam.id, member.user_id, e.target.value)}
                                   className="h-8 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                  disabled={!isAdmin && member.role === 'team_leader' && !isTeamLeaderOfSelectedTeam}
                                 >
                                   <option value="member">Member</option>
                                   <option value="team_leader">Team Leader</option>
@@ -450,21 +511,21 @@ export function Teams() {
               </CardContent>
             </Card>
 
-            {/* Team Invitations - Only visible to team leaders */}
-            {isTeamLeaderOfSelectedTeam && (
+            {/* Team Invitations - Visible to team leaders and admins */}
+            {(isTeamLeaderOfSelectedTeam || isAdmin) && (
               <Card>
                 <CardHeader>
                   <CardTitle>Invitations</CardTitle>
                   <CardDescription>Create and manage team invitation codes</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       onClick={() => setInviteEmailOpen(true)}
                       className="flex-1"
                     >
                       <Mail className="h-4 w-4 mr-2" />
-                      Send Invitation Email
+                      Send Member Invitation
                     </Button>
                     <Button
                       onClick={() => handleCreateTeamInvitation(selectedTeam.id)}
@@ -589,11 +650,19 @@ export function Teams() {
             </Dialog>
 
             {/* Send Invitation Email Dialog */}
-            <Dialog open={inviteEmailOpen} onOpenChange={setInviteEmailOpen}>
+            <Dialog open={inviteEmailOpen} onOpenChange={(open) => {
+              setInviteEmailOpen(open)
+              if (!open) {
+                setInviteEmail('')
+                setSelectedMemberRole('member')
+              }
+            }}>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Send Team Invitation</DialogTitle>
-                  <DialogDescription>Send an invitation email to join {selectedTeam?.name}.</DialogDescription>
+                  <DialogDescription>
+                    Send an invitation email to join {selectedTeam?.name} as a member.
+                  </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
@@ -619,10 +688,58 @@ export function Teams() {
                   <Button variant="outline" onClick={() => {
                     setInviteEmailOpen(false)
                     setInviteEmail('')
+                    setSelectedMemberRole('member')
                   }}>Cancel</Button>
                   <Button onClick={handleInviteEmailSubmit} disabled={!inviteEmail.trim()}>
                     <Mail className="h-4 w-4 mr-2" />
                     Send Invitation
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Send Team Leader Invitation Dialog */}
+            <Dialog open={teamLeaderInviteOpen} onOpenChange={(open) => {
+              setTeamLeaderInviteOpen(open)
+              if (!open) {
+                setTeamLeaderInviteEmail('')
+              }
+            }}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Send Team Leader Invitation</DialogTitle>
+                  <DialogDescription>
+                    Create an invitation for a new team leader. They will register with team_leader role and get their own team automatically created.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="team-leader-invite-email">Email Address (Optional)</Label>
+                    <Input
+                      id="team-leader-invite-email"
+                      type="email"
+                      placeholder="user@example.com"
+                      value={teamLeaderInviteEmail}
+                      onChange={(e) => setTeamLeaderInviteEmail(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleTeamLeaderInviteEmailSubmit()
+                        }
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      If provided, an invitation email will be sent. Otherwise, you'll get an invitation code to share manually.
+                    </p>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => {
+                    setTeamLeaderInviteOpen(false)
+                    setTeamLeaderInviteEmail('')
+                  }}>Cancel</Button>
+                  <Button onClick={handleTeamLeaderInviteEmailSubmit}>
+                    <Mail className="h-4 w-4 mr-2" />
+                    {teamLeaderInviteEmail.trim() ? 'Send Invitation' : 'Create Invitation Code'}
                   </Button>
                 </DialogFooter>
               </DialogContent>

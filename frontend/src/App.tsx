@@ -13,10 +13,10 @@ import { Settings } from '@/pages/Settings'
 import { Ideas } from '@/pages/Ideas'
 import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
-import { AdminLogin } from '@/pages/AdminLogin'
-import { AdminDashboard } from '@/pages/AdminDashboard'
+// AdminLogin and AdminDashboard removed - admin functions integrated into Teams and Settings
 import { Teams } from '@/pages/Teams'
 import { Onboarding } from '@/pages/Onboarding'
+import { Users } from '@/pages/Users'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user } = useAuth()
@@ -34,8 +34,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />
   }
 
-  // Check if setup is completed - if not, redirect to onboarding (except for onboarding and settings routes)
-  if (!user?.setup_completed) {
+  // Admins skip onboarding - they automatically have setup_completed=true
+  // For non-admin users, check if setup is completed - if not, redirect to onboarding
+  if (user?.role !== 'admin' && !user?.setup_completed) {
     const currentPath = location.pathname
     const allowedPaths = ['/onboarding', '/settings', '/logout']
     if (!allowedPaths.includes(currentPath) && !currentPath.startsWith('/onboarding')) {
@@ -43,13 +44,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Admins should only access /admin and /teams routes
-  // Redirect them to /admin if they try to access other routes
-  if (user?.role === 'admin') {
-    const currentPath = location.pathname
-    if (currentPath !== '/admin' && currentPath !== '/teams' && !currentPath.startsWith('/admin/')) {
-      return <Navigate to="/admin" replace />
-    }
+  return <>{children}</>
+}
+
+function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
+  
+  if (user?.role !== 'admin') {
+    return <Navigate to="/" replace />
   }
 
   return <>{children}</>
@@ -62,7 +64,6 @@ function App() {
         <Toaster />
         <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/register" element={<Register />} />
         <Route
           path="/onboarding"
@@ -153,22 +154,24 @@ function App() {
           }
         />
         <Route
-          path="/admin"
-          element={
-            <ProtectedRoute>
-              <MainLayout>
-                <AdminDashboard />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/teams"
           element={
             <ProtectedRoute>
               <MainLayout>
                 <Teams />
               </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute>
+              <AdminOnlyRoute>
+                <MainLayout>
+                  <Users />
+                </MainLayout>
+              </AdminOnlyRoute>
             </ProtectedRoute>
           }
         />
