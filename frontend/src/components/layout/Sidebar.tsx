@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { FolderKanban, Settings, Sparkles, Shield, UsersRound, Users, X } from 'lucide-react'
+import { FolderKanban, Settings, Sparkles, Shield, UsersRound, Users, X, BookOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 const navigation = [
   { name: 'Projects', href: '/projects', icon: FolderKanban },
   { name: 'Ideas', href: '/ideas', icon: Sparkles },
+  { name: 'Cursor Guide', href: '/guide', icon: BookOpen },
 ]
 
 const teamNavigation = { name: 'Teams', href: '/teams', icon: UsersRound }

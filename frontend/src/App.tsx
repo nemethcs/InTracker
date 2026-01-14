@@ -17,6 +17,7 @@ import { Register } from '@/pages/Register'
 import { Teams } from '@/pages/Teams'
 import { Onboarding } from '@/pages/Onboarding'
 import { Users } from '@/pages/Users'
+import { CursorGuide } from '@/pages/CursorGuide'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user } = useAuth()
@@ -172,6 +173,16 @@ function App() {
                   <Users />
                 </MainLayout>
               </AdminOnlyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/guide"
+          element={
+            <ProtectedRoute>
+              <MainLayout>
+                <CursorGuide />
+              </MainLayout>
             </ProtectedRoute>
           }
         />
