@@ -11,7 +11,6 @@ const navigation = [
 ]
 
 const teamNavigation = { name: 'Teams', href: '/teams', icon: UsersRound }
-const adminNavigation = { name: 'Admin', href: '/admin', icon: Shield }
 
 interface SidebarProps {
   isOpen: boolean
@@ -21,19 +20,10 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation()
   const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
-  const isTeamLeader = user?.role === 'team_leader'
 
-  let allNavigation: typeof navigation = []
-  
-  // Admins only see Admin and Teams links
-  if (isAdmin) {
-    allNavigation = [adminNavigation, teamNavigation]
-  } else {
-    // Regular users and team leaders see normal navigation + Teams
-    // All users (not just team leaders) can see Teams menu
-    allNavigation = [...navigation, teamNavigation]
-  }
+  // All users (including admins) see the normal navigation + Teams
+  // Admin functions are integrated into Teams and Settings pages
+  const allNavigation = [...navigation, teamNavigation]
 
   // Close sidebar when route changes (mobile)
   const handleLinkClick = () => {
