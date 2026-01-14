@@ -483,6 +483,7 @@ class InvitationCode(Base):
     code = Column(String, unique=True, nullable=False, index=True)
     type = Column(String, nullable=False, index=True)  # admin, team
     team_id = Column(UUID(as_uuid=True), ForeignKey("teams.id", ondelete="CASCADE"), nullable=True, index=True)
+    member_role = Column(String, default="member", nullable=False)  # member, team_leader - role for team invitations
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     expires_at = Column(DateTime, nullable=True)

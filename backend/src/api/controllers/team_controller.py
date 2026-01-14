@@ -386,15 +386,18 @@ async def create_team_invitation(
     team_id: UUID,
     expires_in_days: Optional[int] = Query(7, ge=1, le=365),
     send_email_to: Optional[str] = Query(None, description="Email address to send invitation to"),
+    member_role: str = Query("member", description="Role for the invited user (member or team_leader)"),
     current_user: dict = Depends(get_current_team_leader),
     db: Session = Depends(get_db),
 ):
-    """Create a team invitation code. Only team leaders can create invitations.
+    """Create a team invitation code. Only team leaders or admins can create invitations.
     
     Args:
         team_id: Team ID
         expires_in_days: Number of days until invitation expires (default: 7)
         send_email_to: Optional email address to send invitation to
+        member_role: Role for the invited user (member or team_leader). Default: member.
+                    Only admins can create team_leader invitations.
     """
     user_role = current_user.get("role")
     current_user_id = UUID(current_user["user_id"])
@@ -404,6 +407,20 @@ async def create_team_invitation(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only team leaders or admins can create team invitations",
+        )
+    
+    # Validate member_role
+    if member_role not in ["member", "team_leader"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid member_role. Must be 'member' or 'team_leader'",
+        )
+    
+    # Only admins can create team_leader invitations
+    if member_role == "team_leader" and user_role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can create team leader invitations",
         )
 
     try:
@@ -423,6 +440,7 @@ async def create_team_invitation(
             team_id=team_id,
             created_by=current_user_id,
             expires_in_days=expires_in_days,
+            member_role=member_role,
         )
         
         # Send email if email address provided

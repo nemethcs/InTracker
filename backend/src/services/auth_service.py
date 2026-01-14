@@ -87,14 +87,18 @@ class AuthService:
         user_role = "member"  # Default role
         team_id = None
         should_create_team = False
+        team_member_role = "member"  # Default team member role
 
         if invitation.type == "admin":
             # Admin invitation creates a team_leader who gets their own team
             user_role = "team_leader"
             should_create_team = True
+            team_member_role = "team_leader"
         elif invitation.type == "team":
-            user_role = "member"
+            user_role = "member"  # User role is always member for team invitations
             team_id = invitation.team_id
+            # Use member_role from invitation (member or team_leader)
+            team_member_role = getattr(invitation, 'member_role', 'member')
 
         # Hash password
         password_hash = AuthService.hash_password(password)
@@ -138,7 +142,7 @@ class AuthService:
             team_member = TeamMember(
                 team_id=team_id,
                 user_id=user.id,
-                role="team_leader" if should_create_team else "member",
+                role=team_member_role,
             )
             db.add(team_member)
 

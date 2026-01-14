@@ -50,16 +50,27 @@ class InvitationService:
         team_id: UUID,
         created_by: UUID,
         expires_in_days: Optional[int] = 7,
+        member_role: str = "member",
     ) -> InvitationCode:
         """Generate a team invitation code.
         
         Team invitations allow users to register and automatically join
-        the specified team as a member.
+        the specified team with the specified role (member or team_leader).
+        
+        Args:
+            team_id: Team ID
+            created_by: User ID who created the invitation
+            expires_in_days: Number of days until expiration
+            member_role: Role for the invited user (member or team_leader)
         """
         # Verify team exists
         team = db.query(Team).filter(Team.id == team_id).first()
         if not team:
             raise ValueError(f"Team {team_id} not found")
+        
+        # Validate member_role
+        if member_role not in ["member", "team_leader"]:
+            raise ValueError(f"Invalid member_role: {member_role}. Must be 'member' or 'team_leader'")
 
         code = InvitationService.generate_code()
         expires_at = None
@@ -70,6 +81,7 @@ class InvitationService:
             code=code,
             type="team",
             team_id=team_id,
+            member_role=member_role,
             created_by=created_by,
             expires_at=expires_at,
         )

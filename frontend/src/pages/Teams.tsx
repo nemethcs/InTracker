@@ -175,17 +175,25 @@ export function Teams() {
     }
   }
 
-  const handleCreateTeamInvitation = async (teamId: string, email?: string) => {
+  const handleCreateTeamInvitation = async (teamId: string, email?: string, memberRole: string = 'member') => {
     try {
-      const invitation = await adminService.createTeamInvitation(teamId, 7, email)
+      const invitation = await adminService.createTeamInvitation(teamId, 7, email, memberRole)
       setTeamInvitations([...teamInvitations, invitation])
       loadTeamDetails(teamId)
       if (email) {
         setInviteEmailOpen(false)
         setInviteEmail('')
       }
+      toast.success(
+        memberRole === 'team_leader' ? 'Team leader invitation created' : 'Invitation created',
+        memberRole === 'team_leader' 
+          ? 'Team leader invitation has been created successfully.'
+          : 'Team invitation has been created successfully.'
+      )
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create invitation')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create invitation'
+      setError(errorMessage)
+      toast.error('Failed to create invitation', errorMessage)
     }
   }
 
@@ -200,7 +208,10 @@ export function Teams() {
       setError('Please enter a valid email address')
       return
     }
-    await handleCreateTeamInvitation(selectedTeam.id, inviteEmail.trim())
+    const memberRole = selectedMemberRole === 'team_leader' ? 'team_leader' : 'member'
+    await handleCreateTeamInvitation(selectedTeam.id, inviteEmail.trim(), memberRole)
+    // Reset role to member after sending
+    setSelectedMemberRole('member')
   }
 
   const handleCopyCode = (code: string) => {
@@ -458,20 +469,41 @@ export function Teams() {
                   <CardDescription>Create and manage team invitation codes</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       onClick={() => setInviteEmailOpen(true)}
                       className="flex-1"
                     >
                       <Mail className="h-4 w-4 mr-2" />
-                      Send Invitation Email
+                      Send Member Invitation
                     </Button>
+                    {isAdmin && (
+                      <Button
+                        onClick={() => {
+                          setInviteEmailOpen(true)
+                          setSelectedMemberRole('team_leader')
+                        }}
+                        variant="default"
+                        className="flex-1"
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        Send Team Leader Invitation
+                      </Button>
+                    )}
                     <Button
                       onClick={() => handleCreateTeamInvitation(selectedTeam.id)}
                       variant="outline"
                     >
                       Create Code Only
                     </Button>
+                    {isAdmin && (
+                      <Button
+                        onClick={() => handleCreateTeamInvitation(selectedTeam.id, undefined, 'team_leader')}
+                        variant="outline"
+                      >
+                        Create Team Leader Code
+                      </Button>
+                    )}
                   </div>
 
                 {teamInvitations.length > 0 && (
@@ -589,11 +621,21 @@ export function Teams() {
             </Dialog>
 
             {/* Send Invitation Email Dialog */}
-            <Dialog open={inviteEmailOpen} onOpenChange={setInviteEmailOpen}>
+            <Dialog open={inviteEmailOpen} onOpenChange={(open) => {
+              setInviteEmailOpen(open)
+              if (!open) {
+                setInviteEmail('')
+                setSelectedMemberRole('member')
+              }
+            }}>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Send Team Invitation</DialogTitle>
-                  <DialogDescription>Send an invitation email to join {selectedTeam?.name}.</DialogDescription>
+                  <DialogTitle>
+                    {selectedMemberRole === 'team_leader' ? 'Send Team Leader Invitation' : 'Send Team Invitation'}
+                  </DialogTitle>
+                  <DialogDescription>
+                    Send an invitation email to join {selectedTeam?.name} as {selectedMemberRole === 'team_leader' ? 'team leader' : 'member'}.
+                  </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
@@ -614,11 +656,29 @@ export function Teams() {
                       An invitation email will be sent to this address with a link to join the team.
                     </p>
                   </div>
+                  {isAdmin && (
+                    <div className="space-y-2">
+                      <Label htmlFor="invite-role">Invitation Role *</Label>
+                      <Select value={selectedMemberRole} onValueChange={setSelectedMemberRole}>
+                        <SelectTrigger id="invite-role">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="member">Member</SelectItem>
+                          <SelectItem value="team_leader">Team Leader</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Only admins can send team leader invitations.
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => {
                     setInviteEmailOpen(false)
                     setInviteEmail('')
+                    setSelectedMemberRole('member')
                   }}>Cancel</Button>
                   <Button onClick={handleInviteEmailSubmit} disabled={!inviteEmail.trim()}>
                     <Mail className="h-4 w-4 mr-2" />
