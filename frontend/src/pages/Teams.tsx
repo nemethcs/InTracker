@@ -704,7 +704,10 @@ export function Teams() {
       {isAdmin && (
         <Dialog open={teamLeaderInviteOpen} onOpenChange={(open) => {
           setTeamLeaderInviteOpen(open)
-          if (!open) {
+          if (open) {
+            // Pre-fill email with current user's email when dialog opens
+            setTeamLeaderInviteEmail(user?.email || '')
+          } else {
             setTeamLeaderInviteEmail('')
           }
         }}>
@@ -729,6 +732,7 @@ export function Teams() {
                       handleTeamLeaderInviteEmailSubmit()
                     }
                   }}
+                  autoFocus
                 />
                 <p className="text-xs text-muted-foreground">
                   If provided, an invitation email will be sent. Otherwise, you'll get an invitation code to share manually.
