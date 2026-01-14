@@ -43,7 +43,13 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
-    await api.post('/auth/logout')
+    try {
+      await api.post('/auth/logout')
+    } catch (error) {
+      // Even if logout endpoint fails, we should still clear tokens
+      console.warn('Logout endpoint failed, clearing tokens anyway:', error)
+    }
+    // Always clear tokens, regardless of endpoint response
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
   },

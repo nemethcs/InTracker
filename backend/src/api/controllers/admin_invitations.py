@@ -38,71 +38,76 @@ async def create_admin_invitation(
         
         # Send email if email address provided
         if send_email_to:
-            # Build invitation URL
-            frontend_url = settings.FRONTEND_URL
-            if not frontend_url or frontend_url == "*":
-                frontend_url = "https://intracker.kesmarki.com"
-            # Include email in URL if sending to specific email
-            invitation_url = f"{frontend_url}/register?code={invitation.code}&email={send_email_to}"
-            
-            # Get inviter name
-            inviter_name = current_user.get("name") or current_user.get("email", "Admin")
-            
-            # Build email content for team leader invitation
-            expires_text = f" This invitation expires in {expires_in_days} days." if expires_in_days else ""
-            
-            subject = "Invitation to become a Team Leader on InTracker"
-            
-            html_content = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Team Leader Invitation</title>
-            </head>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                    <h1 style="color: #2563eb; margin-top: 0;">You've been invited to become a Team Leader!</h1>
-                </div>
+            # Check if email was already sent to this address for this invitation
+            if invitation.email_sent_to and invitation.email_sent_to.lower() == send_email_to.lower():
+                # Email already sent, don't send again
+                logger.info(f"Invitation email already sent to {send_email_to} for invitation {invitation.code}")
+            else:
+                # Build invitation URL
+                frontend_url = settings.FRONTEND_URL
+                if not frontend_url or frontend_url == "*":
+                    frontend_url = "https://intracker.kesmarki.com"
+                # Include email in URL if sending to specific email
+                invitation_url = f"{frontend_url}/register?code={invitation.code}&email={send_email_to}"
                 
-                <div style="background-color: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
-                    <p>Hello,</p>
-                    
-                    <p>You've been invited by <strong>{inviter_name}</strong> to join InTracker as a Team Leader.{expires_text}</p>
-                    
-                    <p>As a Team Leader, you will be able to:</p>
-                    <ul style="color: #6b7280; font-size: 14px;">
-                        <li>Create and manage your own team</li>
-                        <li>Invite members to your team</li>
-                        <li>Manage projects and track progress</li>
-                    </ul>
-                    
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="{invitation_url}" 
-                           style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
-                            Accept Invitation
-                        </a>
+                # Get inviter name
+                inviter_name = current_user.get("name") or current_user.get("email", "Admin")
+                
+                # Build email content for team leader invitation
+                expires_text = f" This invitation expires in {expires_in_days} days." if expires_in_days else ""
+                
+                subject = "Invitation to become a Team Leader on InTracker"
+                
+                html_content = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Team Leader Invitation</title>
+                </head>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h1 style="color: #2563eb; margin-top: 0;">You've been invited to become a Team Leader!</h1>
                     </div>
                     
-                    <p style="color: #6b7280; font-size: 14px;">
-                        Or copy and paste this link into your browser:<br>
-                        <a href="{invitation_url}" style="color: #2563eb; word-break: break-all;">{invitation_url}</a>
-                    </p>
+                    <div style="background-color: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+                        <p>Hello,</p>
+                        
+                        <p>You've been invited by <strong>{inviter_name}</strong> to join InTracker as a Team Leader.{expires_text}</p>
+                        
+                        <p>As a Team Leader, you will be able to:</p>
+                        <ul style="color: #6b7280; font-size: 14px;">
+                            <li>Create and manage your own team</li>
+                            <li>Invite members to your team</li>
+                            <li>Manage projects and track progress</li>
+                        </ul>
+                        
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="{invitation_url}" 
+                               style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                                Accept Invitation
+                            </a>
+                        </div>
+                        
+                        <p style="color: #6b7280; font-size: 14px;">
+                            Or copy and paste this link into your browser:<br>
+                            <a href="{invitation_url}" style="color: #2563eb; word-break: break-all;">{invitation_url}</a>
+                        </p>
+                        
+                        <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
+                            Your invitation code: <code style="background-color: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-family: monospace;">{invitation.code}</code>
+                        </p>
+                    </div>
                     
-                    <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
-                        Your invitation code: <code style="background-color: #f3f4f6; padding: 4px 8px; border-radius: 4px; font-family: monospace;">{invitation.code}</code>
-                    </p>
-                </div>
+                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; text-align: center;">
+                        <p>This is an automated message from InTracker. Please do not reply to this email.</p>
+                    </div>
+                </body>
+                </html>
+                """
                 
-                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; text-align: center;">
-                    <p>This is an automated message from InTracker. Please do not reply to this email.</p>
-                </div>
-            </body>
-            </html>
-            """
-            
-            plain_text_content = f"""
+                plain_text_content = f"""
 You've been invited by {inviter_name} to join InTracker as a Team Leader.{expires_text}
 
 As a Team Leader, you will be able to:
@@ -115,17 +120,23 @@ Click here to accept: {invitation_url}
 Your invitation code: {invitation.code}
 
 This is an automated message from InTracker. Please do not reply to this email.
-            """.strip()
-            
-            email_sent = email_service.send_email(
-                to_email=send_email_to,
-                subject=subject,
-                html_content=html_content,
-                plain_text_content=plain_text_content,
-            )
-            
-            if not email_sent:
-                logger.warning(f"Failed to send team leader invitation email to {send_email_to}, but invitation was created")
+                """.strip()
+                
+                from datetime import datetime
+                email_sent = email_service.send_email(
+                    to_email=send_email_to,
+                    subject=subject,
+                    html_content=html_content,
+                    plain_text_content=plain_text_content,
+                )
+                
+                if email_sent:
+                    # Mark email as sent
+                    invitation.email_sent_to = send_email_to
+                    invitation.email_sent_at = datetime.utcnow()
+                    db.commit()
+                else:
+                    logger.warning(f"Failed to send team leader invitation email to {send_email_to}, but invitation was created")
         
         return {
             "message": "Admin invitation code created successfully",
@@ -135,6 +146,8 @@ This is an automated message from InTracker. Please do not reply to this email.
                 "type": invitation.type,
                 "expires_at": invitation.expires_at.isoformat() if invitation.expires_at else None,
                 "created_at": invitation.created_at.isoformat(),
+                "email_sent_to": invitation.email_sent_to,
+                "email_sent_at": invitation.email_sent_at.isoformat() if invitation.email_sent_at else None,
             },
         }
     except Exception as e:

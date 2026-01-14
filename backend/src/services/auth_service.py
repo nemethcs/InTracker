@@ -139,12 +139,19 @@ class AuthService:
 
         # Add user to team if team invitation or newly created team
         if team_id:
-            team_member = TeamMember(
-                team_id=team_id,
-                user_id=user.id,
-                role=team_member_role,
-            )
-            db.add(team_member)
+            # Check if team member already exists (to avoid duplicate key error)
+            existing_member = db.query(TeamMember).filter(
+                TeamMember.team_id == team_id,
+                TeamMember.user_id == user.id
+            ).first()
+            
+            if not existing_member:
+                team_member = TeamMember(
+                    team_id=team_id,
+                    user_id=user.id,
+                    role=team_member_role,
+                )
+                db.add(team_member)
 
         db.commit()
         db.refresh(user)

@@ -31,6 +31,8 @@ export interface Invitation {
   used_at?: string
   used_by?: string
   created_at: string
+  email_sent_to?: string
+  email_sent_at?: string
 }
 
 export interface UserListResponse {
