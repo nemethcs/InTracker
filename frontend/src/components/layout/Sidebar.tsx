@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 const navigation = [
   { name: 'Projects', href: '/projects', icon: FolderKanban },
   { name: 'Ideas', href: '/ideas', icon: Sparkles },
+  { name: 'Cursor Guide', href: '/guide', icon: BookOpen },
 ]
 
 const teamNavigation = { name: 'Teams', href: '/teams', icon: UsersRound }
