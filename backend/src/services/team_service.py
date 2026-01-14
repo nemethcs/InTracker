@@ -153,11 +153,14 @@ class TeamService:
         db: Session,
         team_id: UUID,
         user_id: UUID,
+        removed_by_admin: bool = False,
     ) -> bool:
         """Remove a member from a team.
         
         Non-admin users must remain members of at least one team.
         If removing from the last team, an error is raised.
+        
+        If removed_by_admin is True and user has no other teams, the user will be deleted.
         """
         team_member = (
             db.query(TeamMember)
@@ -185,6 +188,15 @@ class TeamService:
             .count()
         )
         
+        # If admin is removing and user has no other teams, delete the user
+        if removed_by_admin and other_teams == 0:
+            # Delete the user (cascade will handle related data)
+            db.delete(team_member)  # Delete team membership first
+            db.delete(user)  # Delete user
+            db.commit()
+            return True
+        
+        # If not admin removing or user has other teams, check normal rules
         if other_teams == 0:
             raise ValueError(
                 "Cannot remove user from team: non-admin users must be members of at least one team. "

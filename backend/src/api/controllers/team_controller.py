@@ -284,7 +284,9 @@ async def remove_member(
         )
 
     try:
-        success = TeamService.remove_member(db, team_id, user_id)
+        # Check if current user is admin - if so, pass removed_by_admin=True
+        removed_by_admin = user_role == "admin"
+        success = TeamService.remove_member(db, team_id, user_id, removed_by_admin=removed_by_admin)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
