@@ -698,55 +698,58 @@ export function Teams() {
               </DialogContent>
             </Dialog>
 
-            {/* Send Team Leader Invitation Dialog */}
-            <Dialog open={teamLeaderInviteOpen} onOpenChange={(open) => {
-              setTeamLeaderInviteOpen(open)
-              if (!open) {
-                setTeamLeaderInviteEmail('')
-              }
-            }}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Send Team Leader Invitation</DialogTitle>
-                  <DialogDescription>
-                    Create an invitation for a new team leader. They will register with team_leader role and get their own team automatically created.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="team-leader-invite-email">Email Address (Optional)</Label>
-                    <Input
-                      id="team-leader-invite-email"
-                      type="email"
-                      placeholder="user@example.com"
-                      value={teamLeaderInviteEmail}
-                      onChange={(e) => setTeamLeaderInviteEmail(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleTeamLeaderInviteEmailSubmit()
-                        }
-                      }}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      If provided, an invitation email will be sent. Otherwise, you'll get an invitation code to share manually.
-                    </p>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => {
-                    setTeamLeaderInviteOpen(false)
-                    setTeamLeaderInviteEmail('')
-                  }}>Cancel</Button>
-                  <Button onClick={handleTeamLeaderInviteEmailSubmit}>
-                    <Mail className="h-4 w-4 mr-2" />
-                    {teamLeaderInviteEmail.trim() ? 'Send Invitation' : 'Create Invitation Code'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
           </div>
         )}
       </div>
+
+      {/* Send Team Leader Invitation Dialog - Outside selectedTeam block so it's always accessible */}
+      {isAdmin && (
+        <Dialog open={teamLeaderInviteOpen} onOpenChange={(open) => {
+          setTeamLeaderInviteOpen(open)
+          if (!open) {
+            setTeamLeaderInviteEmail('')
+          }
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Send Team Leader Invitation</DialogTitle>
+              <DialogDescription>
+                Create an invitation for a new team leader. They will register with team_leader role and get their own team automatically created.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="team-leader-invite-email">Email Address (Optional)</Label>
+                <Input
+                  id="team-leader-invite-email"
+                  type="email"
+                  placeholder="user@example.com"
+                  value={teamLeaderInviteEmail}
+                  onChange={(e) => setTeamLeaderInviteEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleTeamLeaderInviteEmailSubmit()
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  If provided, an invitation email will be sent. Otherwise, you'll get an invitation code to share manually.
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setTeamLeaderInviteOpen(false)
+                setTeamLeaderInviteEmail('')
+              }}>Cancel</Button>
+              <Button onClick={handleTeamLeaderInviteEmailSubmit}>
+                <Mail className="h-4 w-4 mr-2" />
+                {teamLeaderInviteEmail.trim() ? 'Send Invitation' : 'Create Invitation Code'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
