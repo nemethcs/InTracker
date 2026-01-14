@@ -196,13 +196,11 @@ export function Teams() {
 
   const handleCreateTeamLeaderInvitation = async (email?: string) => {
     try {
-      const invitation = await adminService.createAdminInvitation(30)
+      const invitation = await adminService.createAdminInvitation(30, email)
+      setTeamLeaderInviteOpen(false)
+      setTeamLeaderInviteEmail('')
       if (email) {
-        // TODO: Send email with invitation code
-        // For now, just show the code
-        setTeamLeaderInviteOpen(false)
-        setTeamLeaderInviteEmail('')
-        toast.success('Team Leader Invitation created', `Invitation code: ${invitation.code}`)
+        toast.success('Team Leader Invitation sent', `Invitation email has been sent to ${email}`)
       } else {
         toast.success('Team Leader Invitation created', `Invitation code: ${invitation.code}`)
       }
