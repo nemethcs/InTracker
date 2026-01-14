@@ -202,31 +202,134 @@ const guideSections: GuideSection[] = [
     color: 'text-amber-500',
     steps: [
       {
-        title: '1. Enforce Workflow (KÖTELEZŐ!)',
-        description: 'Automatikusan azonosítja a projektet, betölti a resume context-et és cursor rules-t',
+        title: '1. Projekt Azonosítás és Setup',
+        description: 'Prompt ötletek új projekt beállításához',
         type: 'cursor',
-        command: 'mcp_enforce_workflow()',
-        deeplink: generateCursorDeeplink('Use the mcp_enforce_workflow tool to start the session'),
+        command: 'Azonosítsd a projektet a jelenlegi munkakönyvtárból és töltsd be a resume context-et',
+        deeplink: generateCursorDeeplink('Azonosítsd a projektet a jelenlegi munkakönyvtárból és töltsd be a resume context-et. Használd az mcp_identify_project_by_path és mcp_get_resume_context tool-okat.'),
         tips: [
-          'Ez a tool automatikusan azonosítja a projektet',
-          'Betölti a resume context-et (Last/Now/Blockers)',
-          'Betölti a cursor rules-t',
-          'Visszaadja a workflow checklist-et'
+          'Használd az mcp_identify_project_by_path tool-t a projekt azonosításához',
+          'Töltsd be a resume context-et az mcp_get_resume_context tool-lal',
+          'Ha nincs projekt, hozd létre az mcp_create_project tool-lal'
         ]
       },
       {
-        title: '2. Cursor Rules Betöltése (Opció)',
-        description: 'Ha manuálisan szeretnéd betölteni a cursor rules-t, amely tartalmazza az alap workflow-t és best practice-eket',
+        title: '2. Új Feature Létrehozása',
+        description: 'Prompt ötlet új feature létrehozásához',
         type: 'cursor',
-        command: 'mcp_load_cursor_rules(projectId="your-project-id", projectPath=".")',
-        deeplink: generateCursorDeeplink('Use the mcp_load_cursor_rules tool to load project-specific cursor rules'),
+        command: 'Hozz létre egy új feature-t a projektben. Kérdezd le a projekt elemeit és válassz ki releváns elemeket a feature-höz.',
+        deeplink: generateCursorDeeplink('Hozz létre egy új feature-t a projektben. Kérdezd le a projekt elemeit az mcp_get_project_structure tool-lal és válassz ki releváns elemeket. Használd az mcp_create_feature tool-t.'),
         tips: [
-          'A cursor rules tartalmazza az alap workflow-t: projekt azonosítás, resume context, branch ellenőrzés, git workflow',
-          'Automatikusan létrehozza a `.cursor/rules/intracker-project-rules.mdc` fájlt a projektben',
-          'A rules tartalmazza a projekt-specifikus instrukciókat és best practice-eket',
-          'Az `mcp_enforce_workflow` automatikusan betölti a cursor rules-t is'
-        ],
-        code: '// A cursor rules tartalmazza:\n// - Core workflow (projekt azonosítás, resume context)\n// - Branch ellenőrzés és git workflow\n// - Todo és feature státusz workflow\n// - Projekt-specifikus instrukciók\n// - Best practices az InTracker használatához'
+          'Kérdezd le a projekt struktúráját: mcp_get_project_structure',
+          'Válassz ki releváns elemeket a feature-höz',
+          'Használd az mcp_create_feature tool-t a feature létrehozásához'
+        ]
+      },
+      {
+        title: '3. Todo-k Létrehozása Feature-hez',
+        description: 'Prompt ötlet todo-k létrehozásához egy feature-hez',
+        type: 'cursor',
+        command: 'Hozz létre részletes todo-kat egy feature-hez. Minden todo legyen specifikus, mérhető és végrehajtható.',
+        deeplink: generateCursorDeeplink('Hozz létre részletes todo-kat egy feature-hez. Minden todo legyen specifikus, mérhető és végrehajtható. Használd az mcp_create_todo tool-t és linkeld a feature-hez.'),
+        tips: [
+          'Használd az mcp_get_feature tool-t a feature részleteinek lekéréséhez',
+          'Hozz létre todo-kat az mcp_create_todo tool-lal',
+          'Linkeld a todo-kat a feature-hez a featureId paraméterrel',
+          'Használd a team nyelvét a todo cím és leírás létrehozásánál!'
+        ]
+      },
+      {
+        title: '4. Következő Todo Elvégzése',
+        description: 'Prompt ötlet a következő todo elvégzéséhez',
+        type: 'cursor',
+        command: 'Kérdezd le a következő todo-kat a projektből és kezdj el dolgozni az első új todo-n. ELLENŐRIZD A BRANCH-ET mielőtt elkezdesz dolgozni!',
+        deeplink: generateCursorDeeplink('Kérdezd le a következő todo-kat az mcp_get_active_todos tool-lal. ELLENŐRIZD A BRANCH-ET mielőtt elkezdesz dolgozni! Ha feature-n dolgozol, válts a feature branch-re. Frissítsd a todo státuszát in_progress-re.'),
+        tips: [
+          'Kérdezd le az aktív todo-kat: mcp_get_active_todos',
+          '🚨 MINDIG ellenőrizd a branch-et mielőtt elkezdesz dolgozni!',
+          'Frissítsd a todo státuszát in_progress-re: mcp_update_todo_status',
+          'Használd az expectedVersion-t az optimistic locking-hoz'
+        ]
+      },
+      {
+        title: '5. Feature Branch Létrehozása',
+        description: 'Prompt ötlet feature branch létrehozásához',
+        type: 'cursor',
+        command: 'Hozz létre egy feature branch-et egy feature-hez és válts rá. Ellenőrizd, hogy a megfelelő branch-en vagy mielőtt elkezdesz dolgozni.',
+        deeplink: generateCursorDeeplink('Hozz létre egy feature branch-et egy feature-hez az mcp_create_branch_for_feature tool-lal. Válts rá a git checkout paranccsal. Ellenőrizd a branch-et a git branch --show-current paranccsal.'),
+        tips: [
+          'Kérdezd le a feature-t: mcp_get_feature',
+          'Hozd létre a feature branch-et: mcp_create_branch_for_feature',
+          'Válts a feature branch-re: git checkout feature/{feature-name}',
+          'Húzd le a legfrissebbet: git pull origin feature/{feature-name}'
+        ]
+      },
+      {
+        title: '6. Változások Commit-olása',
+        description: 'Prompt ötlet változások commit-olásához',
+        type: 'cursor',
+        command: 'Commit-old a változásokat a megfelelő formátumban. Ellenőrizd a git státuszt, add hozzá a változásokat, és commit-old a feature ID-vel.',
+        deeplink: generateCursorDeeplink('Commit-old a változásokat a megfelelő formátumban. Ellenőrizd a git státuszt, add hozzá a változásokat (git add -A), és commit-old a következő formátumban: {type}({scope}): {description} [feature:{featureId}]. Frissítsd a todo státuszát tested-re.'),
+        tips: [
+          'Ellenőrizd a git státuszt: git status',
+          'Nézd át a változásokat: git diff',
+          'Add hozzá a változásokat: git add -A',
+          'Commit-old a megfelelő formátumban: {type}({scope}): {description} [feature:{featureId}]',
+          'Push-old a változásokat: git push origin {branch-name}',
+          'Frissítsd a todo státuszát tested-re: mcp_update_todo_status'
+        ]
+      },
+      {
+        title: '7. Projekt Struktúra Elemzése',
+        description: 'Prompt ötlet projekt struktúra elemzéséhez',
+        type: 'cursor',
+        command: 'Elemezd a projekt fájlstruktúráját és hozz létre projekt elemeket automatikusan. Használd az mcp_parse_file_structure tool-t.',
+        deeplink: generateCursorDeeplink('Elemezd a projekt fájlstruktúráját és hozz létre projekt elemeket automatikusan. Használd az mcp_parse_file_structure tool-t a projekt ID-val és a projekt path-tal.'),
+        tips: [
+          'Használd az mcp_parse_file_structure tool-t',
+          'Csak akkor működik, ha nincsenek még elemek a projektben',
+          'Automatikusan létrehozza a hierarchikus projekt elemeket',
+          'A maxDepth paraméterrel szabályozhatod a mélységet (alapértelmezett: 3)'
+        ]
+      },
+      {
+        title: '8. GitHub Issue-k Importálása',
+        description: 'Prompt ötlet GitHub issue-k importálásához',
+        type: 'cursor',
+        command: 'Importáld a GitHub issue-kat todo-kként a projektbe. Először kapcsold össze a GitHub repository-t, majd importáld az issue-kat.',
+        deeplink: generateCursorDeeplink('Importáld a GitHub issue-kat todo-kként a projektbe. Először kapcsold össze a GitHub repository-t az mcp_connect_github_repo tool-lal, majd importáld az issue-kat az mcp_import_github_issues tool-lal.'),
+        tips: [
+          'Kapcsold össze a GitHub repository-t: mcp_connect_github_repo',
+          'Importáld az issue-kat: mcp_import_github_issues',
+          'Az issue-k automatikusan todo-kká válnak',
+          'A createElements=true automatikusan létrehoz elemeket, ha szükséges'
+        ]
+      },
+      {
+        title: '9. Feature Progress Ellenőrzése',
+        description: 'Prompt ötlet feature progress ellenőrzéséhez',
+        type: 'cursor',
+        command: 'Kérdezd le egy feature részletes információit, beleértve a todo-kat, az elemeket és a progress százalékot.',
+        deeplink: generateCursorDeeplink('Kérdezd le egy feature részletes információit az mcp_get_feature tool-lal. Nézd meg a todo-kat, az elemeket és a progress százalékot.'),
+        tips: [
+          'Használd az mcp_get_feature tool-t',
+          'A feature progress automatikusan számolódik a todo-k alapján',
+          'Kérdezd le a feature todo-kat: mcp_get_feature_todos',
+          'Kérdezd le a feature elemeket: mcp_get_feature_elements'
+        ]
+      },
+      {
+        title: '10. Session Összefoglaló',
+        description: 'Prompt ötlet session végén összefoglaló készítéséhez',
+        type: 'cursor',
+        command: 'Készíts egy összefoglalót a session-ről. Listázd a befejezett todo-kat, feature-öket és jegyezd fel a következő lépéseket.',
+        deeplink: generateCursorDeeplink('Készíts egy összefoglalót a session-ről. Listázd a befejezett todo-kat, feature-öket és jegyezd fel a következő lépéseket. Használd az mcp_end_session tool-t a session lezárásához.'),
+        tips: [
+          'Kérdezd le a befejezett todo-kat és feature-öket',
+          'Készíts egy részletes összefoglalót',
+          'Használd az mcp_end_session tool-t a session lezárásához',
+          'A következő session-ben a resume context tartalmazza ezt az információt'
+        ]
       }
     ]
   },
@@ -413,134 +516,31 @@ const guideSections: GuideSection[] = [
     color: 'text-blue-500',
     steps: [
       {
-        title: '1. Projekt Azonosítás és Setup',
-        description: 'Prompt ötletek új projekt beállításához',
+        title: '1. Enforce Workflow (KÖTELEZŐ!)',
+        description: 'Automatikusan azonosítja a projektet, betölti a resume context-et és cursor rules-t',
         type: 'cursor',
-        command: 'Azonosítsd a projektet a jelenlegi munkakönyvtárból és töltsd be a resume context-et',
-        deeplink: generateCursorDeeplink('Azonosítsd a projektet a jelenlegi munkakönyvtárból és töltsd be a resume context-et. Használd az mcp_identify_project_by_path és mcp_get_resume_context tool-okat.'),
+        command: 'mcp_enforce_workflow()',
+        deeplink: generateCursorDeeplink('Use the mcp_enforce_workflow tool to start the session'),
         tips: [
-          'Használd az mcp_identify_project_by_path tool-t a projekt azonosításához',
-          'Töltsd be a resume context-et az mcp_get_resume_context tool-lal',
-          'Ha nincs projekt, hozd létre az mcp_create_project tool-lal'
+          'Ez a tool automatikusan azonosítja a projektet',
+          'Betölti a resume context-et (Last/Now/Blockers)',
+          'Betölti a cursor rules-t',
+          'Visszaadja a workflow checklist-et'
         ]
       },
       {
-        title: '2. Új Feature Létrehozása',
-        description: 'Prompt ötlet új feature létrehozásához',
+        title: '2. Cursor Rules Betöltése (Opció)',
+        description: 'Ha manuálisan szeretnéd betölteni a cursor rules-t, amely tartalmazza az alap workflow-t és best practice-eket',
         type: 'cursor',
-        command: 'Hozz létre egy új feature-t a projektben. Kérdezd le a projekt elemeit és válassz ki releváns elemeket a feature-höz.',
-        deeplink: generateCursorDeeplink('Hozz létre egy új feature-t a projektben. Kérdezd le a projekt elemeit az mcp_get_project_structure tool-lal és válassz ki releváns elemeket. Használd az mcp_create_feature tool-t.'),
+        command: 'mcp_load_cursor_rules(projectId="your-project-id", projectPath=".")',
+        deeplink: generateCursorDeeplink('Use the mcp_load_cursor_rules tool to load project-specific cursor rules'),
         tips: [
-          'Kérdezd le a projekt struktúráját: mcp_get_project_structure',
-          'Válassz ki releváns elemeket a feature-höz',
-          'Használd az mcp_create_feature tool-t a feature létrehozásához'
-        ]
-      },
-      {
-        title: '3. Todo-k Létrehozása Feature-hez',
-        description: 'Prompt ötlet todo-k létrehozásához egy feature-hez',
-        type: 'cursor',
-        command: 'Hozz létre részletes todo-kat egy feature-hez. Minden todo legyen specifikus, mérhető és végrehajtható.',
-        deeplink: generateCursorDeeplink('Hozz létre részletes todo-kat egy feature-hez. Minden todo legyen specifikus, mérhető és végrehajtható. Használd az mcp_create_todo tool-t és linkeld a feature-hez.'),
-        tips: [
-          'Használd az mcp_get_feature tool-t a feature részleteinek lekéréséhez',
-          'Hozz létre todo-kat az mcp_create_todo tool-lal',
-          'Linkeld a todo-kat a feature-hez a featureId paraméterrel',
-          'Használd a team nyelvét a todo cím és leírás létrehozásánál!'
-        ]
-      },
-      {
-        title: '4. Következő Todo Elvégzése',
-        description: 'Prompt ötlet a következő todo elvégzéséhez',
-        type: 'cursor',
-        command: 'Kérdezd le a következő todo-kat a projektből és kezdj el dolgozni az első új todo-n. ELLENŐRIZD A BRANCH-ET mielőtt elkezdesz dolgozni!',
-        deeplink: generateCursorDeeplink('Kérdezd le a következő todo-kat az mcp_get_active_todos tool-lal. ELLENŐRIZD A BRANCH-ET mielőtt elkezdesz dolgozni! Ha feature-n dolgozol, válts a feature branch-re. Frissítsd a todo státuszát in_progress-re.'),
-        tips: [
-          'Kérdezd le az aktív todo-kat: mcp_get_active_todos',
-          '🚨 MINDIG ellenőrizd a branch-et mielőtt elkezdesz dolgozni!',
-          'Frissítsd a todo státuszát in_progress-re: mcp_update_todo_status',
-          'Használd az expectedVersion-t az optimistic locking-hoz'
-        ]
-      },
-      {
-        title: '5. Feature Branch Létrehozása',
-        description: 'Prompt ötlet feature branch létrehozásához',
-        type: 'cursor',
-        command: 'Hozz létre egy feature branch-et egy feature-hez és válts rá. Ellenőrizd, hogy a megfelelő branch-en vagy mielőtt elkezdesz dolgozni.',
-        deeplink: generateCursorDeeplink('Hozz létre egy feature branch-et egy feature-hez az mcp_create_branch_for_feature tool-lal. Válts rá a git checkout paranccsal. Ellenőrizd a branch-et a git branch --show-current paranccsal.'),
-        tips: [
-          'Kérdezd le a feature-t: mcp_get_feature',
-          'Hozd létre a feature branch-et: mcp_create_branch_for_feature',
-          'Válts a feature branch-re: git checkout feature/{feature-name}',
-          'Húzd le a legfrissebbet: git pull origin feature/{feature-name}'
-        ]
-      },
-      {
-        title: '6. Változások Commit-olása',
-        description: 'Prompt ötlet változások commit-olásához',
-        type: 'cursor',
-        command: 'Commit-old a változásokat a megfelelő formátumban. Ellenőrizd a git státuszt, add hozzá a változásokat, és commit-old a feature ID-vel.',
-        deeplink: generateCursorDeeplink('Commit-old a változásokat a megfelelő formátumban. Ellenőrizd a git státuszt, add hozzá a változásokat (git add -A), és commit-old a következő formátumban: {type}({scope}): {description} [feature:{featureId}]. Frissítsd a todo státuszát tested-re.'),
-        tips: [
-          'Ellenőrizd a git státuszt: git status',
-          'Nézd át a változásokat: git diff',
-          'Add hozzá a változásokat: git add -A',
-          'Commit-old a megfelelő formátumban: {type}({scope}): {description} [feature:{featureId}]',
-          'Push-old a változásokat: git push origin {branch-name}',
-          'Frissítsd a todo státuszát tested-re: mcp_update_todo_status'
-        ]
-      },
-      {
-        title: '7. Projekt Struktúra Elemzése',
-        description: 'Prompt ötlet projekt struktúra elemzéséhez',
-        type: 'cursor',
-        command: 'Elemezd a projekt fájlstruktúráját és hozz létre projekt elemeket automatikusan. Használd az mcp_parse_file_structure tool-t.',
-        deeplink: generateCursorDeeplink('Elemezd a projekt fájlstruktúráját és hozz létre projekt elemeket automatikusan. Használd az mcp_parse_file_structure tool-t a projekt ID-val és a projekt path-tal.'),
-        tips: [
-          'Használd az mcp_parse_file_structure tool-t',
-          'Csak akkor működik, ha nincsenek még elemek a projektben',
-          'Automatikusan létrehozza a hierarchikus projekt elemeket',
-          'A maxDepth paraméterrel szabályozhatod a mélységet (alapértelmezett: 3)'
-        ]
-      },
-      {
-        title: '8. GitHub Issue-k Importálása',
-        description: 'Prompt ötlet GitHub issue-k importálásához',
-        type: 'cursor',
-        command: 'Importáld a GitHub issue-kat todo-kként a projektbe. Először kapcsold össze a GitHub repository-t, majd importáld az issue-kat.',
-        deeplink: generateCursorDeeplink('Importáld a GitHub issue-kat todo-kként a projektbe. Először kapcsold össze a GitHub repository-t az mcp_connect_github_repo tool-lal, majd importáld az issue-kat az mcp_import_github_issues tool-lal.'),
-        tips: [
-          'Kapcsold össze a GitHub repository-t: mcp_connect_github_repo',
-          'Importáld az issue-kat: mcp_import_github_issues',
-          'Az issue-k automatikusan todo-kká válnak',
-          'A createElements=true automatikusan létrehoz elemeket, ha szükséges'
-        ]
-      },
-      {
-        title: '9. Feature Progress Ellenőrzése',
-        description: 'Prompt ötlet feature progress ellenőrzéséhez',
-        type: 'cursor',
-        command: 'Kérdezd le egy feature részletes információit, beleértve a todo-kat, az elemeket és a progress százalékot.',
-        deeplink: generateCursorDeeplink('Kérdezd le egy feature részletes információit az mcp_get_feature tool-lal. Nézd meg a todo-kat, az elemeket és a progress százalékot.'),
-        tips: [
-          'Használd az mcp_get_feature tool-t',
-          'A feature progress automatikusan számolódik a todo-k alapján',
-          'Kérdezd le a feature todo-kat: mcp_get_feature_todos',
-          'Kérdezd le a feature elemeket: mcp_get_feature_elements'
-        ]
-      },
-      {
-        title: '10. Session Összefoglaló',
-        description: 'Prompt ötlet session végén összefoglaló készítéséhez',
-        type: 'cursor',
-        command: 'Készíts egy összefoglalót a session-ről. Listázd a befejezett todo-kat, feature-öket és jegyezd fel a következő lépéseket.',
-        deeplink: generateCursorDeeplink('Készíts egy összefoglalót a session-ről. Listázd a befejezett todo-kat, feature-öket és jegyezd fel a következő lépéseket. Használd az mcp_end_session tool-t a session lezárásához.'),
-        tips: [
-          'Kérdezd le a befejezett todo-kat és feature-öket',
-          'Készíts egy részletes összefoglalót',
-          'Használd az mcp_end_session tool-t a session lezárásához',
-          'A következő session-ben a resume context tartalmazza ezt az információt'
-        ]
+          'A cursor rules tartalmazza az alap workflow-t: projekt azonosítás, resume context, branch ellenőrzés, git workflow',
+          'Automatikusan létrehozza a `.cursor/rules/intracker-project-rules.mdc` fájlt a projektben',
+          'A rules tartalmazza a projekt-specifikus instrukciókat és best practice-eket',
+          'Az `mcp_enforce_workflow` automatikusan betölti a cursor rules-t is'
+        ],
+        code: '// A cursor rules tartalmazza:\n// - Core workflow (projekt azonosítás, resume context)\n// - Branch ellenőrzés és git workflow\n// - Todo és feature státusz workflow\n// - Projekt-specifikus instrukciók\n// - Best practices az InTracker használatához'
       }
     ]
   }

@@ -116,6 +116,20 @@ export function Onboarding() {
     const unsubscribe = useAuthStore.subscribe((state) => {
       // Only redirect if setup is completed AND we're not on the completion step
       // This prevents redirecting while user is actively completing onboarding
+      
+      // CRITICAL: Don't update step if user is already on GitHub step (step 4 for team leader, step 3 for member)
+      // This prevents jumping back to MCP step after GitHub callback
+      const isTeamLeader = state.user?.role === 'team_leader'
+      const isOnGitHubStep = isTeamLeader 
+        ? currentStep === 4 
+        : currentStep === 3
+      
+      if (isOnGitHubStep) {
+        // User is on GitHub step, don't update step based on backend onboarding_step
+        // This prevents jumping back to MCP step after GitHub callback
+        return
+      }
+      
       const currentTotalSteps = state.user?.role === 'team_leader' ? TOTAL_STEPS_TEAM_LEADER : TOTAL_STEPS_MEMBER
       if (state.user?.setup_completed && currentStep < currentTotalSteps) {
         // If onboarding_step is 5 (complete), move to completion step instead of redirecting
