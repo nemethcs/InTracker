@@ -7,7 +7,6 @@ import { useAuth } from '@/hooks/useAuth'
 const navigation = [
   { name: 'Projects', href: '/projects', icon: FolderKanban },
   { name: 'Ideas', href: '/ideas', icon: Sparkles },
-  { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
 const teamNavigation = { name: 'Teams', href: '/teams', icon: UsersRound }
@@ -83,7 +82,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:block w-64 border-r bg-background shrink-0">
+      <aside className="hidden lg:block w-64 border-r bg-background shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
         <nav className="space-y-1 p-4">
           {allNavigation.map((item) => {
             const Icon = item.icon
