@@ -238,10 +238,19 @@ export function ProjectDetail() {
       }
     }
 
+    const handleProjectUpdate = (data: { projectId: string; changes: any }) => {
+      if (data.projectId === id) {
+        // Project updated - store will handle this automatically via SignalR subscription
+        // But we should refetch to ensure we have the latest data
+        fetchProject(id)
+      }
+    }
+
     // Subscribe to SignalR events
     signalrService.on('todoUpdated', handleTodoUpdate)
     signalrService.on('featureUpdated', handleFeatureUpdate)
     signalrService.on('userActivity', handleUserActivity)
+    signalrService.on('projectUpdated', handleProjectUpdate)
 
     // Cleanup: Leave SignalR project group and unsubscribe from events when component unmounts or project changes
     return () => {
@@ -249,6 +258,7 @@ export function ProjectDetail() {
       signalrService.off('todoUpdated', handleTodoUpdate)
       signalrService.off('featureUpdated', handleFeatureUpdate)
       signalrService.off('userActivity', handleUserActivity)
+      signalrService.off('projectUpdated', handleProjectUpdate)
       
       // Unsubscribe from connection events
       // handleConnected is defined in the same scope, so it's accessible here

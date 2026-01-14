@@ -37,7 +37,12 @@ async def broadcast_feature_update(project_id: str, feature_id: str, progress: i
 
 
 async def broadcast_project_update(project_id: str, changes: dict):
-    """Broadcast project update to project group."""
+    """Broadcast project update to project group.
+    
+    For project creation (action="created"), broadcasts to all connections
+    since the Dashboard needs to receive the update even if not in project group.
+    For other updates, broadcasts only to project group members.
+    """
     # SignalR message format
     message = {
         "type": 1,  # SignalR invocation
@@ -47,7 +52,13 @@ async def broadcast_project_update(project_id: str, changes: dict):
             "changes": changes
         }]
     }
-    await connection_manager.broadcast_to_project(project_id, message)
+    
+    # For project creation, broadcast to all (Dashboard needs to see new projects)
+    # For other updates, broadcast only to project group
+    if changes.get("action") == "created":
+        await connection_manager.broadcast_to_all(message)
+    else:
+        await connection_manager.broadcast_to_project(project_id, message)
 
 
 async def broadcast_session_start(project_id: str, user_id: str):

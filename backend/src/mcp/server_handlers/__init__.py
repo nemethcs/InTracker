@@ -8,6 +8,7 @@ from .github_handlers import handle_github_tool
 from .idea_handlers import handle_idea_tool
 from .import_handlers import handle_import_tool
 from .onboarding_handlers import handle_onboarding_tool
+from .team_handlers import handle_team_tool
 
 __all__ = [
     "handle_project_tool",
@@ -19,4 +20,5 @@ __all__ = [
     "handle_idea_tool",
     "handle_import_tool",
     "handle_onboarding_tool",
+    "handle_team_tool",
 ]
