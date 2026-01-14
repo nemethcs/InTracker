@@ -115,6 +115,16 @@ async def refresh(request: RefreshTokenRequest, db: Session = Depends(get_db)):
         )
 
 
+@router.post("/logout")
+async def logout(current_user: dict = Depends(get_current_user)):
+    """Logout user.
+    
+    Note: Since JWT tokens are stateless, we don't invalidate them server-side.
+    The frontend should remove tokens from localStorage.
+    """
+    return {"message": "Logout successful"}
+
+
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """Get current user info."""

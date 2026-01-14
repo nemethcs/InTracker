@@ -55,7 +55,7 @@ class User(Base):
     team_memberships = relationship("TeamMember", foreign_keys="TeamMember.user_id", back_populates="user")
     created_teams = relationship("Team", foreign_keys="Team.created_by", back_populates="creator")
     created_invitations = relationship("InvitationCode", foreign_keys="InvitationCode.created_by", back_populates="creator")
-    mcp_api_keys = relationship("McpApiKey", back_populates="user")
+    mcp_api_keys = relationship("McpApiKey", foreign_keys="McpApiKey.user_id", back_populates="user")
 
 
 class Project(Base):
@@ -492,6 +492,8 @@ class InvitationCode(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     used_at = Column(DateTime, nullable=True)  # When the invitation was used
     used_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)  # Who used the invitation
+    email_sent_to = Column(String, nullable=True)  # Email address the invitation was sent to (to prevent duplicate sends)
+    email_sent_at = Column(DateTime, nullable=True)  # When the invitation email was sent
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -511,11 +513,13 @@ class McpApiKey(Base):
     last_used_at = Column(DateTime, nullable=True)
     expires_at = Column(DateTime, nullable=True)  # Optional expiration date
     is_active = Column(Boolean, default=True, nullable=False, index=True)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationships
-    user = relationship("User", back_populates="mcp_api_keys")
+    user = relationship("User", back_populates="mcp_api_keys", foreign_keys=[user_id])
 
     __table_args__ = (
         Index("idx_mcp_api_keys_user", "user_id"),

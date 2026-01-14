@@ -236,6 +236,17 @@ export function Teams() {
       setError('Please enter a valid email address')
       return
     }
+    
+    // Check if email was already sent to this address for this team
+    const emailLower = inviteEmail.trim().toLowerCase()
+    const alreadySent = teamInvitations.some(
+      inv => inv.email_sent_to && inv.email_sent_to.toLowerCase() === emailLower
+    )
+    if (alreadySent) {
+      setError('Invitation email has already been sent to this address')
+      return
+    }
+    
     const memberRole = selectedMemberRole === 'team_leader' ? 'team_leader' : 'member'
     await handleCreateTeamInvitation(selectedTeam.id, inviteEmail.trim(), memberRole)
     // Reset role to member after sending
@@ -688,9 +699,19 @@ export function Teams() {
                     setInviteEmail('')
                     setSelectedMemberRole('member')
                   }}>Cancel</Button>
-                  <Button onClick={handleInviteEmailSubmit} disabled={!inviteEmail.trim()}>
+                  <Button 
+                    onClick={handleInviteEmailSubmit} 
+                    disabled={
+                      !inviteEmail.trim() || 
+                      teamInvitations.some(
+                        inv => inv.email_sent_to && inv.email_sent_to.toLowerCase() === inviteEmail.trim().toLowerCase()
+                      )
+                    }
+                  >
                     <Mail className="h-4 w-4 mr-2" />
-                    Send Invitation
+                    {teamInvitations.some(
+                      inv => inv.email_sent_to && inv.email_sent_to.toLowerCase() === inviteEmail.trim().toLowerCase()
+                    ) ? 'Email Already Sent' : 'Send Invitation'}
                   </Button>
                 </DialogFooter>
               </DialogContent>

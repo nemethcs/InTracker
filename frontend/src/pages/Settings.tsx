@@ -291,7 +291,21 @@ export function Settings() {
         setIsProcessingCallback(true)
         setGitHubError(null)
 
-        // Call backend to exchange code for tokens
+        // Check if this callback is for onboarding flow
+        // If redirect_path is /onboarding, let onboarding handle the callback
+        // We need to check the redirect_path from Redis, but we can infer it from the state
+        // For now, check if user is in onboarding flow
+        const currentUserBeforeCallback = useAuthStore.getState().user
+        const isOnboardingFlow = currentUserBeforeCallback && !currentUserBeforeCallback.setup_completed
+        
+        if (isOnboardingFlow) {
+          // User is in onboarding flow, redirect to onboarding with query params
+          // Let onboarding handle the callback
+          navigate(`/onboarding?code=${code}&state=${state}`, { replace: true })
+          return
+        }
+        
+        // Call backend to exchange code for tokens (only for settings page)
         const result = await settingsService.handleOAuthCallback(code, state)
 
         // Remove callback params from URL
@@ -316,14 +330,10 @@ export function Settings() {
           attempts++
         }
         
-        // Use redirect_path from backend if available, otherwise check setup_completed
-        if (result.redirect_path) {
+        // Use redirect_path from backend if available
+        if (result.redirect_path && result.redirect_path !== '/settings') {
           // Backend specified a redirect path (e.g., /onboarding)
           navigate(result.redirect_path, { replace: true })
-          return
-        } else if (currentUser && !currentUser.setup_completed) {
-          // User is in onboarding flow, redirect to onboarding page
-          navigate('/onboarding', { replace: true })
           return
         }
 

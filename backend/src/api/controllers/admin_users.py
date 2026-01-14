@@ -435,6 +435,34 @@ async def delete_user_by_id(
                 detail="You cannot delete your own account",
             )
 
+        # Delete related MCP API keys first to avoid constraint violations
+        # The CASCADE should handle this, but we delete explicitly to avoid audit trail issues
+        from src.database.models import McpApiKey
+        mcp_keys = db.query(McpApiKey).filter(McpApiKey.user_id == user.id).all()
+        for key in mcp_keys:
+            db.delete(key)
+
+        # Before deleting user, we need to handle related records that have NOT NULL created_by constraints
+        # For teams, we can't set created_by to NULL, so we need to either:
+        # 1. Delete teams created by this user (CASCADE will handle team_members), or
+        # 2. Transfer ownership to another user
+        # For now, we'll delete teams created by this user
+        from src.database.models import Team, InvitationCode
+        teams_created_by_user = db.query(Team).filter(Team.created_by == user.id).all()
+        for team in teams_created_by_user:
+            db.delete(team)
+        
+        # Also delete invitation codes created by this user (created_by is NOT NULL)
+        invitation_codes_created_by_user = db.query(InvitationCode).filter(InvitationCode.created_by == user.id).all()
+        for invitation_code in invitation_codes_created_by_user:
+            db.delete(invitation_code)
+        
+        # Set used_by to NULL for invitation codes used by this user
+        # (used_by is nullable, so we can set it to NULL instead of deleting)
+        invitation_codes_used_by_user = db.query(InvitationCode).filter(InvitationCode.used_by == user.id).all()
+        for invitation_code in invitation_codes_used_by_user:
+            invitation_code.used_by = None
+
         user_email = user.email
         db.delete(user)
         db.commit()

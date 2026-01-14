@@ -26,6 +26,8 @@ from src.mcp.server_handlers import (
     handle_import_tool,
     handle_onboarding_tool,
 )
+# Pre-import resources to ensure they're available at initialization
+from src.mcp.resources import project_resources, feature_resources, document_resources
 
 # Create MCP server
 server = Server("intracker-mcp-server")
@@ -130,17 +132,15 @@ async def call_tool(name: str, arguments: dict):
 @server.list_resources()
 async def list_resources() -> list[Resource]:
     """List all available resources."""
-    from src.mcp.resources import project_resources, feature_resources, document_resources
-    
     resources = []
     
-    # Get project resources
+    # Get project resources (already imported at module level)
     resources.extend(project_resources.get_project_resources())
     
-    # Get feature resources
+    # Get feature resources (already imported at module level)
     resources.extend(feature_resources.get_feature_resources())
     
-    # Get document resources
+    # Get document resources (already imported at module level)
     resources.extend(document_resources.get_document_resources())
     
     return resources
@@ -149,8 +149,6 @@ async def list_resources() -> list[Resource]:
 @server.read_resource()
 async def read_resource(uri: str) -> str:
     """Read a resource."""
-    from src.mcp.resources import project_resources, feature_resources, document_resources
-    
     # Convert URI to string (MCP SDK may pass AnyUrl object)
     uri_str = str(uri)
     
