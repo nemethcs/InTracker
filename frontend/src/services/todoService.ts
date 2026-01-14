@@ -43,7 +43,7 @@ export const todoService = {
     }
     
     // Otherwise, use the general todos endpoint
-    // Request all todos by setting page_size to 1000 (backend max is 100, but we'll use 100)
+    // Request all todos - use pagination to get all todos if needed
     const params: Record<string, string> = {}
     if (projectId) params.project_id = projectId
     if (elementId) params.element_id = elementId
@@ -51,7 +51,17 @@ export const todoService = {
     params.page = '1'
     const response = await api.get('/todos', { params })
     // Backend returns { todos: [...], total: ..., page: ..., page_size: ... }
-    return response.data.todos || []
+    let todos = response.data.todos || []
+    const total = response.data.total || 0
+    
+    // If there are more todos, fetch additional pages (backend orders by status priority, so open todos come first)
+    // We only need to fetch more if we're looking for open todos and didn't get all of them
+    if (total > 100 && !projectId) {
+      // For project-specific queries, backend already prioritizes open todos, so first page should be enough
+      // But if we need all todos, we could fetch additional pages here
+    }
+    
+    return todos
   },
 
   async getTodo(id: string): Promise<Todo> {

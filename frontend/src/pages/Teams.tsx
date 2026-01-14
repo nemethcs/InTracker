@@ -136,9 +136,18 @@ export function Teams() {
 
   const handleAddMember = (team: Team) => {
     setSelectedTeam(team)
-    setSelectedUserId('')
-    setSelectedMemberRole('member')
-    setAddMemberOpen(true)
+    // If user is admin, show user selection dialog
+    // If user is team leader (not admin), show email invitation dialog
+    if (isAdmin) {
+      setSelectedUserId('')
+      setSelectedMemberRole('member')
+      setAddMemberOpen(true)
+    } else {
+      // Team leader: open email invitation dialog
+      setInviteEmail('')
+      setSelectedMemberRole('member')
+      setInviteEmailOpen(true)
+    }
   }
 
   const handleAddMemberSubmit = async () => {
@@ -180,13 +189,26 @@ export function Teams() {
   const handleCreateTeamInvitation = async (teamId: string, email?: string, memberRole: string = 'member') => {
     try {
       const invitation = await adminService.createTeamInvitation(teamId, 7, email, memberRole)
-      setTeamInvitations([...teamInvitations, invitation])
-      loadTeamDetails(teamId)
-      if (email) {
-        setInviteEmailOpen(false)
-        setInviteEmail('')
+      
+      // Check if user was added directly (code starts with "DIRECT_ADD:")
+      if (invitation.code && invitation.code.startsWith('DIRECT_ADD:')) {
+        // User was added directly, reload team members
+        loadTeamDetails(teamId)
+        if (email) {
+          setInviteEmailOpen(false)
+          setInviteEmail('')
+        }
+        toast.success('Member added', `User with email ${email} has been added directly to the team.`)
+      } else {
+        // Regular invitation created
+        setTeamInvitations([...teamInvitations, invitation])
+        loadTeamDetails(teamId)
+        if (email) {
+          setInviteEmailOpen(false)
+          setInviteEmail('')
+        }
+        toast.success('Invitation created', 'Team invitation has been created successfully.')
       }
-      toast.success('Invitation created', 'Team invitation has been created successfully.')
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create invitation'
       setError(errorMessage)
@@ -450,7 +472,7 @@ export function Teams() {
                     <Button
                       size="sm"
                       onClick={() => handleAddMember(selectedTeam)}
-                      disabled={getAvailableUsers(selectedTeam.id).length === 0}
+                      disabled={isAdmin && getAvailableUsers(selectedTeam.id).length === 0}
                     >
                       <UserPlus className="h-4 w-4 mr-1" />
                       Add Member

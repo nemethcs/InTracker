@@ -22,7 +22,7 @@ import { ElementDetailDialog } from '@/components/elements/ElementDetailDialog'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { ActiveUsers } from '@/components/collaboration/ActiveUsers'
 import { DocumentEditor } from '@/components/documents/DocumentEditor'
-import { Plus, Edit, FileText, CheckSquare, UsersRound, ChevronDown, ChevronRight, Clock, FolderKanban, Layers } from 'lucide-react'
+import { Plus, Edit, FileText, CheckSquare, UsersRound, ChevronDown, ChevronRight, ChevronLeft, Clock, FolderKanban, Layers } from 'lucide-react'
 import { iconSize } from '@/components/ui/Icon'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
@@ -42,24 +42,56 @@ export function ProjectDetail() {
   const [editingFeature, setEditingFeature] = useState<any>(null)
   const [projectEditorOpen, setProjectEditorOpen] = useState(false)
   const [elementTree, setElementTree] = useState<ElementTreeData | null>(null)
-  // Filter todos: only open todos (exclude "done" status) for this project
-  // Filter by project using element tree - only show todos whose elements belong to this project
-  // Use useMemo to avoid recalculating on every render and to handle elementTree initialization
+  const [todosPage, setTodosPage] = useState(1)
+  const TODOS_PER_PAGE = 4
+
+  // Filter and sort todos: only open todos (exclude "done" status) for this project
+  // Backend already filters by project_id via JOIN with ProjectElement in get_todos_by_project
+  // We trust backend filtering completely - no need for element tree filtering
+  // Sort by priority (critical > high > medium > low) and status (in_progress > new)
+  // Use useMemo to avoid recalculating on every render
   const todos = useMemo(() => {
-    return allTodos.filter(todo => {
-      if (todo.status === 'done') return false // Only show open todos
-      if (!id || !elementTree) return true // If no project or element tree not loaded yet, show all
-      // Check if todo's element belongs to this project by searching in element tree
-      const findElementInTree = (elements: any[]): boolean => {
-        for (const el of elements) {
-          if (el.id === todo.element_id) return true
-          if (el.children && findElementInTree(el.children)) return true
-        }
-        return false
-      }
-      return findElementInTree(elementTree.elements)
+    if (!id) return []
+    
+    // Backend already filters todos by project_id, so we can trust allTodos contains only project todos
+    // Just filter out done todos - backend filtering is reliable
+    const filtered = allTodos.filter(todo => {
+      // Filter out done todos - only show open todos (new, in_progress)
+      if (todo.status === 'done') return false
+      // Trust backend filtering - all todos in allTodos are already filtered by project_id
+      return true
     })
-  }, [allTodos, id, elementTree])
+    
+    // Backend already filters todos by project_id, so we can trust allTodos contains only project todos
+    // Just filter out done todos - backend filtering is reliable
+
+    // Sort by priority and status
+    const priorityOrder = { 'critical': 0, 'high': 1, 'medium': 2, 'low': 3, undefined: 4 }
+    const statusOrder = { 'in_progress': 0, 'new': 1 }
+
+    return filtered.sort((a, b) => {
+      // First sort by status (in_progress before new)
+      const statusDiff = (statusOrder[a.status as keyof typeof statusOrder] ?? 999) - 
+                        (statusOrder[b.status as keyof typeof statusOrder] ?? 999)
+      if (statusDiff !== 0) return statusDiff
+
+      // Then sort by priority (critical > high > medium > low)
+      const priorityDiff = (priorityOrder[a.priority as keyof typeof priorityOrder] ?? 4) - 
+                          (priorityOrder[b.priority as keyof typeof priorityOrder] ?? 4)
+      if (priorityDiff !== 0) return priorityDiff
+
+      // Finally sort by updated_at (most recent first)
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+    })
+  }, [allTodos, id])
+
+  // Paginated todos
+  const paginatedTodos = useMemo(() => {
+    const startIndex = (todosPage - 1) * TODOS_PER_PAGE
+    return todos.slice(startIndex, startIndex + TODOS_PER_PAGE)
+  }, [todos, todosPage])
+
+  const totalPages = Math.ceil(todos.length / TODOS_PER_PAGE)
 
   // Sort and filter features: in_progress → done → tested (hide merged)
   const sortedFeatures = useMemo(() => {
@@ -163,6 +195,9 @@ export function ProjectDetail() {
 
   useEffect(() => {
     if (!id) return
+
+    // Reset todos page when project changes
+    setTodosPage(1)
 
     // Join SignalR project group for real-time updates
     const joinProject = async () => {
@@ -472,7 +507,14 @@ export function ProjectDetail() {
           {/* Next Tasks Section */}
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl sm:text-2xl font-bold">Next Tasks</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl sm:text-2xl font-bold">Next Tasks</h2>
+                {todos.length > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {todos.length} {todos.length === 1 ? 'task' : 'tasks'}
+                  </Badge>
+                )}
+              </div>
               {features.length > 0 && todos.length > 0 && (
                 <Link to={`/projects/${id}/features/${features[0]?.id}`}>
                   <Button variant="outline" size="sm">
@@ -493,11 +535,41 @@ export function ProjectDetail() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {todos.map((todo) => (
-                  <TodoCard key={todo.id} todo={todo} />
-                ))}
-              </div>
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {paginatedTodos.map((todo) => (
+                    <TodoCard key={todo.id} todo={todo} />
+                  ))}
+                </div>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {((todosPage - 1) * TODOS_PER_PAGE) + 1}-{Math.min(todosPage * TODOS_PER_PAGE, todos.length)} of {todos.length}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTodosPage(prev => Math.max(1, prev - 1))}
+                        disabled={todosPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <div className="text-sm text-muted-foreground min-w-[60px] text-center">
+                        {todosPage} / {totalPages}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTodosPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={todosPage === totalPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
