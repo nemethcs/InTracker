@@ -12,7 +12,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { adminService, type User, type Team, type Invitation, type TeamMember } from '@/services/adminService'
 import { Users, UsersRound, Mail, Shield, Trash2, Edit, Plus, Copy, CheckCircle2, XCircle, UserPlus, UserMinus, ChevronDown, ChevronUp } from 'lucide-react'
+import { useToast } from '@/hooks/useToast'
 import { iconSize } from '@/components/ui/Icon'
+import { PageHeader } from '@/components/layout/PageHeader'
 
 type Tab = 'users' | 'teams' | 'invitations'
 
@@ -235,21 +237,26 @@ function UsersTab() {
 
 // Teams Tab Component
 function TeamsTab() {
+  const toast = useToast()
   const [teams, setTeams] = useState<Team[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set())
   const [teamMembers, setTeamMembers] = useState<Record<string, TeamMember[]>>({})
+  const [teamInvitations, setTeamInvitations] = useState<Record<string, Invitation[]>>({})
   const [allUsers, setAllUsers] = useState<User[]>([])
+  const [copiedCode, setCopiedCode] = useState<string | null>(null)
   
   // Dialog states
   const [createTeamOpen, setCreateTeamOpen] = useState(false)
   const [editTeamOpen, setEditTeamOpen] = useState(false)
   const [addMemberOpen, setAddMemberOpen] = useState(false)
+  const [inviteEmailOpen, setInviteEmailOpen] = useState(false)
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null)
   const [teamForm, setTeamForm] = useState({ name: '', description: '' })
   const [selectedUserId, setSelectedUserId] = useState('')
   const [selectedMemberRole, setSelectedMemberRole] = useState('member')
+  const [inviteEmail, setInviteEmail] = useState('')
 
   useEffect(() => {
     loadTeams()
@@ -296,8 +303,64 @@ function TeamsTab() {
       if (!teamMembers[teamId]) {
         loadTeamMembers(teamId)
       }
+      if (!teamInvitations[teamId]) {
+        loadTeamInvitations(teamId)
+      }
     }
     setExpandedTeams(newExpanded)
+  }
+
+  const loadTeamInvitations = async (teamId: string) => {
+    try {
+      const response = await adminService.getInvitations({ type: 'team' })
+      const teamInvites = response.invitations.filter(inv => inv.team_id === teamId)
+      setTeamInvitations(prev => ({ ...prev, [teamId]: teamInvites }))
+    } catch (err) {
+      console.error('Failed to load team invitations:', err)
+      setTeamInvitations(prev => ({ ...prev, [teamId]: [] }))
+    }
+  }
+
+  const handleCreateTeamInvitation = async (teamId: string, email?: string) => {
+    try {
+      const invitation = await adminService.createTeamInvitation(teamId, 7, email)
+      setTeamInvitations(prev => ({
+        ...prev,
+        [teamId]: [...(prev[teamId] || []), invitation]
+      }))
+      if (email) {
+        setInviteEmailOpen(false)
+        setInviteEmail('')
+        toast.success('Invitation sent', 'Team invitation email has been sent successfully.')
+      } else {
+        toast.success('Invitation created', 'Team invitation code has been created successfully.')
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create invitation'
+      setError(errorMessage)
+      toast.error('Failed to create invitation', errorMessage)
+    }
+  }
+
+  const handleInviteEmailSubmit = async () => {
+    if (!selectedTeam || !inviteEmail.trim()) {
+      setError('Please enter an email address')
+      return
+    }
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(inviteEmail)) {
+      setError('Please enter a valid email address')
+      return
+    }
+    await handleCreateTeamInvitation(selectedTeam.id, inviteEmail.trim())
+  }
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code)
+    setCopiedCode(code)
+    setTimeout(() => setCopiedCode(null), 2000)
+    toast.success('Code copied', 'Invitation code has been copied to clipboard.')
   }
 
   const handleCreateTeam = async () => {
@@ -475,53 +538,125 @@ function TeamsTab() {
                   </div>
 
                   {isExpanded && (
-                    <div className="border-t pt-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-medium">Team Members</h4>
-                        <Button
-                          size="sm"
-                          onClick={() => handleAddMember(team)}
-                          disabled={availableUsers.length === 0}
-                        >
-                          <UserPlus className="h-4 w-4 mr-1" />
-                          Add Member
-                        </Button>
-                      </div>
-                      
-                      {members.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">No members yet</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {members.map((member) => {
-                            const user = allUsers.find(u => u.id === member.user_id)
-                            return (
-                              <div key={member.id} className="flex items-center justify-between p-2 border rounded">
-                                <div className="flex-1">
-                                  <p className="font-medium">{user?.name || user?.email || 'Unknown'}</p>
-                                  <p className="text-sm text-muted-foreground">{user?.email}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <select
-                                    value={member.role}
-                                    onChange={(e) => handleUpdateMemberRole(team.id, member.user_id, e.target.value)}
-                                    className="h-8 rounded-md border border-input bg-background px-2 py-1 text-sm"
-                                  >
-                                    <option value="member">Member</option>
-                                    <option value="team_leader">Team Leader</option>
-                                  </select>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleRemoveMember(team.id, member.user_id)}
-                                  >
-                                    <UserMinus className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                </div>
-                              </div>
-                            )
-                          })}
+                    <div className="border-t pt-4 space-y-4">
+                      {/* Team Members Section */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium">Team Members</h4>
+                          <Button
+                            size="sm"
+                            onClick={() => handleAddMember(team)}
+                            disabled={availableUsers.length === 0}
+                          >
+                            <UserPlus className="h-4 w-4 mr-1" />
+                            Add Member
+                          </Button>
                         </div>
-                      )}
+                        
+                        {members.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">No members yet</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {members.map((member) => {
+                              const user = allUsers.find(u => u.id === member.user_id)
+                              return (
+                                <div key={member.id} className="flex items-center justify-between p-2 border rounded">
+                                  <div className="flex-1">
+                                    <p className="font-medium">{user?.name || user?.email || 'Unknown'}</p>
+                                    <p className="text-sm text-muted-foreground">{user?.email}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <select
+                                      value={member.role}
+                                      onChange={(e) => handleUpdateMemberRole(team.id, member.user_id, e.target.value)}
+                                      className="h-8 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                    >
+                                      <option value="member">Member</option>
+                                      <option value="team_leader">Team Leader</option>
+                                    </select>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleRemoveMember(team.id, member.user_id)}
+                                    >
+                                      <UserMinus className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Team Invitations Section */}
+                      <div className="border-t pt-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium">Team Invitations</h4>
+                            <p className="text-sm text-muted-foreground">Create and manage team invitation codes</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setSelectedTeam(team)
+                                setInviteEmailOpen(true)
+                              }}
+                            >
+                              <Mail className="h-4 w-4 mr-1" />
+                              Send Email
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleCreateTeamInvitation(team.id)}
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Create Code
+                            </Button>
+                          </div>
+                        </div>
+
+                        {teamInvitations[team.id] && teamInvitations[team.id].length > 0 ? (
+                          <div className="space-y-2">
+                            {teamInvitations[team.id].map((inv) => (
+                              <div
+                                key={inv.code}
+                                className="flex items-center justify-between p-2 rounded border"
+                              >
+                                <div className="flex-1">
+                                  <code className="text-xs font-mono bg-muted px-2 py-1 rounded">
+                                    {inv.code}
+                                  </code>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {inv.expires_at
+                                      ? `Expires: ${new Date(inv.expires_at).toLocaleDateString()}`
+                                      : 'No expiration'}
+                                    {inv.used_at && (
+                                      <> • Used: {new Date(inv.used_at).toLocaleDateString()}</>
+                                    )}
+                                  </p>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleCopyCode(inv.code)}
+                                  disabled={!!inv.used_at}
+                                >
+                                  {copiedCode === inv.code ? (
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  ) : (
+                                    <Copy className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No invitations yet</p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -647,6 +782,37 @@ function TeamsTab() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddMemberOpen(false)}>Cancel</Button>
             <Button onClick={handleAddMemberSubmit} disabled={!selectedUserId}>Add Member</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Invitation Email Dialog */}
+      <Dialog open={inviteEmailOpen} onOpenChange={setInviteEmailOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Team Invitation</DialogTitle>
+            <DialogDescription>Send an invitation email to join {selectedTeam?.name}.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="invite-email">Email Address *</Label>
+              <Input
+                id="invite-email"
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="Enter email address"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setInviteEmailOpen(false)
+              setInviteEmail('')
+            }}>Cancel</Button>
+            <Button onClick={handleInviteEmailSubmit} disabled={!inviteEmail.trim()}>
+              Send Invitation
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
