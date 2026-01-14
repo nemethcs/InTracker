@@ -16,11 +16,16 @@ import { toast } from '@/hooks/useToast'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { UserManagement } from '@/components/admin/UserManagement'
+import { useAuth } from '@/hooks/useAuth'
 
 export function Settings() {
+  const { user: authUser } = useAuth()
   const { user, logout, checkAuth } = useAuthStore()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const isAdmin = authUser?.role === 'admin'
   const [mcpKey, setMcpKey] = useState<McpApiKey | null>(null)
   const [isLoadingKey, setIsLoadingKey] = useState(true)
   const [newKey, setNewKey] = useState<string | null>(null)
@@ -351,7 +356,14 @@ export function Settings() {
         description="Manage your account and preferences"
       />
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <Tabs defaultValue="general" className="w-full">
+        <TabsList className={isAdmin ? "grid w-full max-w-md grid-cols-2" : "grid w-full max-w-md grid-cols-1"}>
+          <TabsTrigger value="general">General</TabsTrigger>
+          {isAdmin && <TabsTrigger value="users">Users</TabsTrigger>}
+        </TabsList>
+
+        <TabsContent value="general" className="space-y-6 mt-6">
+          <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Account</CardTitle>
@@ -840,6 +852,15 @@ export function Settings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+        </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="users" className="mt-6">
+            <UserManagement />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   )
 }

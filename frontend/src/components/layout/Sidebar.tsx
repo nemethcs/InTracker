@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { FolderKanban, Settings, Sparkles, Shield, UsersRound, X } from 'lucide-react'
+import { FolderKanban, Settings, Sparkles, Shield, UsersRound, Users, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -7,11 +7,10 @@ import { useAuth } from '@/hooks/useAuth'
 const navigation = [
   { name: 'Projects', href: '/projects', icon: FolderKanban },
   { name: 'Ideas', href: '/ideas', icon: Sparkles },
-  { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
 const teamNavigation = { name: 'Teams', href: '/teams', icon: UsersRound }
-const adminNavigation = { name: 'Admin', href: '/admin', icon: Shield }
+const usersNavigation = { name: 'Users', href: '/users', icon: Users }
 
 interface SidebarProps {
   isOpen: boolean
@@ -21,19 +20,14 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation()
   const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
-  const isTeamLeader = user?.role === 'team_leader'
 
-  let allNavigation: typeof navigation = []
-  
-  // Admins only see Admin and Teams links
-  if (isAdmin) {
-    allNavigation = [adminNavigation, teamNavigation]
-  } else {
-    // Regular users and team leaders see normal navigation + Teams
-    // All users (not just team leaders) can see Teams menu
-    allNavigation = [...navigation, teamNavigation]
-  }
+  // All users (including admins) see the normal navigation + Teams
+  // Admin functions are integrated into Teams and Settings pages
+  // Admins also see Users menu item
+  const isAdmin = user?.role === 'admin'
+  const allNavigation = isAdmin 
+    ? [...navigation, teamNavigation, usersNavigation]
+    : [...navigation, teamNavigation]
 
   // Close sidebar when route changes (mobile)
   const handleLinkClick = () => {
@@ -88,7 +82,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:block w-64 border-r bg-background shrink-0">
+      <aside className="hidden lg:block w-64 border-r bg-background shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
         <nav className="space-y-1 p-4">
           {allNavigation.map((item) => {
             const Icon = item.icon

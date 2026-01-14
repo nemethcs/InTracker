@@ -142,10 +142,11 @@ export const adminService = {
     return response.data
   },
 
-  async createTeamInvitation(teamId: string, expiresInDays?: number, sendEmailTo?: string): Promise<Invitation> {
-    const params: { expires_in_days?: number; send_email_to?: string } = {}
+  async createTeamInvitation(teamId: string, expiresInDays?: number, sendEmailTo?: string, memberRole: string = 'member'): Promise<Invitation> {
+    const params: { expires_in_days?: number; send_email_to?: string; member_role?: string } = {}
     if (expiresInDays) params.expires_in_days = expiresInDays
     if (sendEmailTo) params.send_email_to = sendEmailTo
+    if (memberRole) params.member_role = memberRole
     const response = await api.post(`/teams/${teamId}/invitations`, null, { params })
     return response.data
   },

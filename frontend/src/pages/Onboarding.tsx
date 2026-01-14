@@ -10,11 +10,12 @@ import { ArrowLeft, ArrowRight } from 'lucide-react'
 
 // Step components (will be created separately)
 import { WelcomeScreen } from '@/components/onboarding/WelcomeScreen'
+import { TeamSetupStep } from '@/components/onboarding/TeamSetupStep'
 import { McpSetupStep } from '@/components/onboarding/McpSetupStep'
 import { GitHubSetupStep } from '@/components/onboarding/GitHubSetupStep'
 import { CompletionStep } from '@/components/onboarding/CompletionStep'
 
-const TOTAL_STEPS = 4
+const TOTAL_STEPS = 5
 
 export function Onboarding() {
   const navigate = useNavigate()
@@ -31,15 +32,16 @@ export function Onboarding() {
         const currentUser = useAuthStore.getState().user
         // Restore step from user's onboarding_step
         if (currentUser?.onboarding_step) {
-          // Map backend step (0-5) to frontend step (1-4)
-          // 0=not_started -> 1, 1=welcome -> 1, 2=mcp_key -> 2, 3=mcp_verified -> 2, 4=github -> 3, 5=complete -> 4
+          // Map backend step (0-5) to frontend step (1-5)
+          // 0=not_started -> 1, 1=welcome -> 1, 2=team_setup -> 2, 3=mcp_key -> 3, 4=mcp_verified -> 3, 5=github -> 4, 6=complete -> 5
           const stepMap: Record<number, number> = {
             0: 1, // not_started -> Welcome
             1: 1, // welcome -> Welcome
-            2: 2, // mcp_key -> MCP Setup
-            3: 2, // mcp_verified -> MCP Setup (waiting for verify)
-            4: 3, // github -> GitHub Setup
-            5: 4, // complete -> Completion
+            2: 2, // team_setup -> Team Setup (for team leaders)
+            3: 3, // mcp_key -> MCP Setup
+            4: 3, // mcp_verified -> MCP Setup (waiting for verify)
+            5: 4, // github -> GitHub Setup
+            6: 5, // complete -> Completion
           }
           const restoredStep = stepMap[currentUser.onboarding_step] || 1
           setCurrentStep(restoredStep)
@@ -108,9 +110,10 @@ export function Onboarding() {
         <CardContent>
           {/* Step content */}
           {currentStep === 1 && <WelcomeScreen onNext={handleNext} />}
-          {currentStep === 2 && <McpSetupStep onNext={handleNext} onBack={handleBack} />}
-          {currentStep === 3 && <GitHubSetupStep onNext={handleNext} onBack={handleBack} />}
-          {currentStep === 4 && <CompletionStep onComplete={() => navigate('/')} onBack={handleBack} />}
+          {currentStep === 2 && <TeamSetupStep onNext={handleNext} onBack={handleBack} />}
+          {currentStep === 3 && <McpSetupStep onNext={handleNext} onBack={handleBack} />}
+          {currentStep === 4 && <GitHubSetupStep onNext={handleNext} onBack={handleBack} />}
+          {currentStep === 5 && <CompletionStep onComplete={() => navigate('/')} onBack={handleBack} />}
         </CardContent>
       </Card>
     </div>
