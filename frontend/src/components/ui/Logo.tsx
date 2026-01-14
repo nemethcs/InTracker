@@ -54,31 +54,28 @@ export function Logo({ className, showText = true, size = 'md' }: LogoProps) {
           cy="8"
           r="2.5"
           fill="url(#logoGradient)"
-          className="animate-pulse"
+          opacity="0.9"
         />
         <circle
           cx="24"
           cy="16"
           r="2.5"
           fill="url(#logoGradient)"
-          className="animate-pulse"
-          style={{ animationDelay: '0.2s' }}
+          opacity="0.9"
         />
         <circle
           cx="16"
           cy="24"
           r="2.5"
           fill="url(#logoGradient)"
-          className="animate-pulse"
-          style={{ animationDelay: '0.4s' }}
+          opacity="0.9"
         />
         <circle
           cx="8"
           cy="16"
           r="2.5"
           fill="url(#logoGradient)"
-          className="animate-pulse"
-          style={{ animationDelay: '0.6s' }}
+          opacity="0.9"
         />
         
         {/* Connecting lines */}
