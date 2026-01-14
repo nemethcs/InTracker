@@ -205,25 +205,36 @@ export function TeamSetupStep({ onNext, onBack }: TeamSetupStepProps) {
             )}
           </div>
 
-          {!team.language && teamLanguage && (
-            <Button
-              onClick={handleSave}
-              disabled={isSaving || !teamLanguage}
-              className="w-full"
-              size="lg"
-            >
-              {isSaving ? (
-                <>
-                  <LoadingSpinner size="sm" className="mr-2" />
-                  Saving...
-                </>
+          {!team.language && (
+            <>
+              {teamLanguage ? (
+                <Button
+                  onClick={handleSave}
+                  disabled={isSaving || !teamLanguage}
+                  className="w-full"
+                  size="lg"
+                >
+                  {isSaving ? (
+                    <>
+                      <LoadingSpinner size="sm" className="mr-2" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Save Team Settings
+                    </>
+                  )}
+                </Button>
               ) : (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Save Team Settings
-                </>
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Please select a team language to continue. This can only be set once.
+                  </AlertDescription>
+                </Alert>
               )}
-            </Button>
+            </>
           )}
           
           {team.language && (
