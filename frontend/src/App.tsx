@@ -16,6 +16,7 @@ import { Register } from '@/pages/Register'
 // AdminLogin and AdminDashboard removed - admin functions integrated into Teams and Settings
 import { Teams } from '@/pages/Teams'
 import { Onboarding } from '@/pages/Onboarding'
+import { Users } from '@/pages/Users'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user } = useAuth()
@@ -41,6 +42,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     if (!allowedPaths.includes(currentPath) && !currentPath.startsWith('/onboarding')) {
       return <Navigate to="/onboarding" replace />
     }
+  }
+
+  return <>{children}</>
+}
+
+function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
+  
+  if (user?.role !== 'admin') {
+    return <Navigate to="/" replace />
   }
 
   return <>{children}</>
@@ -149,6 +160,18 @@ function App() {
               <MainLayout>
                 <Teams />
               </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute>
+              <AdminOnlyRoute>
+                <MainLayout>
+                  <Users />
+                </MainLayout>
+              </AdminOnlyRoute>
             </ProtectedRoute>
           }
         />

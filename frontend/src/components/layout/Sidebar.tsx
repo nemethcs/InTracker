@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { FolderKanban, Settings, Sparkles, Shield, UsersRound, X } from 'lucide-react'
+import { FolderKanban, Settings, Sparkles, Shield, UsersRound, Users, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -11,6 +11,7 @@ const navigation = [
 ]
 
 const teamNavigation = { name: 'Teams', href: '/teams', icon: UsersRound }
+const usersNavigation = { name: 'Users', href: '/users', icon: Users }
 
 interface SidebarProps {
   isOpen: boolean
@@ -23,7 +24,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // All users (including admins) see the normal navigation + Teams
   // Admin functions are integrated into Teams and Settings pages
-  const allNavigation = [...navigation, teamNavigation]
+  // Admins also see Users menu item
+  const isAdmin = user?.role === 'admin'
+  const allNavigation = isAdmin 
+    ? [...navigation, teamNavigation, usersNavigation]
+    : [...navigation, teamNavigation]
 
   // Close sidebar when route changes (mobile)
   const handleLinkClick = () => {

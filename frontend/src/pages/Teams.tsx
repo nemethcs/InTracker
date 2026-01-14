@@ -433,12 +433,13 @@ export function Teams() {
                                 Leader
                               </span>
                             )}
-                            {isTeamLeaderOfSelectedTeam && (
+                            {(isTeamLeaderOfSelectedTeam || isAdmin) && (
                               <>
                                 <select
                                   value={member.role}
                                   onChange={(e) => handleUpdateMemberRole(selectedTeam.id, member.user_id, e.target.value)}
                                   className="h-8 rounded-md border border-input bg-background px-2 py-1 text-sm"
+                                  disabled={!isAdmin && member.role === 'team_leader' && !isTeamLeaderOfSelectedTeam}
                                 >
                                   <option value="member">Member</option>
                                   <option value="team_leader">Team Leader</option>
@@ -461,8 +462,8 @@ export function Teams() {
               </CardContent>
             </Card>
 
-            {/* Team Invitations - Only visible to team leaders */}
-            {isTeamLeaderOfSelectedTeam && (
+            {/* Team Invitations - Visible to team leaders and admins */}
+            {(isTeamLeaderOfSelectedTeam || isAdmin) && (
               <Card>
                 <CardHeader>
                   <CardTitle>Invitations</CardTitle>
