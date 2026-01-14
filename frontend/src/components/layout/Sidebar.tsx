@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { FolderKanban, Settings, Sparkles, Shield, UsersRound, Users, X } from 'lucide-react'
+import { FolderKanban, Settings, Sparkles, Shield, UsersRound, Users, X, BookOpen } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
