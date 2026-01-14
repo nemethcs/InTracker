@@ -85,7 +85,9 @@ export function TeamSetupStep({ onNext, onBack }: TeamSetupStepProps) {
     }
   }
 
-  const canProceed = team !== null && (!teamLanguage || team.language !== null || teamLanguage !== '')
+  // Can proceed only if team exists and language is set (either already set or just saved)
+  // Language must be set before proceeding
+  const canProceed = team !== null && team.language !== null
 
   // If user is not team_leader or doesn't have a team, skip this step
   if (!user || user.role !== 'team_leader' || isLoading) {
