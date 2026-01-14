@@ -75,6 +75,9 @@ export function TeamSetupStep({ onNext, onBack }: TeamSetupStepProps) {
       await loadUserTeam()
       await checkAuth()
 
+      // Clear teamLanguage state after saving (it's now in team.language)
+      setTeamLanguage('')
+
       toast.success('Team settings saved', 'Your team name and language have been saved successfully.')
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save team settings'
