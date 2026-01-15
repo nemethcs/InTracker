@@ -322,9 +322,10 @@ class GitHubService:
             print(f"✅ Got user: {user.login}")
             
             # Get all repositories: own, collaborator, and organization member
-            # affiliation parameter: 'owner', 'collaborator', 'organization_member'
-            print(f"🔍 Fetching repositories with affiliation='all'")
-            repos = user.get_repos(affiliation="all")
+            # Note: affiliation="all" doesn't work properly in PyGithub, so we use no parameter
+            # which returns all accessible repositories (own, collaborator, organization member)
+            print(f"🔍 Fetching repositories (no affiliation param to get all)")
+            repos = user.get_repos()
             print(f"✅ Got repos object: {type(repos)}")
             
             # Convert to list to see how many we have
