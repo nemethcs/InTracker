@@ -294,6 +294,46 @@ class GitHubService:
             print(f"⚠️  GitHub error: {e}")
             return None
 
+    def list_user_repositories(self) -> List[Dict[str, Any]]:
+        """List all repositories accessible to the current user.
+        
+        Returns:
+            List of repository dictionaries with:
+                - id: Repository ID
+                - name: Repository name
+                - full_name: Full repository name (owner/repo)
+                - owner: Repository owner
+                - private: Whether repository is private
+                - url: Repository HTML URL
+                - description: Repository description
+                - default_branch: Default branch name
+        """
+        if not self.client:
+            return []
+
+        try:
+            user = self.client.get_user()
+            repos = user.get_repos()
+            return [
+                {
+                    "id": repo.id,
+                    "name": repo.name,
+                    "full_name": repo.full_name,
+                    "owner": repo.owner.login,
+                    "private": repo.private,
+                    "url": repo.html_url,
+                    "description": repo.description or "",
+                    "default_branch": repo.default_branch,
+                }
+                for repo in repos
+            ]
+        except GithubException as e:
+            print(f"⚠️  GitHub API error listing repositories: {e}")
+            return []
+        except Exception as e:
+            print(f"⚠️  GitHub error listing repositories: {e}")
+            return []
+
 
 # Global instance
 github_service = GitHubService()

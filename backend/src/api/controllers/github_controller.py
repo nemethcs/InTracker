@@ -13,9 +13,111 @@ from src.api.schemas.github import (
     GitHubRepoResponse,
     BranchResponse,
     BranchCreateRequest,
+    CursorDeeplinkRequest,
+    CursorDeeplinkResponse,
 )
 
 router = APIRouter(prefix="/github", tags=["github"])
+
+
+@router.get("/repositories")
+async def list_user_repositories(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List all GitHub repositories accessible to the current user.
+    
+    Uses the user's GitHub OAuth token to fetch repositories.
+    """
+    from src.services.github_service import GitHubService
+    
+    user_id = UUID(current_user["user_id"])
+    
+    # Create GitHubService with user_id to use user's OAuth token
+    user_github_service = GitHubService(user_id=user_id)
+    
+    if not user_github_service.client:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="GitHub OAuth token not configured. Please connect your GitHub account in Settings.",
+        )
+    
+    repositories = user_github_service.list_user_repositories()
+    
+    return {
+        "repositories": repositories,
+        "count": len(repositories),
+    }
+
+
+@router.post("/generate-cursor-deeplink", response_model=CursorDeeplinkResponse)
+async def generate_cursor_deeplink(
+    request: CursorDeeplinkRequest,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Generate a Cursor chat deeplink for importing a GitHub project.
+    
+    Args:
+        request: Request containing repo_url
+    """
+    repo_url = request.repo_url
+    from src.services.github_service import GitHubService
+    from src.services.cursor_deeplink_service import cursor_deeplink_service
+    
+    user_id = UUID(current_user["user_id"])
+    
+    # Parse repo owner and name from URL
+    if not repo_url.startswith("https://github.com/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid GitHub repository URL. Must start with https://github.com/",
+        )
+    
+    repo_parts = repo_url.replace("https://github.com/", "").split("/")
+    if len(repo_parts) != 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid GitHub repository URL format. Expected: https://github.com/owner/repo",
+        )
+    
+    owner, repo_name = repo_parts
+    
+    # Create GitHubService with user_id to use user's OAuth token
+    user_github_service = GitHubService(user_id=user_id)
+    
+    if not user_github_service.client:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="GitHub OAuth token not configured. Please connect your GitHub account in Settings.",
+        )
+    
+    # Get repository branches
+    branches = user_github_service.list_branches(owner=owner, repo=repo_name)
+    
+    # Identify feature branches (feature/*, feat/*, etc.)
+    feature_branches = []
+    feature_patterns = ["feature/", "feat/", "feature-", "feat-"]
+    for branch in branches:
+        branch_name = branch.get("name", "")
+        if any(branch_name.startswith(pattern) for pattern in feature_patterns):
+            feature_branches.append(branch_name)
+    
+    # Generate deeplink
+    deeplink = cursor_deeplink_service.generate_project_import_deeplink(
+        repo_url=repo_url,
+        repo_owner=owner,
+        repo_name=repo_name,
+        feature_branches=feature_branches if feature_branches else None,
+    )
+    
+    return {
+        "deeplink": deeplink,
+        "repo_url": repo_url,
+        "owner": owner,
+        "repo_name": repo_name,
+        "feature_branches": feature_branches,
+    }
 
 
 @router.post("/projects/{project_id}/connect", response_model=GitHubRepoResponse)

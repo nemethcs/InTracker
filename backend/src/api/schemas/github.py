@@ -45,3 +45,17 @@ class GitHubWebhookPayload(BaseModel):
     pull_request: Optional[dict] = None
     issue: Optional[dict] = None
     ref: Optional[str] = None
+
+
+class CursorDeeplinkRequest(BaseModel):
+    """Schema for generating Cursor deeplink."""
+    repo_url: str = Field(..., min_length=1)
+
+
+class CursorDeeplinkResponse(BaseModel):
+    """Schema for Cursor deeplink response."""
+    deeplink: str
+    repo_url: str
+    owner: str
+    repo_name: str
+    feature_branches: List[str]

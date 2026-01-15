@@ -23,6 +23,8 @@ import { toast } from '@/hooks/useToast'
 import { adminService, type Team } from '@/services/adminService'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import type { Project, ProjectCreate, ProjectUpdate } from '@/services/projectService'
+import { githubService, type GitHubRepository } from '@/services/githubService'
+import { Github } from 'lucide-react'
 
 interface ProjectEditorProps {
   open: boolean
@@ -47,6 +49,11 @@ export function ProjectEditor({
   const [isSaving, setIsSaving] = useState(false)
   const [teams, setTeams] = useState<Team[]>([])
   const [isLoadingTeams, setIsLoadingTeams] = useState(false)
+  const [showGitHubImport, setShowGitHubImport] = useState(false)
+  const [githubRepos, setGithubRepos] = useState<GitHubRepository[]>([])
+  const [selectedRepo, setSelectedRepo] = useState<string>('')
+  const [isLoadingRepos, setIsLoadingRepos] = useState(false)
+  const [isGeneratingDeeplink, setIsGeneratingDeeplink] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -62,6 +69,8 @@ export function ProjectEditor({
       setTags(project.tags?.join(', ') || '')
       setTechnologyTags(project.technology_tags?.join(', ') || '')
       setCursorInstructions(project.cursor_instructions || '')
+      setShowGitHubImport(false)
+      setSelectedRepo('')
     } else {
       setName('')
       setDescription('')
@@ -70,6 +79,8 @@ export function ProjectEditor({
       setTags('')
       setTechnologyTags('')
       setCursorInstructions('')
+      setShowGitHubImport(false)
+      setSelectedRepo('')
     }
   }, [project, open])
 
@@ -86,6 +97,70 @@ export function ProjectEditor({
       console.error('Failed to load teams:', error)
     } finally {
       setIsLoadingTeams(false)
+    }
+  }
+
+  const loadGitHubRepos = async () => {
+    setIsLoadingRepos(true)
+    try {
+      const repos = await githubService.listRepositories()
+      setGithubRepos(repos)
+    } catch (error: any) {
+      console.error('Failed to load GitHub repositories:', error)
+      toast.error(
+        'Failed to load repositories',
+        error.response?.data?.detail || 'Please connect your GitHub account in Settings.'
+      )
+    } finally {
+      setIsLoadingRepos(false)
+    }
+  }
+
+  const handleGitHubImportClick = async () => {
+    if (!showGitHubImport) {
+      setShowGitHubImport(true)
+      if (githubRepos.length === 0) {
+        await loadGitHubRepos()
+      }
+    } else {
+      setShowGitHubImport(false)
+    }
+  }
+
+  const handleGenerateDeeplink = async () => {
+    if (!selectedRepo) {
+      toast.warning('No repository selected', 'Please select a GitHub repository first.')
+      return
+    }
+
+    setIsGeneratingDeeplink(true)
+    try {
+      const repo = githubRepos.find(r => r.full_name === selectedRepo)
+      if (!repo) {
+        toast.error('Repository not found', 'Selected repository not found in list.')
+        return
+      }
+
+      const response = await githubService.generateCursorDeeplink(repo.url)
+      
+      // Open the deeplink
+      window.open(response.deeplink, '_blank')
+      
+      toast.success(
+        'Cursor deeplink generated',
+        `Opening Cursor chat with import instructions for ${repo.full_name}`
+      )
+      
+      // Close the dialog
+      onOpenChange(false)
+    } catch (error: any) {
+      console.error('Failed to generate deeplink:', error)
+      toast.error(
+        'Failed to generate deeplink',
+        error.response?.data?.detail || 'Please try again later.'
+      )
+    } finally {
+      setIsGeneratingDeeplink(false)
     }
   }
 
@@ -144,24 +219,79 @@ export function ProjectEditor({
         </DialogHeader>
         <div className="space-y-4 py-4">
           {!project && (
-            <FormField label="Team" required>
-              {isLoadingTeams ? (
-                <LoadingSpinner size="sm" />
-              ) : (
-                <Select value={teamId} onValueChange={setTeamId}>
-                  <FormSelect>
-                    <SelectValue placeholder="Select a team" />
-                  </FormSelect>
-                  <SelectContent>
-                    {teams.map((team) => (
-                      <SelectItem key={team.id} value={team.id}>
-                        {team.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <>
+              <FormField label="Team" required>
+                {isLoadingTeams ? (
+                  <LoadingSpinner size="sm" />
+                ) : (
+                  <Select value={teamId} onValueChange={setTeamId}>
+                    <FormSelect>
+                      <SelectValue placeholder="Select a team" />
+                    </FormSelect>
+                    <SelectContent>
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </FormField>
+              
+              <div className="flex items-center gap-2 py-2">
+                <div className="flex-1 border-t"></div>
+                <span className="text-sm text-muted-foreground">or</span>
+                <div className="flex-1 border-t"></div>
+              </div>
+              
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGitHubImportClick}
+                className="w-full"
+              >
+                <Github className="mr-2 h-4 w-4" />
+                {showGitHubImport ? 'Cancel GitHub Import' : 'Import from GitHub'}
+              </Button>
+              
+              {showGitHubImport && (
+                <div className="space-y-2 p-4 border rounded-lg bg-muted/50">
+                  <FormField label="Select GitHub Repository">
+                    {isLoadingRepos ? (
+                      <LoadingSpinner size="sm" />
+                    ) : (
+                      <Select value={selectedRepo} onValueChange={setSelectedRepo}>
+                        <FormSelect>
+                          <SelectValue placeholder="Select a repository" />
+                        </FormSelect>
+                        <SelectContent>
+                          {githubRepos.map((repo) => (
+                            <SelectItem key={repo.id} value={repo.full_name}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{repo.name}</span>
+                                <span className="text-xs text-muted-foreground">{repo.full_name}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </FormField>
+                  
+                  {selectedRepo && (
+                    <Button
+                      type="button"
+                      onClick={handleGenerateDeeplink}
+                      disabled={isGeneratingDeeplink}
+                      className="w-full"
+                    >
+                      {isGeneratingDeeplink ? 'Generating...' : 'Generate Cursor Deeplink'}
+                    </Button>
+                  )}
+                </div>
               )}
-            </FormField>
+            </>
           )}
           <FormField label="Name" required>
             <FormInput
