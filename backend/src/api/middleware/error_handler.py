@@ -6,9 +6,13 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import ValidationError
+import logging
 
 from src.api.schemas.error import ErrorResponse, ErrorDetail
 from src.config import settings
+from src.utils.error_logger import log_error, log_http_error
+
+logger = logging.getLogger(__name__)
 
 
 def create_error_response(
@@ -64,10 +68,21 @@ def handle_http_exception(request: Request, exc: HTTPException) -> JSONResponse:
     # Extract error code from detail if it's a dict
     error_code = None
     message = str(exc.detail)
+    details = None
     
     if isinstance(exc.detail, dict):
         message = exc.detail.get("message", str(exc.detail))
         error_code = exc.detail.get("code")
+        details = exc.detail.get("details")
+    
+    # Log the HTTP error
+    log_http_error(
+        status_code=exc.status_code,
+        message=message,
+        request=request,
+        error_code=error_code,
+        details=details,
+    )
     
     return create_error_response(
         error_type=error_type,
@@ -91,6 +106,15 @@ def handle_validation_error(request: Request, exc: RequestValidationError) -> JS
             )
         )
     
+    # Log validation errors (usually not critical, but useful for debugging)
+    log_http_error(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        message="Invalid input data",
+        request=request,
+        error_code="VALIDATION_ERROR",
+        details={"validation_errors": [d.model_dump() for d in details]},
+    )
+    
     return create_error_response(
         error_type="validation_error",
         message="Invalid input data",
@@ -102,14 +126,19 @@ def handle_validation_error(request: Request, exc: RequestValidationError) -> JS
 
 def handle_generic_exception(request: Request, exc: Exception) -> JSONResponse:
     """Handle generic exceptions with standardized format."""
-    import logging
-    
-    # Log the error for debugging
-    logging.error(f"Unhandled exception: {exc}", exc_info=True)
+    # Log the error with comprehensive context
+    log_error(
+        error=exc,
+        request=request,
+        context={
+            "handler": "generic_exception_handler",
+        },
+        level=logging.CRITICAL if settings.is_production() else logging.ERROR,
+    )
     
     # Don't expose internal error details in production
     message = (
-        str(exc) if settings.NODE_ENV == "development" 
+        str(exc) if settings.is_development() 
         else "An internal server error occurred"
     )
     
