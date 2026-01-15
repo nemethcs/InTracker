@@ -32,6 +32,7 @@ async def list_user_repositories(
     from src.services.github_service import GitHubService
     
     user_id = UUID(current_user["user_id"])
+    print(f"🔍 GET /github/repositories called for user {user_id}")
     
     # Create GitHubService with user_id to use user's OAuth token
     user_github_service = GitHubService(user_id=user_id)
@@ -44,13 +45,24 @@ async def list_user_repositories(
         )
     
     print(f"✅ Fetching repositories for user {user_id}")
-    repositories = user_github_service.list_user_repositories()
-    print(f"✅ Found {len(repositories)} repositories for user {user_id}")
-    
-    return {
-        "repositories": repositories,
-        "count": len(repositories),
-    }
+    try:
+        repositories = user_github_service.list_user_repositories()
+        print(f"✅ Found {len(repositories)} repositories for user {user_id}")
+        if len(repositories) > 0:
+            print(f"   First repo: {repositories[0].get('full_name', 'N/A')}")
+        
+        return {
+            "repositories": repositories,
+            "count": len(repositories),
+        }
+    except Exception as e:
+        print(f"❌ Error fetching repositories for user {user_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch repositories: {str(e)}",
+        )
 
 
 @router.post("/generate-cursor-deeplink", response_model=CursorDeeplinkResponse)
