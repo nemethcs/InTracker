@@ -49,6 +49,8 @@ class FeatureResponse(FeatureBase):
 
 
 class FeatureListResponse(BaseModel):
-    """Schema for feature list response."""
+    """Schema for feature list response with pagination."""
     features: List[FeatureResponse]
     total: int
+    page: Optional[int] = Field(None, description="Current page number (1-indexed)")
+    page_size: Optional[int] = Field(None, description="Number of items per page")
