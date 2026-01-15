@@ -103,9 +103,14 @@ class MCPSSEASGIApp:
                     write_stream,
                     mcp_server.create_initialization_options(),
                 )
+        except (ConnectionError, BrokenPipeError, OSError) as e:
+            # Connection closed gracefully (client disconnected or server restart)
+            # This is normal - Cursor will automatically reconnect
+            import logging
+            logging.info(f"MCP SSE connection closed: {e}")
+            # Don't log as error - this is expected behavior
         except Exception as e:
-            # If MCP server fails, don't let global exception handler catch it
-            # as it may have already sent a response
+            # If MCP server fails with unexpected error, log it
             import logging
             logging.error(f"MCP SSE connection error: {e}", exc_info=True)
             # Don't re-raise - response may have already been sent
