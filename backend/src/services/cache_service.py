@@ -1,4 +1,12 @@
-"""Cache service using Redis."""
+"""Cache service using Redis.
+
+This service provides a unified caching interface for the entire application.
+It includes:
+- Standardized TTL constants for different cache types
+- Cache key naming conventions
+- Automatic cache invalidation helpers
+- Graceful degradation when Redis is unavailable
+"""
 import json
 import redis
 from typing import Optional, Any
@@ -6,6 +14,24 @@ from src.config import settings
 
 # Redis client (singleton)
 _redis_client: Optional[redis.Redis] = None
+
+# Standardized TTL constants (in seconds)
+class CacheTTL:
+    """Standard TTL values for different cache types."""
+    # Short-lived caches (frequently changing data)
+    SHORT = 60  # 1 minute - for resume context, active todos
+    
+    # Medium-lived caches (moderately changing data)
+    MEDIUM = 120  # 2 minutes - for features, todos, project lists
+    
+    # Long-lived caches (rarely changing data)
+    LONG = 300  # 5 minutes - for project context, documents
+    
+    # Very long-lived caches (static or rarely changing data)
+    VERY_LONG = 600  # 10 minutes - for OAuth tokens, static data
+    
+    # Session caches
+    SESSION = 86400  # 24 hours - for MCP sessions
 
 
 def get_redis_client() -> redis.Redis:
@@ -45,7 +71,12 @@ def get_redis_client() -> redis.Redis:
 
 
 class CacheService:
-    """Service for caching operations."""
+    """Service for caching operations with standardized TTL and key naming."""
+
+    @staticmethod
+    def get(key: str) -> Optional[Any]:
+        """Get value from cache. Alias for get_cache for backward compatibility."""
+        return CacheService.get_cache(key)
 
     @staticmethod
     def get_cache(key: str) -> Optional[Any]:
@@ -64,8 +95,19 @@ class CacheService:
             return None
 
     @staticmethod
-    def set_cache(key: str, value: Any, ttl: int = 300) -> bool:
-        """Set value in cache with TTL (default 5 minutes)."""
+    def set(key: str, value: Any, ttl: int = CacheTTL.LONG) -> bool:
+        """Set value in cache. Alias for set_cache for backward compatibility."""
+        return CacheService.set_cache(key, value, ttl)
+
+    @staticmethod
+    def set_cache(key: str, value: Any, ttl: int = CacheTTL.LONG) -> bool:
+        """Set value in cache with TTL (default: LONG = 5 minutes).
+        
+        Args:
+            key: Cache key
+            value: Value to cache (will be JSON serialized)
+            ttl: Time to live in seconds (use CacheTTL constants)
+        """
         client = get_redis_client()
         if not client:
             return False
@@ -77,6 +119,11 @@ class CacheService:
         except Exception as e:
             print(f"⚠️  Cache set error: {e}")
             return False
+
+    @staticmethod
+    def delete(key: str) -> bool:
+        """Delete key from cache. Alias for delete_cache for backward compatibility."""
+        return CacheService.delete_cache(key)
 
     @staticmethod
     def delete_cache(key: str) -> bool:
@@ -93,8 +140,17 @@ class CacheService:
             return False
 
     @staticmethod
+    def clear_pattern(pattern: str) -> int:
+        """Clear all keys matching pattern. Alias for clear_cache_by_pattern."""
+        return CacheService.clear_cache_by_pattern(pattern)
+
+    @staticmethod
     def clear_cache_by_pattern(pattern: str) -> int:
-        """Clear all keys matching pattern."""
+        """Clear all keys matching pattern.
+        
+        Note: This uses Redis KEYS command which can be slow on large datasets.
+        Consider using SCAN for production environments with many keys.
+        """
         client = get_redis_client()
         if not client:
             return 0
@@ -137,6 +193,13 @@ class CacheService:
         """Invalidate document cache."""
         CacheService.delete_cache(f"document:{document_id}")
 
+    @staticmethod
+    def invalidate_todo_cache(todo_id: str, project_id: Optional[str] = None) -> None:
+        """Invalidate todo-related caches."""
+        CacheService.delete_cache(f"todo:{todo_id}")
+        if project_id:
+            CacheService.clear_cache_by_pattern(f"project:{project_id}:*")
 
-# Global instance
+
+# Global instance (for backward compatibility)
 cache_service = CacheService()

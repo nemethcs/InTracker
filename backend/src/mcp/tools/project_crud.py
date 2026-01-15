@@ -7,7 +7,7 @@ import json as json_lib
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
 from src.database.base import SessionLocal
-from src.mcp.services.cache import cache_service
+from src.mcp.services.cache import cache_service, CacheTTL
 from src.services.project_service import ProjectService
 from src.services.signalr_hub import broadcast_project_update
 from sqlalchemy import func
@@ -195,7 +195,7 @@ async def handle_list_projects(status: Optional[str] = None, user_id: Optional[s
             "count": len(projects),
         }
 
-        cache_service.set(cache_key, result, ttl=120)  # 2 min TTL
+        cache_service.set(cache_key, result, ttl=CacheTTL.MEDIUM)
         return result
     finally:
         db.close()

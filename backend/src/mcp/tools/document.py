@@ -4,7 +4,7 @@ from uuid import UUID
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
 from src.database.base import SessionLocal
-from src.mcp.services.cache import cache_service
+from src.mcp.services.cache import cache_service, CacheTTL
 from src.services.document_service import DocumentService
 from src.services.project_service import ProjectService
 from src.services.todo_service import TodoService
@@ -50,7 +50,7 @@ async def handle_get_document(document_id: str) -> dict:
             "version": document.version,
         }
 
-        cache_service.set(cache_key, result, ttl=600)  # 10 min TTL
+        cache_service.set(cache_key, result, ttl=CacheTTL.VERY_LONG)
         return result
     finally:
         db.close()
@@ -111,7 +111,7 @@ async def handle_list_documents(project_id: str, doc_type: Optional[str] = None)
             "count": len(documents),
         }
 
-        cache_service.set(cache_key, result, ttl=300)  # 5 min TTL
+        cache_service.set(cache_key, result, ttl=CacheTTL.LONG)
         return result
     finally:
         db.close()
