@@ -74,6 +74,24 @@ services:
     mem_limit: 512m
     mem_reservation: 256m
 
+  mcp-proxy:
+    build:
+      context: ./mcp-proxy
+      dockerfile: Dockerfile
+    container_name: intracker-mcp-proxy
+    ports:
+      - "8001:8001"
+    environment:
+      BACKEND_URL: http://intracker-backend:3000
+      PROXY_PORT: 8001
+      MAX_RECONNECT_ATTEMPTS: 10
+      RECONNECT_DELAY: 2
+    depends_on:
+      - backend
+    mem_limit: 256m
+    mem_reservation: 128m
+    restart: unless-stopped
+
   frontend:
     build:
       context: ./frontend
