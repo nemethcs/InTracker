@@ -129,6 +129,10 @@ def get_list_projects_tool() -> MCPTool:
                     "enum": ["active", "paused", "blocked", "completed", "archived"],
                     "description": "Filter by status",
                 },
+                "userId": {
+                    "type": "string",
+                    "description": "Optional: User UUID to filter projects by user access (team membership). If not provided, automatically extracted from MCP API key.",
+                },
             },
         },
     )
