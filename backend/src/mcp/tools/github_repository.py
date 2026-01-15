@@ -56,8 +56,13 @@ def get_connect_github_repo_tool() -> MCPTool:
 
 async def handle_connect_github_repo(project_id: str, owner: str, repo: str) -> dict:
     """Handle connect GitHub repo tool call."""
+    from src.mcp.middleware.auth import get_current_user_id
+    
     db = SessionLocal()
     try:
+        # Get current user ID from MCP API key
+        user_id = get_current_user_id()
+        
         # Use ProjectService to get project
         project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project:
