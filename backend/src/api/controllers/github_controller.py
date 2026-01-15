@@ -37,12 +37,15 @@ async def list_user_repositories(
     user_github_service = GitHubService(user_id=user_id)
     
     if not user_github_service.client:
+        print(f"⚠️  GitHub OAuth token not found for user {user_id}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="GitHub OAuth token not configured. Please connect your GitHub account in Settings.",
         )
     
+    print(f"✅ Fetching repositories for user {user_id}")
     repositories = user_github_service.list_user_repositories()
+    print(f"✅ Found {len(repositories)} repositories for user {user_id}")
     
     return {
         "repositories": repositories,

@@ -104,13 +104,23 @@ export function ProjectEditor({
     setIsLoadingRepos(true)
     try {
       const repos = await githubService.listRepositories()
+      console.log('GitHub repositories loaded:', repos.length)
       setGithubRepos(repos)
+      if (repos.length === 0) {
+        toast.warning(
+          'No repositories found',
+          'You may need to connect your GitHub account in Settings, or you may not have access to any repositories.'
+        )
+      }
     } catch (error: any) {
       console.error('Failed to load GitHub repositories:', error)
+      const errorMessage = error.response?.data?.detail || error.message || 'Please connect your GitHub account in Settings.'
       toast.error(
         'Failed to load repositories',
-        error.response?.data?.detail || 'Please connect your GitHub account in Settings.'
+        errorMessage
       )
+      // Set empty array on error so UI doesn't show loading forever
+      setGithubRepos([])
     } finally {
       setIsLoadingRepos(false)
     }
@@ -264,7 +274,15 @@ export function ProjectEditor({
                 <div className="space-y-2 p-4 border rounded-lg bg-muted/50">
                   <FormField label="Select GitHub Repository" required>
                     {isLoadingRepos ? (
-                      <LoadingSpinner size="sm" />
+                      <div className="flex items-center gap-2">
+                        <LoadingSpinner size="sm" />
+                        <span className="text-sm text-muted-foreground">Loading repositories...</span>
+                      </div>
+                    ) : githubRepos.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-muted-foreground">
+                        <p className="mb-2">No repositories found.</p>
+                        <p>Please connect your GitHub account in Settings to import repositories.</p>
+                      </div>
                     ) : (
                       <Select 
                         value={selectedRepo} 
