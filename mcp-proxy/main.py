@@ -157,9 +157,24 @@ class BackendConnectionManager:
                         # Reset reconnect count on successful data
                         reconnect_count = 0
                 
-                # Stream ended normally
-                logger.info(f"📭 Backend stream ended for client {client_id}")
-                break
+                # Stream ended - backend restarted or connection lost
+                # Automatically reconnect to maintain client connection
+                reconnect_count += 1
+                logger.info(
+                    f"📭 Backend stream ended for client {client_id}, "
+                    f"reconnecting (attempt #{reconnect_count})..."
+                )
+                
+                if reconnect_count >= MAX_RECONNECT_ATTEMPTS:
+                    logger.error(f"💥 Max reconnect attempts reached for client {client_id}")
+                    raise HTTPException(
+                        status_code=503,
+                        detail="Backend connection lost and reconnection failed"
+                    )
+                
+                # Wait before reconnecting
+                await asyncio.sleep(RECONNECT_DELAY)
+                # Continue while loop to reconnect
                 
             except HTTPException as e:
                 # Backend unavailable - propagate error
