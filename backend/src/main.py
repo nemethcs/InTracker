@@ -24,6 +24,7 @@ from src.api.controllers import (
     team_controller,
     mcp_key_controller,
     audit_controller,
+    health_controller,
 )
 
 # Setup logging based on environment
@@ -105,6 +106,8 @@ app.add_middleware(
 )
 
 # Include routers
+# Health check should be first for easy monitoring
+app.include_router(health_controller.router)
 app.include_router(auth_controller.router)
 app.include_router(project_controller.router)
 app.include_router(feature_controller.router)
@@ -120,18 +123,6 @@ app.include_router(admin_controller.router)
 app.include_router(team_controller.router)
 app.include_router(mcp_key_controller.router)
 app.include_router(audit_controller.router)
-
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    from datetime import datetime
-    return {
-        "status": "ok",
-        "timestamp": datetime.utcnow().isoformat(),
-        "version": "0.1.0",
-        "auto_reload": "disabled"  # Added: Backend auto-reload is now disabled for stability
-    }
 
 
 @app.get("/api")
