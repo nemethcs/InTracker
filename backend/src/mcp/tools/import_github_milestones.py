@@ -134,15 +134,15 @@ async def handle_import_github_milestones(
                         priority="high" if any(label.name.lower() in ["bug", "critical", "urgent"] for label in issue.labels) else "medium",
                         project_id=UUID(project_id) if not element_id else None,
                     )
-                        # Update GitHub fields directly (TodoService doesn't handle these)
-                        todo = db.query(Todo).filter(Todo.id == todo.id).first()
-                        todo.github_issue_number = issue.number
-                        todo.github_issue_url = issue.html_url
-                        db.commit()
-                        todos_count += 1
-                        
-                        # Use FeatureService to update feature progress
-                        FeatureService.calculate_feature_progress(db, feature.id)
+                    # Update GitHub fields directly (TodoService doesn't handle these)
+                    todo = db.query(Todo).filter(Todo.id == todo.id).first()
+                    todo.github_issue_number = issue.number
+                    todo.github_issue_url = issue.html_url
+                    db.commit()
+                    todos_count += 1
+                    
+                    # Use FeatureService to update feature progress
+                    FeatureService.calculate_feature_progress(db, feature.id)
             except Exception as e:
                 print(f"Warning: Failed to import issues for milestone {milestone.title}: {e}")
             
