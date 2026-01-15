@@ -3,6 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi import HTTPException
+from starlette.middleware.gzip import GZipMiddleware
 from src.config import settings
 from contextlib import asynccontextmanager
 import os
@@ -97,6 +98,13 @@ else:
     else:
         cors_origins = ["*"]
 
+# Compression middleware (should be added before CORS)
+app.add_middleware(
+    GZipMiddleware,
+    minimum_size=1000,  # Only compress responses larger than 1KB
+)
+
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
