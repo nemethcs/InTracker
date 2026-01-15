@@ -57,80 +57,13 @@ async def mcp_health_check():
     return JSONResponse(content={"status": "ok", "service": "intracker-mcp-server"})
 
 
-@router.get("/oauth/callback")
-@router.post("/oauth/callback")
-async def mcp_oauth_callback(
-    code: Optional[str] = None,
-    state: Optional[str] = None,
-    error: Optional[str] = None,
-    error_description: Optional[str] = None,
-):
-    """
-    MCP OAuth callback endpoint.
-    
-    Note: InTracker MCP uses API keys, not OAuth. This endpoint exists
-    to handle Cursor's OAuth callback attempts gracefully.
-    """
-    if error:
-        return JSONResponse(
-            content={
-                "error": error,
-                "error_description": error_description or "OAuth error",
-                "message": "InTracker MCP uses API keys, not OAuth. Please configure your API key in Cursor settings.",
-            },
-            status_code=400,
-        )
-    
-    return JSONResponse(
-        content={
-            "error": "not_implemented",
-            "message": "InTracker MCP uses API keys, not OAuth. Please configure your API key in Cursor settings.",
-        },
-        status_code=400,
-    )
-
-
 class MCPSSEASGIApp:
     """ASGI app wrapper for MCP SSE endpoint."""
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
-        # Support both GET (SSE) and POST (Streamable HTTP) methods
-        if scope["type"] != "http" or scope["method"] not in ["GET", "POST"]:
+        if scope["type"] != "http" or scope["method"] != "GET":
             from starlette.responses import Response
             response = Response(status_code=405)
             await response(scope, receive, send)
-            return
-        
-        # If POST, use handle_post_message (Streamable HTTP)
-        if scope["method"] == "POST":
-            # Verify API key and get user_id
-            api_key = None
-            headers = scope.get("headers", [])
-            for key, value in headers:
-                if key.lower() == b"x-api-key":
-                    api_key = value.decode()
-                    break
-            
-            try:
-                user_id = verify_api_key(api_key)
-                # Set the user_id in MCP middleware for this connection
-                if user_id:
-                    from src.mcp.middleware.auth import set_mcp_api_key
-                    set_mcp_api_key(api_key)  # This will extract and set user_id
-            except HTTPException as e:
-                # Return error response and stop processing
-                response = JSONResponse(
-                    content={"detail": e.detail},
-                    status_code=e.status_code
-                )
-                await response(scope, receive, send)
-                return
-            
-            # Use the SSE transport's handle_post_message ASGI app
-            try:
-                await sse_transport.handle_post_message(scope, receive, send)
-            except Exception as e:
-                import logging
-                logging.error(f"MCP handle_post_message error: {e}", exc_info=True)
             return
         
         # Verify API key and get user_id
@@ -224,7 +157,6 @@ class MCPMessagesASGIApp:
 
 
 @router.get("/sse")
-@router.post("/sse")
 async def mcp_sse_endpoint(request: Request):
     """
     MCP Server SSE (Server-Sent Events) endpoint for Cursor integration.
