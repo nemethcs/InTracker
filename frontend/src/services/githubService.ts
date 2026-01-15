@@ -25,9 +25,10 @@ export const githubService = {
     return response.data.repositories || []
   },
 
-  async generateCursorDeeplink(repoUrl: string): Promise<CursorDeeplinkResponse> {
+  async generateCursorDeeplink(repoUrl: string, teamId?: string): Promise<CursorDeeplinkResponse> {
     const response = await api.post('/github/generate-cursor-deeplink', {
       repo_url: repoUrl,
+      team_id: teamId,
     })
     return response.data
   },

@@ -59,9 +59,10 @@ async def generate_cursor_deeplink(
     """Generate a Cursor chat deeplink for importing a GitHub project.
     
     Args:
-        request: Request containing repo_url
+        request: Request containing repo_url and optional team_id
     """
     repo_url = request.repo_url
+    team_id = request.team_id
     from src.services.github_service import GitHubService
     from src.services.cursor_deeplink_service import cursor_deeplink_service
     
@@ -108,6 +109,7 @@ async def generate_cursor_deeplink(
         repo_url=repo_url,
         repo_owner=owner,
         repo_name=repo_name,
+        team_id=str(team_id) if team_id else None,
         feature_branches=feature_branches if feature_branches else None,
     )
     

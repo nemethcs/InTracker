@@ -50,6 +50,7 @@ class GitHubWebhookPayload(BaseModel):
 class CursorDeeplinkRequest(BaseModel):
     """Schema for generating Cursor deeplink."""
     repo_url: str = Field(..., min_length=1)
+    team_id: Optional[UUID] = None
 
 
 class CursorDeeplinkResponse(BaseModel):

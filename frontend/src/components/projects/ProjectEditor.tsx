@@ -133,6 +133,11 @@ export function ProjectEditor({
       return
     }
 
+    if (!teamId) {
+      toast.warning('Team required', 'Please select a team first.')
+      return
+    }
+
     setIsGeneratingDeeplink(true)
     try {
       const repo = githubRepos.find(r => r.full_name === selectedRepo)
@@ -141,7 +146,7 @@ export function ProjectEditor({
         return
       }
 
-      const response = await githubService.generateCursorDeeplink(repo.url)
+      const response = await githubService.generateCursorDeeplink(repo.url, teamId)
       
       // Open the deeplink
       window.open(response.deeplink, '_blank')
@@ -257,11 +262,40 @@ export function ProjectEditor({
               
               {showGitHubImport && (
                 <div className="space-y-2 p-4 border rounded-lg bg-muted/50">
-                  <FormField label="Select GitHub Repository">
+                  <FormField label="Select GitHub Repository" required>
                     {isLoadingRepos ? (
                       <LoadingSpinner size="sm" />
                     ) : (
-                      <Select value={selectedRepo} onValueChange={setSelectedRepo}>
+                      <Select 
+                        value={selectedRepo} 
+                        onValueChange={async (value) => {
+                          setSelectedRepo(value)
+                          // Auto-generate deeplink when repo is selected
+                          if (value && teamId) {
+                            setIsGeneratingDeeplink(true)
+                            try {
+                              const repo = githubRepos.find(r => r.full_name === value)
+                              if (repo) {
+                                const response = await githubService.generateCursorDeeplink(repo.url, teamId)
+                                window.open(response.deeplink, '_blank')
+                                toast.success(
+                                  'Cursor deeplink generated',
+                                  `Opening Cursor chat with import instructions for ${repo.full_name}`
+                                )
+                                onOpenChange(false)
+                              }
+                            } catch (error: any) {
+                              console.error('Failed to generate deeplink:', error)
+                              toast.error(
+                                'Failed to generate deeplink',
+                                error.response?.data?.detail || 'Please try again later.'
+                              )
+                            } finally {
+                              setIsGeneratingDeeplink(false)
+                            }
+                          }
+                        }}
+                      >
                         <FormSelect>
                           <SelectValue placeholder="Select a repository" />
                         </FormSelect>
@@ -279,90 +313,90 @@ export function ProjectEditor({
                     )}
                   </FormField>
                   
-                  {selectedRepo && (
-                    <Button
-                      type="button"
-                      onClick={handleGenerateDeeplink}
-                      disabled={isGeneratingDeeplink}
-                      className="w-full"
-                    >
-                      {isGeneratingDeeplink ? 'Generating...' : 'Generate Cursor Deeplink'}
-                    </Button>
+                  {selectedRepo && isGeneratingDeeplink && (
+                    <div className="flex items-center justify-center py-2">
+                      <LoadingSpinner size="sm" />
+                      <span className="ml-2 text-sm text-muted-foreground">Generating deeplink...</span>
+                    </div>
                   )}
                 </div>
               )}
             </>
           )}
-          <FormField label="Name" required>
-            <FormInput
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Enter project name"
-            />
-          </FormField>
-          <FormField label="Description">
-            <FormTextarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter project description"
-              rows={3}
-            />
-          </FormField>
           {project && (
-            <FormField label="Status">
-              <Select value={status} onValueChange={(value) => setStatus(value as Project['status'])}>
-                <FormSelect>
-                  <SelectValue />
-                </FormSelect>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="paused">Paused</SelectItem>
-                  <SelectItem value="blocked">Blocked</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormField>
+            <>
+              <FormField label="Name" required>
+                <FormInput
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter project name"
+                />
+              </FormField>
+              <FormField label="Description">
+                <FormTextarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Enter project description"
+                  rows={3}
+                />
+              </FormField>
+              <FormField label="Status">
+                <Select value={status} onValueChange={(value) => setStatus(value as Project['status'])}>
+                  <FormSelect>
+                    <SelectValue />
+                  </FormSelect>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="paused">Paused</SelectItem>
+                    <SelectItem value="blocked">Blocked</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="archived">Archived</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormField>
+              <FormField 
+                label="Tags" 
+                description="Separate multiple tags with commas"
+              >
+                <FormInput
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  placeholder="Enter tags separated by commas (e.g., ai, project-management, mcp)"
+                />
+              </FormField>
+              <FormField 
+                label="Technology Tags" 
+                description="Separate multiple tags with commas"
+              >
+                <FormInput
+                  value={technologyTags}
+                  onChange={(e) => setTechnologyTags(e.target.value)}
+                  placeholder="Enter technology tags separated by commas (e.g., react, typescript, python)"
+                />
+              </FormField>
+              <FormField 
+                label="Cursor Instructions" 
+                description="Optional instructions for AI context"
+              >
+                <FormTextarea
+                  value={cursorInstructions}
+                  onChange={(e) => setCursorInstructions(e.target.value)}
+                  placeholder="Enter specific instructions for AI assistants working on this project"
+                  rows={4}
+                />
+              </FormField>
+            </>
           )}
-          <FormField 
-            label="Tags" 
-            description="Separate multiple tags with commas"
-          >
-            <FormInput
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="Enter tags separated by commas (e.g., ai, project-management, mcp)"
-            />
-          </FormField>
-          <FormField 
-            label="Technology Tags" 
-            description="Separate multiple tags with commas"
-          >
-            <FormInput
-              value={technologyTags}
-              onChange={(e) => setTechnologyTags(e.target.value)}
-              placeholder="Enter technology tags separated by commas (e.g., react, typescript, python)"
-            />
-          </FormField>
-          <FormField 
-            label="Cursor Instructions" 
-            description="Optional instructions for AI context"
-          >
-            <FormTextarea
-              value={cursorInstructions}
-              onChange={(e) => setCursorInstructions(e.target.value)}
-              placeholder="Enter specific instructions for AI assistants working on this project"
-              rows={4}
-            />
-          </FormField>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving || !name.trim() || (!project && !teamId)}>
-            {isSaving ? 'Saving...' : project ? 'Update' : 'Create'}
-          </Button>
+          {project && (
+            <Button onClick={handleSave} disabled={isSaving || !name.trim()}>
+              {isSaving ? 'Saving...' : 'Update'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
