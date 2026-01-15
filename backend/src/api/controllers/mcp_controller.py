@@ -1,4 +1,11 @@
-"""MCP Server HTTP/SSE transport controller for FastAPI."""
+"""MCP Server HTTP/SSE transport controller for FastAPI.
+
+Session Management:
+- Sessions are stored in Redis with 24-hour TTL
+- Backend restarts don't break Cursor connections
+- Graceful session rehydration for old sessions
+- No manual Cursor toggle required
+"""
 from typing import Optional
 from fastapi import APIRouter, Request, HTTPException, Header
 from fastapi.responses import JSONResponse
@@ -6,17 +13,19 @@ from starlette.types import Receive, Send, Scope
 from mcp.server.sse import SseServerTransport
 from src.config import settings
 from src.mcp.server import server as mcp_server
+from src.services.mcp_session_service import mcp_session_service
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/mcp", tags=["mcp"])
 
 # Create SSE transport
 sse_transport = SseServerTransport("/mcp/messages/")
 
-# Global lock and state for MCP initialization
+# Global lock for connection initialization (to prevent race conditions)
 import asyncio
 _mcp_init_lock = asyncio.Lock()
-_mcp_initialized = False
-_mcp_init_time = None
 
 
 def verify_api_key(api_key: Optional[str]) -> Optional[str]:
@@ -64,13 +73,31 @@ async def mcp_health_check():
 
 
 class MCPSSEASGIApp:
-    """ASGI app wrapper for MCP SSE endpoint."""
+    """ASGI app wrapper for MCP SSE endpoint with Redis session persistence."""
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         if scope["type"] != "http" or scope["method"] != "GET":
             from starlette.responses import Response
             response = Response(status_code=405)
             await response(scope, receive, send)
             return
+        
+        # Extract connection ID from query params or headers (for session rehydration)
+        connection_id = None
+        query_string = scope.get("query_string", b"").decode()
+        if "connection_id=" in query_string:
+            # Extract connection_id from query params
+            for param in query_string.split("&"):
+                if param.startswith("connection_id="):
+                    connection_id = param.split("=", 1)[1]
+                    break
+        
+        # If no connection_id provided, generate one
+        if not connection_id:
+            import uuid
+            connection_id = str(uuid.uuid4())
+            logger.info(f"🆕 New MCP connection, generated ID: {connection_id[:8]}...")
+        else:
+            logger.info(f"🔄 Reconnecting MCP session: {connection_id[:8]}...")
         
         # Verify API key and get user_id
         api_key = None
@@ -96,34 +123,30 @@ class MCPSSEASGIApp:
             await response(scope, receive, send)
             return
         
-        # Based on MCP SDK source code inspection:
-        # connect_sse returns an async context manager
-        # When entered, it returns (read_stream, write_stream)
-        # We need to run the MCP server with these streams
-        import logging
-        import time
-        global _mcp_init_lock, _mcp_initialized, _mcp_init_time
+        # Check if this is a session rehydration (reconnect after backend restart)
+        existing_session = mcp_session_service.get_session(connection_id)
+        if existing_session:
+            logger.info(f"✅ Rehydrating MCP session: {connection_id[:8]}... (created: {existing_session.get('created_at')})")
+            # Update activity timestamp and extend TTL
+            mcp_session_service.update_session_activity(connection_id)
+        else:
+            # Create new session in Redis
+            metadata = {
+                "user_id": user_id,
+                "api_key_prefix": api_key[:12] if api_key else None,
+            }
+            mcp_session_service.create_session(connection_id, metadata)
         
-        # If server was just initialized (within last 2 seconds), wait a bit
-        # This prevents race conditions when multiple clients connect simultaneously
-        if _mcp_init_time and (time.time() - _mcp_init_time) < 2.0:
-            wait_time = 2.0 - (time.time() - _mcp_init_time)
-            logging.info(f"Waiting {wait_time:.2f}s for MCP server to fully initialize...")
-            await asyncio.sleep(wait_time)
+        # Use lock to serialize connection initialization (prevent race conditions)
+        global _mcp_init_lock
         
-        # Use lock to serialize connection initialization
         async with _mcp_init_lock:
             try:
                 cm = sse_transport.connect_sse(scope, receive, send)
                 async with cm as streams:
                     read_stream, write_stream = streams
                     
-                    # Wait a bit on first connection to let initialization complete
-                    if not _mcp_initialized:
-                        logging.info("First MCP connection - waiting for initialization...")
-                        await asyncio.sleep(1.0)
-                        _mcp_initialized = True
-                        _mcp_init_time = time.time()
+                    logger.info(f"🚀 MCP server running for connection: {connection_id[:8]}...")
                     
                     await mcp_server.run(
                         read_stream,
@@ -144,21 +167,35 @@ class MCPSSEASGIApp:
                 elif isinstance(e, (ConnectionError, BrokenPipeError, OSError)):
                     # Connection closed gracefully (client disconnected or server restart)
                     # This is normal - Cursor will automatically reconnect
-                    logging.info(f"MCP SSE connection closed: {e}")
+                    logger.info(f"🔌 MCP SSE connection closed: {connection_id[:8]}... - {e}")
+                    # Don't delete session - allow reconnection
                 
                 # Log all other errors
                 else:
-                    logging.error(f"MCP SSE connection error: {e}", exc_info=True)
+                    logger.error(f"❌ MCP SSE connection error: {connection_id[:8]}... - {e}", exc_info=True)
+                    # Delete session on error
+                    mcp_session_service.delete_session(connection_id)
 
 
 class MCPMessagesASGIApp:
-    """ASGI app wrapper for MCP messages endpoint."""
+    """ASGI app wrapper for MCP messages endpoint with session tracking."""
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         if scope["type"] != "http" or scope["method"] != "POST":
             from starlette.responses import Response
             response = Response(status_code=405)
             await response(scope, receive, send)
             return
+        
+        # Extract connection ID from path or query params
+        connection_id = None
+        path = scope.get("path", "")
+        query_string = scope.get("query_string", b"").decode()
+        
+        if "connection_id=" in query_string:
+            for param in query_string.split("&"):
+                if param.startswith("connection_id="):
+                    connection_id = param.split("=", 1)[1]
+                    break
         
         # Verify API key and get user_id
         api_key = None
@@ -184,6 +221,11 @@ class MCPMessagesASGIApp:
             await response(scope, receive, send)
             return
         
+        # Update session activity if connection_id is provided
+        if connection_id:
+            mcp_session_service.update_session_activity(connection_id)
+            logger.debug(f"📨 MCP message received for session: {connection_id[:8]}...")
+        
         # Use the SSE transport's handle_post_message ASGI app
         # This will send its own response (202 Accepted), so we don't need to handle it
         try:
@@ -191,8 +233,7 @@ class MCPMessagesASGIApp:
         except Exception as e:
             # If handle_post_message fails, don't let global exception handler catch it
             # as it may have already sent a response
-            import logging
-            logging.error(f"MCP handle_post_message error: {e}", exc_info=True)
+            logger.error(f"❌ MCP handle_post_message error: {e}", exc_info=True)
             # Don't re-raise - response may have already been sent
 
 
