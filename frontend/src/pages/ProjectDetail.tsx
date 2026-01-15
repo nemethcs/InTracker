@@ -17,9 +17,10 @@ import { FeatureCard } from '@/components/features/FeatureCard'
 import { ProjectEditor } from '@/components/projects/ProjectEditor'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { ActiveUsers } from '@/components/collaboration/ActiveUsers'
-import { Plus, Edit, CheckSquare, UsersRound, ChevronDown, ChevronRight, ChevronLeft, Clock, FolderKanban } from 'lucide-react'
+import { Plus, Edit, CheckSquare, UsersRound, ChevronDown, ChevronRight, ChevronLeft, Clock, FolderKanban, CheckCircle2 } from 'lucide-react'
 import { iconSize } from '@/components/ui/Icon'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { format } from 'date-fns'
 import type { Feature } from '@/services/featureService'
 import type { Todo } from '@/services/todoService'
@@ -102,7 +103,7 @@ export function ProjectDetail() {
     })
   }, [features])
 
-  // Get last 3 completed todos (status: done)
+  // Get last 3 completed todos (status: done) for Context & Activity
   const lastCompletedTodos = useMemo(() => {
     const completed = allTodos
       .filter(todo => {
@@ -123,6 +124,34 @@ export function ProjectDetail() {
       featureName: todo.feature_id ? features.find(f => f.id === todo.feature_id)?.name : undefined
     }))
   }, [allTodos, id, features])
+
+  // Get all completed todos (status: done) for Completed Items section
+  const completedTodos = useMemo(() => {
+    const completed = allTodos
+      .filter(todo => todo.status === 'done')
+      .sort((a, b) => {
+        // Use completed_at if available, otherwise fallback to updated_at
+        const aTime = a.completed_at ? new Date(a.completed_at).getTime() : new Date(a.updated_at).getTime()
+        const bTime = b.completed_at ? new Date(b.completed_at).getTime() : new Date(b.updated_at).getTime()
+        return bTime - aTime
+      })
+    
+    // Enrich with feature names
+    return completed.map(todo => ({
+      ...todo,
+      featureName: todo.feature_id ? features.find(f => f.id === todo.feature_id)?.name : undefined
+    }))
+  }, [allTodos, features])
+
+  // Get all completed features (status: merged, tested, done) for Completed Items section
+  const completedFeatures = useMemo(() => {
+    return features
+      .filter(f => f.status === 'merged' || f.status === 'tested' || f.status === 'done')
+      .sort((a, b) => {
+        // Sort by updated_at (most recent first)
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      })
+  }, [features])
 
   // Get last worked feature (has in_progress or done todos, or was recently updated)
   const lastWorkedFeature = useMemo(() => {
@@ -568,6 +597,135 @@ export function ProjectDetail() {
           </div>
         </div>
       </div>
+
+      {/* Completed Items Section - Collapsible */}
+      {(completedFeatures.length > 0 || completedTodos.length > 0) && (
+        <div className="mt-8">
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="completed-items">
+              <AccordionTrigger className="text-xl sm:text-2xl font-bold">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className={iconSize('md')} />
+                  <span>Completed Items</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {completedFeatures.length + completedTodos.length} {completedFeatures.length + completedTodos.length === 1 ? 'item' : 'items'}
+                  </Badge>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-6 pt-4">
+                  {/* Completed Features */}
+                  {completedFeatures.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                        <FolderKanban className="h-5 w-5" />
+                        Completed Features ({completedFeatures.length})
+                      </h3>
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {completedFeatures.map((feature) => (
+                          <Link key={feature.id} to={`/projects/${id}/features/${feature.id}`}>
+                            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                              <CardHeader>
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <CardTitle className="mb-1 line-clamp-2">{feature.name}</CardTitle>
+                                    <CardDescription className="line-clamp-2">
+                                      {feature.description || 'No description'}
+                                    </CardDescription>
+                                  </div>
+                                  <Badge 
+                                    variant={
+                                      feature.status === 'merged' ? 'default' :
+                                      feature.status === 'tested' ? 'secondary' :
+                                      'outline'
+                                    }
+                                    className="ml-2 flex-shrink-0"
+                                  >
+                                    {feature.status}
+                                  </Badge>
+                                </div>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">
+                                    {format(new Date(feature.updated_at), 'MMM d, yyyy')}
+                                  </span>
+                                  {feature.progress_percentage !== undefined && (
+                                    <span className="text-muted-foreground">
+                                      {feature.progress_percentage}% complete
+                                    </span>
+                                  )}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Completed Todos */}
+                  {completedTodos.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                        <CheckSquare className="h-5 w-5" />
+                        Completed Todos ({completedTodos.length})
+                      </h3>
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {completedTodos.map((todo) => (
+                          <Card key={todo.id} className="hover:shadow-lg transition-shadow">
+                            <CardHeader>
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <CardTitle className="mb-1 line-clamp-2">{todo.title}</CardTitle>
+                                  {todo.description && (
+                                    <CardDescription className="line-clamp-2">
+                                      {todo.description}
+                                    </CardDescription>
+                                  )}
+                                </div>
+                                <Badge variant="outline" className="ml-2 flex-shrink-0">
+                                  done
+                                </Badge>
+                              </div>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-2">
+                                {todo.featureName && (
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <FolderKanban className="h-4 w-4 text-muted-foreground" />
+                                    <Link 
+                                      to={`/projects/${id}/features/${todo.feature_id}`}
+                                      className="text-primary hover:underline"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {todo.featureName}
+                                    </Link>
+                                  </div>
+                                )}
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">
+                                    {format(new Date(todo.completed_at || todo.updated_at), 'MMM d, yyyy')}
+                                  </span>
+                                  {todo.priority && (
+                                    <Badge variant="outline" className="text-xs capitalize">
+                                      {todo.priority}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </div>
+      )}
 
       {/* Feature Editor Dialog */}
       {id && (
