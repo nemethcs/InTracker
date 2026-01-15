@@ -1,7 +1,8 @@
 """FastAPI application entry point."""
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi import HTTPException
 from src.config import settings
 from contextlib import asynccontextmanager
 import os
@@ -218,9 +219,30 @@ async def api_info():
     }
 
 
+# Import error handlers
+from src.api.middleware.error_handler import (
+    handle_http_exception,
+    handle_validation_error,
+    handle_generic_exception,
+)
+from fastapi.exceptions import RequestValidationError
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTPException with standardized error format."""
+    return handle_http_exception(request, exc)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle Pydantic validation errors with standardized format."""
+    return handle_validation_error(request, exc)
+
+
 @app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    """Global exception handler. Skips HTTPException as FastAPI handles those.
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler for all unhandled exceptions.
     
     NOTE: For ASGI apps (like MCP transport) that handle their own responses,
     we need to be careful not to send duplicate responses.
@@ -228,7 +250,7 @@ async def global_exception_handler(request, exc):
     from fastapi import HTTPException
     import logging
     
-    # Don't handle HTTPException - FastAPI already handles those
+    # Don't handle HTTPException - already handled by http_exception_handler
     if isinstance(exc, HTTPException):
         raise exc
     
@@ -240,17 +262,8 @@ async def global_exception_handler(request, exc):
         # Return None to indicate we handled it (but didn't send a response)
         return None
     
-    # Handle all other exceptions
-    # Always log the error for debugging
-    logging.error(f"Unhandled exception: {exc}", exc_info=True)
-    
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "Internal server error",
-            "message": str(exc) if settings.NODE_ENV == "development" else "An error occurred",
-        },
-    )
+    # Handle all other exceptions with standardized format
+    return handle_generic_exception(request, exc)
 
 
 if __name__ == "__main__":
