@@ -1,11 +1,14 @@
 """MCP Server HTTP/SSE transport controller for FastAPI."""
 from typing import Optional
+import logging
 from fastapi import APIRouter, Request, HTTPException, Header
 from fastapi.responses import JSONResponse
 from starlette.types import Receive, Send, Scope
 from mcp.server.sse import SseServerTransport
 from src.config import settings
 from src.mcp.server import server as mcp_server
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/mcp", tags=["mcp"])
 
@@ -67,9 +70,6 @@ class MCPSSEASGIApp:
             return
         
         # Verify API key and get user_id
-        import logging
-        logger = logging.getLogger(__name__)
-        
         api_key = None
         headers = scope.get("headers", [])
         for key, value in headers:
@@ -206,13 +206,13 @@ async def mcp_sse_endpoint(request: Request) -> None:
     NOTE: This endpoint uses a custom ASGI app that handles its own responses.
     We don't return anything to avoid FastAPI trying to send a response.
     """
+    logger.info("MCP SSE endpoint called: GET /mcp/sse")
     app = MCPSSEASGIApp()
     try:
         await app(request.scope, request.receive, request._send)
     except Exception as e:
         # Log but don't raise - ASGI app may have already sent response
-        import logging
-        logging.error(f"MCP SSE endpoint error: {e}", exc_info=True)
+        logger.error(f"MCP SSE endpoint error: {e}", exc_info=True)
     # Don't return anything - ASGI app already handled the response
 
 
