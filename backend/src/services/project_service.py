@@ -3,7 +3,7 @@ from typing import Optional, List
 from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from src.database.models import Project, User, TeamMember
+from src.database.models import Project, User, TeamMember, ProjectElement
 from src.database.base import set_current_user_id, reset_current_user_id
 
 
@@ -43,6 +43,19 @@ class ProjectService:
                 github_repo_id=github_repo_id,
             )
             db.add(project)
+            db.flush()  # Flush to get project.id
+            
+            # Automatically create a "default" element for the project
+            # This element will be used by todos when no specific element is provided
+            default_element = ProjectElement(
+                project_id=project.id,
+                type="module",
+                title="Default",
+                description="Default element for todos without specific element assignment",
+                status="done",  # Default element is always "done" (not tracked)
+                parent_id=None,
+            )
+            db.add(default_element)
             db.commit()
             db.refresh(project)
             return project
@@ -204,6 +217,54 @@ class ProjectService:
                 return required_role == "viewer"
         
         return True
+
+    @staticmethod
+    def get_or_create_default_element(
+        db: Session,
+        project_id: UUID,
+        current_user_id: Optional[UUID] = None,
+    ) -> ProjectElement:
+        """Get or create the default element for a project.
+        
+        The default element is used by todos when no specific element is provided.
+        This ensures that todos always have an element, simplifying the workflow.
+        """
+        # Try to find existing default element
+        default_element = (
+            db.query(ProjectElement)
+            .filter(
+                ProjectElement.project_id == project_id,
+                ProjectElement.type == "module",
+                ProjectElement.title == "Default",
+            )
+            .first()
+        )
+        
+        if default_element:
+            return default_element
+        
+        # Create default element if it doesn't exist
+        # Set current user ID for audit trail
+        token = None
+        if current_user_id:
+            token = set_current_user_id(current_user_id)
+        
+        try:
+            default_element = ProjectElement(
+                project_id=project_id,
+                type="module",
+                title="Default",
+                description="Default element for todos without specific element assignment",
+                status="done",  # Default element is always "done" (not tracked)
+                parent_id=None,
+            )
+            db.add(default_element)
+            db.commit()
+            db.refresh(default_element)
+            return default_element
+        finally:
+            if token:
+                reset_current_user_id(token)
 
 
 # Global instance

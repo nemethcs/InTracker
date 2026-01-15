@@ -18,7 +18,8 @@ class TodoBase(BaseModel):
 
 class TodoCreate(TodoBase):
     """Schema for creating a todo."""
-    element_id: UUID
+    element_id: Optional[UUID] = None
+    project_id: Optional[UUID] = None  # Required if element_id is not provided
     feature_id: Optional[UUID] = None
 
 

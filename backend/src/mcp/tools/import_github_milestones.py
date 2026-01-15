@@ -121,17 +121,19 @@ async def handle_import_github_milestones(
                     )
                     root_elements = root_elements_list[0] if root_elements_list else None
                     
-                    if root_elements:
-                        # Use TodoService to create todo
-                        todo = TodoService.create_todo(
-                            db=db,
-                            element_id=root_elements.id,
-                            feature_id=feature.id,
-                            title=issue.title,
-                            description=issue.body or f"GitHub Issue #{issue.number}",
-                            status="new" if issue.state == "open" else "done",
-                            priority="high" if any(label.name.lower() in ["bug", "critical", "urgent"] for label in issue.labels) else "medium",
-                        )
+                    # Use TodoService to create todo
+                    # If root_elements exists, use it; otherwise use project's default element
+                    element_id = root_elements.id if root_elements else None
+                    todo = TodoService.create_todo(
+                        db=db,
+                        element_id=element_id,
+                        feature_id=feature.id,
+                        title=issue.title,
+                        description=issue.body or f"GitHub Issue #{issue.number}",
+                        status="new" if issue.state == "open" else "done",
+                        priority="high" if any(label.name.lower() in ["bug", "critical", "urgent"] for label in issue.labels) else "medium",
+                        project_id=UUID(project_id) if not element_id else None,
+                    )
                         # Update GitHub fields directly (TodoService doesn't handle these)
                         todo = db.query(Todo).filter(Todo.id == todo.id).first()
                         todo.github_issue_number = issue.number
