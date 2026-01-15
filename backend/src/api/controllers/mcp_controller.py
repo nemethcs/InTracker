@@ -152,6 +152,7 @@ class MCPSSEASGIApp:
 class MCPMessagesASGIApp:
     """ASGI app wrapper for MCP messages endpoint."""
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        logger.info(f"MCPMessagesASGIApp called: {scope['method']} {scope['path']}")
         if scope["type"] != "http" or scope["method"] != "POST":
             from starlette.responses import Response
             response = Response(status_code=405)
