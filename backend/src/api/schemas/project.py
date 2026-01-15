@@ -33,6 +33,7 @@ class ProjectUpdate(BaseModel):
     github_repo_url: Optional[str] = None
     github_repo_id: Optional[str] = None
     team_id: Optional[UUID] = Field(None, description="Team ID that will own this project")
+    resume_context: Optional[Dict[str, Any]] = Field(None, description="Resume context JSON object")
 
 
 class ProjectResponse(ProjectBase):

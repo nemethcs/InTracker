@@ -120,6 +120,7 @@ class ProjectService:
         github_repo_url: Optional[str] = None,
         github_repo_id: Optional[str] = None,
         team_id: Optional[UUID] = None,
+        resume_context: Optional[dict] = None,
         current_user_id: Optional[UUID] = None,
     ) -> Optional[Project]:
         """Update project."""
@@ -151,6 +152,17 @@ class ProjectService:
                 project.github_repo_id = github_repo_id
             if team_id is not None:
                 project.team_id = team_id
+            if resume_context is not None:
+                # Merge with existing resume_context to preserve other fields
+                existing_context = project.resume_context or {}
+                # Deep merge: update nested objects
+                merged_context = {**existing_context}
+                for key, value in resume_context.items():
+                    if isinstance(value, dict) and key in merged_context and isinstance(merged_context[key], dict):
+                        merged_context[key] = {**merged_context[key], **value}
+                    else:
+                        merged_context[key] = value
+                project.resume_context = merged_context
 
             db.commit()
             db.refresh(project)
