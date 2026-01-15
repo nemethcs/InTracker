@@ -185,12 +185,12 @@ class MCPMessagesASGIApp:
         # Use the SSE transport's handle_post_message ASGI app
         # This will send its own response (202 Accepted), so we don't need to handle it
         try:
+            logger.info("Handling MCP POST message...")
             await sse_transport.handle_post_message(scope, receive, send)
         except Exception as e:
             # If handle_post_message fails, don't let global exception handler catch it
             # as it may have already sent a response
-            import logging
-            logging.error(f"MCP handle_post_message error: {e}", exc_info=True)
+            logger.error(f"MCP handle_post_message error: {e}", exc_info=True)
             # Don't re-raise - response may have already been sent
 
 
@@ -222,11 +222,25 @@ async def mcp_messages_endpoint(path: str, request: Request) -> None:
     NOTE: This endpoint uses a custom ASGI app that handles its own responses.
     We don't return anything to avoid FastAPI trying to send a response.
     """
+    logger.info(f"MCP messages endpoint called: POST /mcp/messages/{path}")
     app = MCPMessagesASGIApp()
     try:
         await app(request.scope, request.receive, request._send)
     except Exception as e:
         # Log but don't raise - ASGI app may have already sent response
-        import logging
-        logging.error(f"MCP messages endpoint error: {e}", exc_info=True)
+        logger.error(f"MCP messages endpoint error: {e}", exc_info=True)
     # Don't return anything - ASGI app already handled the response
+
+
+@router.post("/messages")
+async def mcp_messages_endpoint_no_path(request: Request) -> None:
+    """
+    MCP Server messages endpoint for POST requests without path.
+    Some MCP clients may call this instead of /messages/{path}.
+    """
+    logger.info("MCP messages endpoint called: POST /mcp/messages (no path)")
+    app = MCPMessagesASGIApp()
+    try:
+        await app(request.scope, request.receive, request._send)
+    except Exception as e:
+        logger.error(f"MCP messages endpoint error: {e}", exc_info=True)
