@@ -336,7 +336,7 @@ async def get_feature_branches(
 async def github_webhook(
     payload: dict,
     db: Session = Depends(get_db),
-):
+) -> dict[str, str]:
     """Handle GitHub webhook events."""
     # This is a simplified webhook handler
     # In production, you'd want to:
@@ -345,7 +345,9 @@ async def github_webhook(
     # 3. Update database accordingly
 
     event_type = payload.get("action") or payload.get("ref")
-    print(f"📥 GitHub webhook received: {event_type}")
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"GitHub webhook received: {event_type}")
 
     # TODO: Implement webhook handling logic
     # - PR events: Update todo.github_pr_number

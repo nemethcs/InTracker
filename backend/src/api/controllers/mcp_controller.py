@@ -157,7 +157,7 @@ class MCPMessagesASGIApp:
 
 
 @router.get("/sse")
-async def mcp_sse_endpoint(request: Request):
+async def mcp_sse_endpoint(request: Request) -> None:
     """
     MCP Server SSE (Server-Sent Events) endpoint for Cursor integration.
     Supports both local development and Azure deployment.
@@ -176,7 +176,7 @@ async def mcp_sse_endpoint(request: Request):
 
 
 @router.post("/messages/{path:path}")
-async def mcp_messages_endpoint(path: str, request: Request):
+async def mcp_messages_endpoint(path: str, request: Request) -> None:
     """
     MCP Server messages endpoint for POST requests.
     Used by Cursor to send messages to the MCP server.
