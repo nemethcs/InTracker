@@ -43,6 +43,7 @@ async def list_tools() -> list[Tool]:
         # Project tools
         project.get_project_context_tool(),
         project.get_resume_context_tool(),
+        project.get_update_resume_context_tool(),
         project.get_project_structure_tool(),
         project.get_active_todos_tool(),
         project.get_create_project_tool(),

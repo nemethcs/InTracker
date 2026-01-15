@@ -583,3 +583,99 @@ async def handle_get_active_todos(
         return result
     finally:
         db.close()
+
+
+def get_update_resume_context_tool() -> MCPTool:
+    """Get update resume context tool definition."""
+    return MCPTool(
+        name="mcp_update_resume_context",
+        description="Update resume context for a project. Supports partial updates - only provided fields will be updated, existing fields will be preserved. Use this to update immediate_goals, constraints, blockers, or other resume context fields.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "projectId": {
+                    "type": "string",
+                    "description": "Project UUID",
+                },
+                "resumeContext": {
+                    "type": "object",
+                    "description": "Resume context object with fields to update. Supports nested objects (e.g., now.immediate_goals, constraints). Only provided fields will be updated, existing fields will be preserved.",
+                    "properties": {
+                        "last": {
+                            "type": "object",
+                            "description": "Last session information",
+                        },
+                        "now": {
+                            "type": "object",
+                            "description": "Current status information",
+                            "properties": {
+                                "immediate_goals": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "List of immediate goals for the project",
+                                },
+                                "next_todos": {
+                                    "type": "array",
+                                    "description": "List of next todos (usually auto-generated)",
+                                },
+                                "active_elements": {
+                                    "type": "array",
+                                    "description": "List of active elements",
+                                },
+                            },
+                        },
+                        "blockers": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of blockers preventing progress",
+                        },
+                        "constraints": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "List of constraints (rules, architecture decisions, technical limits)",
+                        },
+                        "next": {
+                            "type": "string",
+                            "description": "Next steps description",
+                        },
+                    },
+                },
+            },
+            "required": ["projectId", "resumeContext"],
+        },
+    )
+
+
+async def handle_update_resume_context(project_id: str, resume_context: dict) -> dict:
+    """Handle update resume context tool call."""
+    from src.services.project_service import ProjectService
+    
+    db = SessionLocal()
+    try:
+        # Get project
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
+        if not project:
+            return {"error": "Project not found"}
+        
+        # Update resume context using ProjectService
+        updated_project = ProjectService.update_project(
+            db=db,
+            project_id=UUID(project_id),
+            resume_context=resume_context,
+            current_user_id=None,  # MCP calls don't have user context
+        )
+        
+        if not updated_project:
+            return {"error": "Failed to update resume context"}
+        
+        # Clear cache for resume context
+        cache_service.delete(f"project:{project_id}:resume")
+        cache_service.delete(f"project:{project_id}:resume:user:*")  # Clear all user-specific caches
+        
+        return {
+            "success": True,
+            "project_id": project_id,
+            "resume_context": updated_project.resume_context,
+        }
+    finally:
+        db.close()
