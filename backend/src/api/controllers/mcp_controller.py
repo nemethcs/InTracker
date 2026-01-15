@@ -23,9 +23,9 @@ router = APIRouter(prefix="/mcp", tags=["mcp"])
 # Create SSE transport
 sse_transport = SseServerTransport("/mcp/messages/")
 
-# Global lock for connection initialization (to prevent race conditions)
+# No global lock needed - removed to prevent deadlocks
+# MCP SDK and Redis session handling are already thread-safe
 import asyncio
-_mcp_init_lock = asyncio.Lock()
 
 
 def verify_api_key(api_key: Optional[str]) -> Optional[str]:
@@ -80,6 +80,9 @@ class MCPSSEASGIApp:
     Both methods return the same SSE stream.
     """
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        method = scope.get("method", "UNKNOWN")
+        logger.info(f"DEBUG: MCPSSEASGIApp called with method: {method}")
+        
         # Accept both GET (SSE) and POST (Streamable HTTP) methods
         if scope["type"] != "http" or scope["method"] not in ["GET", "POST"]:
             from starlette.responses import Response
@@ -91,14 +94,17 @@ class MCPSSEASGIApp:
         # The MCP SDK sends initialization data in POST body, but we don't need it
         # as we handle initialization through SSE events
         if scope["method"] == "POST":
+            logger.info(f"DEBUG: Reading POST body...")
             # Read the request body to avoid connection issues
             while True:
                 message = await receive()
                 if message["type"] == "http.request":
                     # Body received, continue processing
                     if not message.get("more_body", False):
+                        logger.info(f"DEBUG: POST body fully read")
                         break
                 elif message["type"] == "http.disconnect":
+                    logger.info(f"DEBUG: Client disconnected during POST body read")
                     # Client disconnected
                     return
         
@@ -158,24 +164,27 @@ class MCPSSEASGIApp:
             }
             mcp_session_service.create_session(connection_id, metadata)
         
-        # Use lock to serialize connection initialization (prevent race conditions)
-        global _mcp_init_lock
+        # No global lock needed - MCP SDK and Redis are already thread-safe
+        # Global lock was causing deadlocks with multiple concurrent connections
         
-        async with _mcp_init_lock:
-            try:
-                cm = sse_transport.connect_sse(scope, receive, send)
-                async with cm as streams:
-                    read_stream, write_stream = streams
-                    
-                    logger.info(f"🚀 MCP server running for connection: {connection_id[:8]}...")
-                    
-                    await mcp_server.run(
-                        read_stream,
-                        write_stream,
-                        mcp_server.create_initialization_options(),
-                    )
-                    
-            except BaseException as e:
+        logger.info(f"DEBUG: Calling sse_transport.connect_sse() for connection: {connection_id[:8]}...")
+        try:
+            cm = sse_transport.connect_sse(scope, receive, send)
+            logger.info(f"DEBUG: connect_sse() returned context manager for connection: {connection_id[:8]}...")
+            
+            async with cm as streams:
+                logger.info(f"DEBUG: Context manager entered for connection: {connection_id[:8]}...")
+                read_stream, write_stream = streams
+                
+                logger.info(f"🚀 MCP server running for connection: {connection_id[:8]}...")
+                
+                await mcp_server.run(
+                    read_stream,
+                    write_stream,
+                    mcp_server.create_initialization_options(),
+                )
+                
+        except BaseException as e:
                 # Catch all exceptions including ExceptionGroup
                 error_msg = str(e)
                 
@@ -207,16 +216,38 @@ class MCPMessagesASGIApp:
             await response(scope, receive, send)
             return
         
-        # Extract connection ID from path or query params
+        # Extract connection ID from query params
+        # Cursor sends session_id, we need to extract connection_id from it or use it directly
         connection_id = None
+        session_id = None
         path = scope.get("path", "")
         query_string = scope.get("query_string", b"").decode()
         
-        if "connection_id=" in query_string:
+        # Try to extract session_id first (sent by Cursor/MCP SDK)
+        if "session_id=" in query_string:
+            for param in query_string.split("&"):
+                if param.startswith("session_id="):
+                    session_id = param.split("=", 1)[1]
+                    # Extract connection_id from session_id (first 8 chars)
+                    connection_id = session_id[:8] if session_id else None
+                    break
+        
+        # If no session_id, try connection_id directly
+        if not connection_id and "connection_id=" in query_string:
             for param in query_string.split("&"):
                 if param.startswith("connection_id="):
                     connection_id = param.split("=", 1)[1]
                     break
+        
+        # IMPORTANT: Add connection_id to query string if not present
+        # The SSE transport needs connection_id in the query string
+        if connection_id and "connection_id=" not in query_string:
+            if query_string:
+                query_string = f"{query_string}&connection_id={connection_id}"
+            else:
+                query_string = f"connection_id={connection_id}"
+            # Update scope with modified query string
+            scope["query_string"] = query_string.encode()
         
         # Verify API key and get user_id
         api_key = None
@@ -268,9 +299,14 @@ async def mcp_sse_endpoint(request: Request):
     NOTE: This endpoint uses a custom ASGI app that handles its own responses.
     We don't return anything to avoid FastAPI trying to send a response.
     """
+    logger.info(f"🔥 DEBUG: mcp_sse_endpoint called! Method: {request.method}, URL: {request.url}")
+    logger.info(f"🔥 DEBUG: Headers: {dict(request.headers)}")
+    
     app = MCPSSEASGIApp()
     try:
+        logger.info(f"🔥 DEBUG: About to call MCPSSEASGIApp...")
         await app(request.scope, request.receive, request._send)
+        logger.info(f"🔥 DEBUG: MCPSSEASGIApp returned")
     except (ConnectionError, BrokenPipeError, OSError) as e:
         # Connection closed gracefully - don't log as error
         import logging

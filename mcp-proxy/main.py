@@ -95,6 +95,19 @@ class BackendConnectionManager:
                         # Stream data from backend
                         async for chunk in response.aiter_bytes():
                             if chunk:
+                                # IMPORTANT: Rewrite endpoint event to point to proxy, not backend
+                                # The MCP SDK sends an "endpoint" event with the messages URL
+                                # We need to rewrite it so Cursor sends messages to the proxy
+                                try:
+                                    chunk_str = chunk.decode('utf-8')
+                                    if 'event: endpoint' in chunk_str or '"endpoint"' in chunk_str:
+                                        # Replace backend URL with proxy URL in endpoint events
+                                        chunk_str = chunk_str.replace('/mcp/messages/', f'http://localhost:{PROXY_PORT}/mcp/messages/')
+                                        chunk_str = chunk_str.replace('http://intracker-backend:3000/mcp/messages/', f'http://localhost:{PROXY_PORT}/mcp/messages/')
+                                        chunk = chunk_str.encode('utf-8')
+                                except:
+                                    pass  # If decode fails, just pass through original chunk
+                                
                                 yield chunk
                         
                         # Stream ended normally
@@ -318,8 +331,11 @@ async def mcp_messages_proxy(
     if not x_api_key:
         raise HTTPException(status_code=401, detail="Missing API key")
     
-    # Forward to backend
+    # Forward to backend - IMPORTANT: Include query string!
     backend_url = f"{BACKEND_MESSAGES_ENDPOINT}/{path}"
+    if request.url.query:
+        backend_url = f"{backend_url}?{request.url.query}"
+    
     backend_headers = {
         "X-API-Key": x_api_key,
         "Content-Type": request.headers.get("Content-Type", "application/json"),
@@ -336,8 +352,17 @@ async def mcp_messages_proxy(
                 timeout=30.0
             )
             
+            # Handle empty response body (e.g., 202 Accepted with no content)
+            response_content = {}
+            if response.text:
+                try:
+                    response_content = response.json()
+                except Exception:
+                    # If JSON parsing fails, return empty dict (valid for 202 Accepted)
+                    pass
+            
             return JSONResponse(
-                content=response.json() if response.text else {},
+                content=response_content,
                 status_code=response.status_code
             )
             
