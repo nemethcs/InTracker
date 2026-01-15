@@ -11,6 +11,9 @@ import json
 import redis
 from typing import Optional, Any
 from src.config import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Redis client (singleton)
 _redis_client: Optional[redis.Redis] = None
@@ -63,7 +66,7 @@ def get_redis_client() -> redis.Redis:
             # Test connection
             _redis_client.ping()
         except Exception as e:
-            print(f"⚠️  Redis connection failed: {e}")
+            logger.warning(f"Redis connection failed: {e}")
             # Return a mock client that does nothing (graceful degradation)
             _redis_client = None
 
@@ -91,7 +94,7 @@ class CacheService:
                 return json.loads(value)
             return None
         except Exception as e:
-            print(f"⚠️  Cache get error: {e}")
+            logger.warning(f"Cache get error: {e}")
             return None
 
     @staticmethod
@@ -117,7 +120,7 @@ class CacheService:
             client.setex(key, ttl, serialized)
             return True
         except Exception as e:
-            print(f"⚠️  Cache set error: {e}")
+            logger.warning(f"Cache set error: {e}")
             return False
 
     @staticmethod
@@ -136,7 +139,7 @@ class CacheService:
             client.delete(key)
             return True
         except Exception as e:
-            print(f"⚠️  Cache delete error: {e}")
+            logger.warning(f"Cache delete error: {e}")
             return False
 
     @staticmethod
@@ -161,7 +164,7 @@ class CacheService:
                 return client.delete(*keys)
             return 0
         except Exception as e:
-            print(f"⚠️  Cache clear error: {e}")
+            logger.warning(f"Cache clear error: {e}")
             return 0
 
     @staticmethod

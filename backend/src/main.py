@@ -26,8 +26,13 @@ from src.api.controllers import (
     audit_controller,
 )
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
+# Setup logging based on environment
+log_level = logging.DEBUG if settings.NODE_ENV == "development" else logging.INFO
+logging.basicConfig(
+    level=log_level,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 logger = logging.getLogger(__name__)
 
 
@@ -48,7 +53,6 @@ async def lifespan(app: FastAPI):
             
             command.upgrade(alembic_cfg, "head")
             logger.info("Database migrations completed successfully")
-            print("✅ Database migrations completed successfully", flush=True)  # Also print for visibility
         else:
             logger.warning("DATABASE_URL not set, skipping migrations")
     except Exception as e:

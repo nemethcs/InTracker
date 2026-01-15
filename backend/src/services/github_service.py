@@ -6,6 +6,9 @@ from github.GithubException import GithubException
 from src.config import settings
 from src.services.github_token_service import github_token_service
 from src.database.base import SessionLocal
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class GitHubService:
@@ -28,12 +31,12 @@ class GitHubService:
                 if token:
                     try:
                         self.client = Github(token)
-                        print(f"✅ GitHub client initialized with user {user_id} OAuth token")
+                        logger.info(f"GitHub client initialized with user {user_id} OAuth token")
                         return
                     except Exception as e:
-                        print(f"⚠️  GitHub client initialization with user token failed: {e}")
+                        logger.warning(f"GitHub client initialization with user token failed: {e}")
                 else:
-                    print(f"⚠️  No GitHub OAuth token found for user {user_id}")
+                    logger.warning(f"No GitHub OAuth token found for user {user_id}")
             finally:
                 db.close()
         
@@ -41,29 +44,29 @@ class GitHubService:
         if settings.GITHUB_TOKEN:
             try:
                 self.client = Github(settings.GITHUB_TOKEN)
-                print(f"ℹ️  GitHub client initialized with global GITHUB_TOKEN")
+                logger.info("GitHub client initialized with global GITHUB_TOKEN")
             except Exception as e:
-                print(f"⚠️  GitHub client initialization failed: {e}")
+                logger.warning(f"GitHub client initialization failed: {e}")
         else:
-            print(f"⚠️  No GitHub token available (neither user OAuth nor global GITHUB_TOKEN)")
+            logger.warning("No GitHub token available (neither user OAuth nor global GITHUB_TOKEN)")
 
     def validate_repo_access(self, owner: str, repo: str) -> bool:
         """Validate access to a GitHub repository."""
         if not self.client:
-            print(f"⚠️  GitHub client not initialized for repo access validation: {owner}/{repo}")
+            logger.warning(f"GitHub client not initialized for repo access validation: {owner}/{repo}")
             return False
 
         try:
             repository = self.client.get_repo(f"{owner}/{repo}")
             # Try to access repo info
             _ = repository.name
-            print(f"✅ GitHub repo access validated: {owner}/{repo}")
+            logger.info(f"GitHub repo access validated: {owner}/{repo}")
             return True
         except GithubException as e:
-            print(f"⚠️  GitHub API error validating access to {owner}/{repo}: {e.status} - {e.data}")
+            logger.warning(f"GitHub API error validating access to {owner}/{repo}: {e.status} - {e.data}")
             return False
         except Exception as e:
-            print(f"⚠️  Error validating access to {owner}/{repo}: {e}")
+            logger.warning(f"Error validating access to {owner}/{repo}: {e}")
             return False
 
     def get_repo_info(self, owner: str, repo: str) -> Optional[Dict[str, Any]]:
@@ -83,10 +86,10 @@ class GitHubService:
                 "url": repository.html_url,
             }
         except GithubException as e:
-            print(f"⚠️  GitHub API error: {e}")
+            logger.warning(f"GitHub API error: {e}")
             return None
         except Exception as e:
-            print(f"⚠️  GitHub error: {e}")
+            logger.warning(f"GitHub error: {e}")
             return None
 
     def list_branches(self, owner: str, repo: str) -> List[Dict[str, Any]]:
@@ -136,10 +139,10 @@ class GitHubService:
                 "ref": ref.ref,
             }
         except GithubException as e:
-            print(f"⚠️  GitHub API error: {e}")
+            logger.warning(f"GitHub API error: {e}")
             return None
         except Exception as e:
-            print(f"⚠️  GitHub error: {e}")
+            logger.warning(f"GitHub error: {e}")
             return None
 
     def get_branch(self, owner: str, repo: str, branch_name: str) -> Optional[Dict[str, Any]]:
@@ -161,10 +164,10 @@ class GitHubService:
                 },
             }
         except GithubException as e:
-            print(f"⚠️  GitHub API error: {e}")
+            logger.warning(f"GitHub API error: {e}")
             return None
         except Exception as e:
-            print(f"⚠️  GitHub error: {e}")
+            logger.warning(f"GitHub error: {e}")
             return None
 
     def create_issue(
@@ -193,10 +196,10 @@ class GitHubService:
                 "state": issue.state,
             }
         except GithubException as e:
-            print(f"⚠️  GitHub API error: {e}")
+            logger.warning(f"GitHub API error: {e}")
             return None
         except Exception as e:
-            print(f"⚠️  GitHub error: {e}")
+            logger.warning(f"GitHub error: {e}")
             return None
 
     def create_pull_request(
@@ -227,10 +230,10 @@ class GitHubService:
                 "state": pr.state,
             }
         except GithubException as e:
-            print(f"⚠️  GitHub API error: {e}")
+            logger.warning(f"GitHub API error: {e}")
             return None
         except Exception as e:
-            print(f"⚠️  GitHub error: {e}")
+            logger.warning(f"GitHub error: {e}")
             return None
 
     def get_issue(self, owner: str, repo: str, issue_number: int) -> Optional[Dict[str, Any]]:
@@ -253,10 +256,10 @@ class GitHubService:
                 "updated_at": issue.updated_at.isoformat() if issue.updated_at else None,
             }
         except GithubException as e:
-            print(f"⚠️  GitHub API error: {e}")
+            logger.warning(f"GitHub API error: {e}")
             return None
         except Exception as e:
-            print(f"⚠️  GitHub error: {e}")
+            logger.warning(f"GitHub error: {e}")
             return None
 
     def get_pull_request(self, owner: str, repo: str, pr_number: int) -> Optional[Dict[str, Any]]:
@@ -288,10 +291,10 @@ class GitHubService:
                 "updated_at": pr.updated_at.isoformat() if pr.updated_at else None,
             }
         except GithubException as e:
-            print(f"⚠️  GitHub API error: {e}")
+            logger.warning(f"GitHub API error: {e}")
             return None
         except Exception as e:
-            print(f"⚠️  GitHub error: {e}")
+            logger.warning(f"GitHub error: {e}")
             return None
 
 
