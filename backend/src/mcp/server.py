@@ -43,7 +43,7 @@ async def list_tools() -> list[Tool]:
         # Project tools
         project.get_project_context_tool(),
         project.get_resume_context_tool(),
-        project.get_project_structure_tool(),
+        # project.get_project_structure_tool(),  # REMOVED: Redundant - already in get_project_context
         project.get_active_todos_tool(),
         project.get_create_project_tool(),
         project.get_list_projects_tool(),
@@ -56,8 +56,8 @@ async def list_tools() -> list[Tool]:
         feature.get_get_feature_tool(),
         feature.get_list_features_tool(),
         feature.get_update_feature_status_tool(),
-        feature.get_get_feature_todos_tool(),
-        feature.get_get_feature_elements_tool(),
+        # feature.get_get_feature_todos_tool(),  # REMOVED: Redundant - already in get_feature
+        # feature.get_get_feature_elements_tool(),  # REMOVED: Redundant - already in get_feature
         feature.get_link_element_to_feature_tool(),
         feature.get_delete_feature_tool(),
         # Todo tools
