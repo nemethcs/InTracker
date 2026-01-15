@@ -59,6 +59,7 @@ async def list_tools() -> list[Tool]:
         feature.get_get_feature_todos_tool(),
         feature.get_get_feature_elements_tool(),
         feature.get_link_element_to_feature_tool(),
+        feature.get_delete_feature_tool(),
         # Todo tools
         todo.get_create_todo_tool(),
         todo.get_update_todo_status_tool(),

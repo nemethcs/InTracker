@@ -15,7 +15,7 @@ import { TodoEditor } from '@/components/todos/TodoEditor'
 import { FeatureEditor } from '@/components/features/FeatureEditor'
 import { DocumentEditor } from '@/components/documents/DocumentEditor'
 import { documentService, type Document } from '@/services/documentService'
-import { ArrowLeft, Plus, CheckCircle2, Circle, AlertCircle, Clock, User, Edit, FileText } from 'lucide-react'
+import { ArrowLeft, Plus, CheckCircle2, Circle, AlertCircle, Clock, User, Edit, FileText, CheckSquare } from 'lucide-react'
 import { iconSize } from '@/components/ui/Icon'
 import { format } from 'date-fns'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -245,18 +245,18 @@ export function FeatureDetail() {
             <div>
               <div className="flex items-center justify-between text-xs mb-1.5">
                 <span className="text-muted-foreground">Overall Progress</span>
-                <span className="font-semibold text-base">{feature.progress_percentage}%</span>
+                <span className="font-semibold text-base">{feature.progress_percentage ?? 0}%</span>
               </div>
               <div className="w-full bg-secondary rounded-full h-2">
                 <div
                   className="bg-primary h-2 rounded-full transition-all"
-                  style={{ width: `${feature.progress_percentage}%` }}
+                  style={{ width: `${feature.progress_percentage ?? 0}%` }}
                 />
               </div>
             </div>
             <div className="grid grid-cols-5 gap-2">
               <div className="text-center">
-                <div className="text-lg font-bold">{feature.total_todos}</div>
+                <div className="text-lg font-bold">{feature.total_todos ?? 0}</div>
                 <div className="text-xs text-muted-foreground">Total</div>
               </div>
               <div className="text-center">
@@ -272,7 +272,7 @@ export function FeatureDetail() {
                 <div className="text-xs text-muted-foreground">Done</div>
               </div>
               <div className="text-center">
-                <div className="text-lg font-bold text-success">{feature.completed_todos}</div>
+                <div className="text-lg font-bold text-success">{feature.completed_todos ?? 0}</div>
                 <div className="text-xs text-muted-foreground">Completed</div>
               </div>
             </div>
