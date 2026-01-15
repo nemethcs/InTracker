@@ -118,8 +118,11 @@ class MCPSSEASGIApp:
                 # If we get here, connection completed successfully
                 break
                 
-            except RuntimeError as e:
+            except BaseException as e:
+                # Catch all exceptions including ExceptionGroup
                 error_msg = str(e)
+                
+                # Check for initialization race condition
                 if "Received request before initialization was complete" in error_msg:
                     # Initialization race condition - retry
                     if attempt < max_retries - 1:
@@ -129,24 +132,24 @@ class MCPSSEASGIApp:
                     else:
                         logging.error(f"MCP initialization failed after {max_retries} attempts")
                         # Don't re-raise - client will retry connection
+                        break
+                
+                # Check for response already sent errors (ignore)
                 elif "Response already sent" in error_msg or "already completed" in error_msg:
                     # Response already sent - ignore
                     break
-                else:
-                    # Other RuntimeError - log and break
-                    logging.error(f"MCP SSE RuntimeError: {e}", exc_info=True)
-                    break
-                    
-            except (ConnectionError, BrokenPipeError, OSError) as e:
-                # Connection closed gracefully (client disconnected or server restart)
-                # This is normal - Cursor will automatically reconnect
-                logging.info(f"MCP SSE connection closed: {e}")
-                break
                 
-            except Exception as e:
-                # If MCP server fails with unexpected error, log it
-                logging.error(f"MCP SSE connection error: {e}", exc_info=True)
-                break
+                # Check for graceful connection close
+                elif isinstance(e, (ConnectionError, BrokenPipeError, OSError)):
+                    # Connection closed gracefully (client disconnected or server restart)
+                    # This is normal - Cursor will automatically reconnect
+                    logging.info(f"MCP SSE connection closed: {e}")
+                    break
+                
+                # All other errors - log and break
+                else:
+                    logging.error(f"MCP SSE connection error: {e}", exc_info=True)
+                    break
 
 
 class MCPMessagesASGIApp:
