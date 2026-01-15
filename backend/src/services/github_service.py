@@ -317,11 +317,24 @@ class GitHubService:
             return []
 
         try:
+            print(f"🔍 Getting user object for list_user_repositories")
             user = self.client.get_user()
+            print(f"✅ Got user: {user.login}")
+            
             # Get all repositories: own, collaborator, and organization member
             # affiliation parameter: 'owner', 'collaborator', 'organization_member'
+            print(f"🔍 Fetching repositories with affiliation='all'")
             repos = user.get_repos(affiliation="all")
-            return [
+            print(f"✅ Got repos object: {type(repos)}")
+            
+            # Convert to list to see how many we have
+            repos_list = list(repos)
+            print(f"✅ Found {len(repos_list)} repositories")
+            
+            if len(repos_list) > 0:
+                print(f"   First repo: {repos_list[0].full_name}")
+            
+            result = [
                 {
                     "id": repo.id,
                     "name": repo.name,
@@ -332,13 +345,19 @@ class GitHubService:
                     "description": repo.description or "",
                     "default_branch": repo.default_branch,
                 }
-                for repo in repos
+                for repo in repos_list
             ]
+            print(f"✅ Returning {len(result)} repositories")
+            return result
         except GithubException as e:
-            print(f"⚠️  GitHub API error listing repositories: {e}")
+            print(f"⚠️  GitHub API error listing repositories: {e.status} - {e.data}")
+            import traceback
+            traceback.print_exc()
             return []
         except Exception as e:
             print(f"⚠️  GitHub error listing repositories: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
 
