@@ -28,9 +28,37 @@ class MCPSessionService:
     """Service for managing MCP sessions in Redis."""
     
     @staticmethod
+    def _normalize_uuid(uuid_str: str) -> str:
+        """Normalize UUID string (add dashes if missing).
+        
+        MCP SDK may send UUIDs without dashes, but we store them with dashes.
+        This ensures we can find sessions regardless of format.
+        
+        Examples:
+            "8ada66e38d364b2fa5235698f01bb1de" -> "8ada66e3-8d36-4b2f-a523-5698f01bb1de"
+            "8ada66e3-8d36-4b2f-a523-5698f01bb1de" -> "8ada66e3-8d36-4b2f-a523-5698f01bb1de"
+        """
+        # Remove all dashes first
+        clean = uuid_str.replace("-", "")
+        
+        # If it's 32 hex characters, format as UUID
+        if len(clean) == 32 and all(c in '0123456789abcdefABCDEF' for c in clean):
+            return f"{clean[:8]}-{clean[8:12]}-{clean[12:16]}-{clean[16:20]}-{clean[20:]}"
+        
+        # Return as-is if not a valid UUID format
+        return uuid_str
+    
+    @staticmethod
     def _get_session_key(connection_id: str) -> str:
         """Get Redis key for session."""
-        return f"mcp:session:{connection_id}"
+        # Normalize UUID before creating key
+        normalized_id = MCPSessionService._normalize_uuid(connection_id)
+        return f"mcp:session:{normalized_id}"
+    
+    @staticmethod
+    def _get_session_id_mapping_key(session_id: str) -> str:
+        """Get Redis key for session_id -> connection_id mapping."""
+        return f"mcp:session_id_map:{session_id}"
     
     @staticmethod
     def create_session(connection_id: str, metadata: Optional[Dict[str, Any]] = None) -> bool:
@@ -171,6 +199,71 @@ class MCPSessionService:
         """
         session = MCPSessionService.get_session(connection_id)
         return session is not None
+    
+    @staticmethod
+    def save_session_id_mapping(session_id: str, connection_id: str) -> bool:
+        """Save session_id -> connection_id mapping for reconnection.
+        
+        This enables the backend to find the original connection_id when
+        the proxy reconnects with a session_id after backend restart.
+        
+        Args:
+            session_id: MCP SDK generated session ID (from SSE endpoint event)
+            connection_id: Our internal connection identifier
+            
+        Returns:
+            True if mapping was saved successfully
+        """
+        client = get_redis_client()
+        if not client:
+            logger.warning("Redis client not available, session_id mapping will not persist")
+            return False
+        
+        try:
+            key = MCPSessionService._get_session_id_mapping_key(session_id)
+            # Store just the connection_id as value
+            client.setex(key, SESSION_TTL, connection_id)
+            
+            logger.info(f"✅ Session ID mapping saved: {session_id[:8]}... → {connection_id[:8]}...")
+            print(f"✅ DEBUG: Session ID mapping saved: {session_id[:8]}... → {connection_id[:8]}...", flush=True)
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to save session_id mapping: {e}")
+            return False
+    
+    @staticmethod
+    def get_connection_id_by_session_id(session_id: str) -> Optional[str]:
+        """Get connection_id for a given session_id.
+        
+        This is used during reconnection to find the original connection_id
+        so we can rehydrate the session instead of creating a new one.
+        
+        Args:
+            session_id: MCP SDK generated session ID
+            
+        Returns:
+            Connection ID if mapping exists, None otherwise
+        """
+        client = get_redis_client()
+        if not client:
+            return None
+        
+        try:
+            key = MCPSessionService._get_session_id_mapping_key(session_id)
+            connection_id = client.get(key)
+            
+            if connection_id:
+                connection_id = connection_id.decode() if isinstance(connection_id, bytes) else connection_id
+                logger.info(f"📋 Found connection_id for session_id: {session_id[:8]}... → {connection_id[:8]}...")
+                print(f"📋 DEBUG: Found connection_id for session_id: {session_id[:8]}... → {connection_id[:8]}...", flush=True)
+                return connection_id
+            
+            logger.debug(f"🔍 No connection_id found for session_id: {session_id[:8]}...")
+            print(f"🔍 DEBUG: No connection_id found for session_id: {session_id[:8]}...", flush=True)
+            return None
+        except Exception as e:
+            logger.error(f"❌ Failed to get connection_id by session_id: {e}")
+            return None
     
     @staticmethod
     def get_all_sessions() -> list[Dict[str, Any]]:

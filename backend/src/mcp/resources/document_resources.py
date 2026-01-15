@@ -8,35 +8,15 @@ from src.services.document_service import DocumentService
 
 
 def get_document_resources(project_id: Optional[str] = None) -> list[Resource]:
-    """Get document resources."""
-    db = SessionLocal()
-    try:
-        if project_id:
-            # Use DocumentService to get documents by project
-            documents, _ = DocumentService.get_documents_by_project(
-                db=db,
-                project_id=UUID(project_id),
-                type=None,
-                skip=0,
-                limit=1000,  # Large limit for resources
-            )
-        else:
-            # List all documents - need to query directly as DocumentService doesn't have list_all method
-            # This is acceptable for resources as it's a simple read operation
-            from src.database.models import Document
-            documents = db.query(Document).all()
-        
-        return [
-            Resource(
-                uri=f"intracker://document/{d.id}",
-                name=f"Document: {d.title}",
-                description=f"{d.type} (v{d.version})",
-                mimeType="text/markdown" if d.type in ["architecture", "adr", "runbook"] else "application/json",
-            )
-            for d in documents
-        ]
-    finally:
-        db.close()
+    """Get document resources.
+    
+    PERFORMANCE OPTIMIZATION: Returns empty list to speed up MCP initialization.
+    Resources are accessed dynamically via read_resource() when needed.
+    This prevents slow database queries during initial connection.
+    """
+    # Return empty list for fast initialization
+    # Resources will be loaded dynamically when accessed via read_resource()
+    return []
 
 
 async def read_document_resource(uri: str) -> str:

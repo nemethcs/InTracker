@@ -147,12 +147,34 @@ class BackendConnectionManager:
             bytes: SSE event data from backend
         """
         reconnect_count = 0
+        session_id = None  # Extract from first connection for reconnects
         
         while True:
             try:
+                # Add session_id to endpoint for reconnects (preserves MCP state)
+                reconnect_endpoint = endpoint
+                if session_id:
+                    separator = "&" if "?" in endpoint else "?"
+                    reconnect_endpoint = f"{endpoint}{separator}session_id={session_id}"
+                    logger.info(f"🔄 Reconnecting with session_id: {session_id[:8]}...")
+                
                 # Connect to backend and stream (with automatic retry)
-                async for chunk in self.connect_with_retry_stream(endpoint, headers):
+                async for chunk in self.connect_with_retry_stream(reconnect_endpoint, headers):
                     if chunk:
+                        # Extract session_id from first chunk if not yet extracted
+                        if not session_id:
+                            try:
+                                chunk_str = chunk.decode('utf-8')
+                                # Look for session_id in the endpoint event
+                                if 'session_id=' in chunk_str:
+                                    import re
+                                    match = re.search(r'session_id=([a-f0-9]+)', chunk_str)
+                                    if match:
+                                        session_id = match.group(1)
+                                        logger.info(f"📌 Captured session_id for reconnects: {session_id[:8]}...")
+                            except:
+                                pass  # If extraction fails, continue without session_id
+                        
                         yield chunk
                         # Reset reconnect count on successful data
                         reconnect_count = 0

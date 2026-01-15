@@ -6,7 +6,8 @@ Session Management:
 - Graceful session rehydration for old sessions
 - No manual Cursor toggle required
 """
-from typing import Optional
+from typing import Optional, Dict
+from datetime import datetime
 from fastapi import APIRouter, Request, HTTPException, Header
 from fastapi.responses import JSONResponse
 from starlette.types import Receive, Send, Scope
@@ -15,6 +16,7 @@ from src.config import settings
 from src.mcp.server import server as mcp_server
 from src.services.mcp_session_service import mcp_session_service
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,11 @@ sse_transport = SseServerTransport("/mcp/messages/")
 
 # No global lock needed - removed to prevent deadlocks
 # MCP SDK and Redis session handling are already thread-safe
-import asyncio
+
+# Global MCP server registry for session rehydration
+# Maps connection_id -> {"task": asyncio.Task, "created_at": datetime}
+# This allows reconnections to reuse the same MCP server instance
+_mcp_server_registry: Dict[str, dict] = {}
 
 
 def verify_api_key(api_key: Optional[str]) -> Optional[str]:
@@ -103,22 +109,47 @@ class MCPSSEASGIApp:
                     return
         
         # Extract connection ID from query params or headers (for session rehydration)
+        # Proxy sends session_id on reconnect, we use that to maintain MCP state
         connection_id = None
+        received_session_id = None
         query_string = scope.get("query_string", b"").decode()
-        if "connection_id=" in query_string:
-            # Extract connection_id from query params
+        
+        # Check for session_id first (sent by proxy on reconnect or by MCP SDK)
+        if "session_id=" in query_string:
+            for param in query_string.split("&"):
+                if param.startswith("session_id="):
+                    received_session_id = param.split("=", 1)[1]
+                    print(f"📥 DEBUG: Received session_id: {received_session_id[:8]}...", flush=True)
+                    
+                    # OPTIMIZATION: Try to use session_id directly as connection_id
+                    # (since we now set connection_id as session_id in the scope)
+                    if mcp_session_service.get_session(received_session_id):
+                        connection_id = received_session_id
+                        print(f"♻️  DEBUG: Reusing session_id as connection_id (found in Redis): {connection_id[:8]}...", flush=True)
+                    else:
+                        # Fallback: Try to find connection_id via mapping (for old sessions)
+                        existing_connection_id = mcp_session_service.get_connection_id_by_session_id(received_session_id)
+                        if existing_connection_id:
+                            connection_id = existing_connection_id
+                            print(f"♻️  DEBUG: Reusing connection_id from mapping: {connection_id[:8]}...", flush=True)
+                    break
+        
+        # Fall back to connection_id param
+        if not connection_id and "connection_id=" in query_string:
             for param in query_string.split("&"):
                 if param.startswith("connection_id="):
                     connection_id = param.split("=", 1)[1]
                     break
         
-        # If no connection_id provided, generate one
+        # If no connection_id found, generate one
         if not connection_id:
             import uuid
             connection_id = str(uuid.uuid4())
             logger.info(f"🆕 New MCP connection, generated ID: {connection_id[:8]}...")
+            print(f"🆕 DEBUG: New MCP connection, generated ID: {connection_id[:8]}...", flush=True)
         else:
             logger.info(f"🔄 Reconnecting MCP session: {connection_id[:8]}...")
+            print(f"🔄 DEBUG: Reconnecting MCP session: {connection_id[:8]}...", flush=True)
         
         # Verify API key and get user_id
         api_key = None
@@ -158,24 +189,66 @@ class MCPSSEASGIApp:
             }
             mcp_session_service.create_session(connection_id, metadata)
         
-        # No global lock needed - MCP SDK and Redis are already thread-safe
-        # Global lock was causing deadlocks with multiple concurrent connections
+        # Check global MCP server registry for reconnection
+        # If MCP server already running for this connection_id, reuse it
+        global _mcp_server_registry
         
-        try:
-            cm = sse_transport.connect_sse(scope, receive, send)
+        if connection_id in _mcp_server_registry:
+            registry_entry = _mcp_server_registry[connection_id]
+            mcp_task = registry_entry.get("task")
             
-            async with cm as streams:
-                read_stream, write_stream = streams
+            # Check if task is still running
+            if mcp_task and not mcp_task.done():
+                logger.info(f"♻️  Reusing existing MCP server for connection: {connection_id[:8]}...")
+                # Just wait for the existing task to finish
+                try:
+                    await mcp_task
+                except:
+                    pass  # Task cleanup handled elsewhere
+                return
+            else:
+                # Task finished or doesn't exist, remove from registry
+                logger.info(f"🧹 Cleaning up stale registry entry for: {connection_id[:8]}...")
+                del _mcp_server_registry[connection_id]
+        
+        # No existing MCP server, start a new one
+        async def run_mcp_server():
+            """Run MCP server and handle cleanup."""
+            try:
+                # CRITICAL: Set session_id in scope to connection_id
+                # This ensures the MCP SDK uses our connection_id as the session_id
+                # enabling session persistence across backend restarts
+                modified_scope = scope.copy()
+                query_string = modified_scope.get("query_string", b"").decode()
                 
-                logger.info(f"🚀 MCP server running for connection: {connection_id[:8]}...")
+                # Add or replace session_id with connection_id
+                if "session_id=" in query_string:
+                    # Replace existing session_id
+                    import re
+                    query_string = re.sub(r'session_id=[^&]*', f'session_id={connection_id}', query_string)
+                else:
+                    # Add session_id
+                    separator = "&" if query_string else ""
+                    query_string = f"{query_string}{separator}session_id={connection_id}"
                 
-                await mcp_server.run(
-                    read_stream,
-                    write_stream,
-                    mcp_server.create_initialization_options(),
-                )
+                modified_scope["query_string"] = query_string.encode()
+                print(f"🔧 DEBUG: Modified scope query_string for MCP SDK: {query_string}", flush=True)
                 
-        except BaseException as e:
+                cm = sse_transport.connect_sse(modified_scope, receive, send)
+                
+                async with cm as streams:
+                    read_stream, write_stream = streams
+                    
+                    logger.info(f"🚀 MCP server running for connection: {connection_id[:8]}...")
+                    print(f"🚀 DEBUG: MCP server running for connection: {connection_id[:8]}...", flush=True)
+                    
+                    await mcp_server.run(
+                        read_stream,
+                        write_stream,
+                        mcp_server.create_initialization_options(),
+                    )
+                    
+            except BaseException as e:
                 # Catch all exceptions including ExceptionGroup
                 error_msg = str(e)
                 
@@ -196,6 +269,25 @@ class MCPSSEASGIApp:
                     logger.error(f"❌ MCP SSE connection error: {connection_id[:8]}... - {e}", exc_info=True)
                     # Delete session on error
                     mcp_session_service.delete_session(connection_id)
+            finally:
+                # Cleanup registry entry when task finishes
+                if connection_id in _mcp_server_registry:
+                    logger.info(f"🧹 Removing MCP server from registry: {connection_id[:8]}...")
+                    del _mcp_server_registry[connection_id]
+        
+        # Create task and register it
+        mcp_task = asyncio.create_task(run_mcp_server())
+        _mcp_server_registry[connection_id] = {
+            "task": mcp_task,
+            "created_at": datetime.utcnow(),
+        }
+        logger.info(f"📝 Registered MCP server task for: {connection_id[:8]}...")
+        
+        # Wait for task to complete
+        try:
+            await mcp_task
+        except:
+            pass  # Errors already handled in run_mcp_server()
 
 
 class MCPMessagesASGIApp:
@@ -290,6 +382,8 @@ async def mcp_sse_endpoint(request: Request):
     NOTE: This endpoint uses a custom ASGI app that handles its own responses.
     We don't return anything to avoid FastAPI trying to send a response.
     """
+    logger.info(f"🔥 MCP SSE endpoint called: {request.method} {request.url}")
+    print(f"🔥 DEBUG: MCP SSE endpoint called: {request.method} {request.url}", flush=True)
     app = MCPSSEASGIApp()
     try:
         await app(request.scope, request.receive, request._send)

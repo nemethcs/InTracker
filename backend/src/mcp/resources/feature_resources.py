@@ -8,33 +8,15 @@ from src.services.feature_service import FeatureService
 
 
 def get_feature_resources(project_id: Optional[str] = None) -> list[Resource]:
-    """Get feature resources."""
-    db = SessionLocal()
-    try:
-        if project_id:
-            # Use FeatureService to get features by project
-            features, _ = FeatureService.get_features_by_project(
-                db=db,
-                project_id=UUID(project_id),
-                status=None,
-            )
-        else:
-            # List all features - need to query directly as FeatureService doesn't have list_all method
-            # This is acceptable for resources as it's a simple read operation
-            from src.database.models import Feature
-            features = db.query(Feature).all()
-        
-        return [
-            Resource(
-                uri=f"intracker://feature/{f.id}",
-                name=f"Feature: {f.name}",
-                description=f"{f.description or ''} ({f.progress_percentage}% complete)",
-                mimeType="application/json",
-            )
-            for f in features
-        ]
-    finally:
-        db.close()
+    """Get feature resources.
+    
+    PERFORMANCE OPTIMIZATION: Returns empty list to speed up MCP initialization.
+    Resources are accessed dynamically via read_resource() when needed.
+    This prevents slow database queries during initial connection.
+    """
+    # Return empty list for fast initialization
+    # Resources will be loaded dynamically when accessed via read_resource()
+    return []
 
 
 async def read_feature_resource(uri: str) -> str:

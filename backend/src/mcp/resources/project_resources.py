@@ -8,56 +8,15 @@ from src.mcp.services.rules_generator import rules_generator
 
 
 def get_project_resources(project_id: Optional[str] = None) -> list[Resource]:
-    """Get project resources."""
-    resources = []
+    """Get project resources.
     
-    if project_id:
-        # Project-specific resources
-        resources.append(
-            Resource(
-                uri=f"intracker://project/{project_id}",
-                name=f"Project: {project_id}",
-                mimeType="application/json",
-                description=f"Project information for {project_id}",
-            )
-        )
-        resources.append(
-            Resource(
-                uri=f"intracker://project/{project_id}/cursor-rules",
-                name=f"Cursor Rules: {project_id}",
-                mimeType="text/markdown",
-                description=f"Cursor rules for project {project_id}",
-            )
-        )
-    else:
-        # List all projects
-        # For listing all projects, we need to query directly as ProjectService doesn't have a list_all method
-        # This is acceptable for resources as it's a simple read operation
-        from src.database.models import Project
-        db = SessionLocal()
-        try:
-            projects = db.query(Project).all()
-            for project in projects:
-                resources.append(
-                    Resource(
-                        uri=f"intracker://project/{project.id}",
-                        name=f"Project: {project.name}",
-                        mimeType="application/json",
-                        description=f"Project information for {project.name}",
-                    )
-                )
-                resources.append(
-                    Resource(
-                        uri=f"intracker://project/{project.id}/cursor-rules",
-                        name=f"Cursor Rules: {project.name}",
-                        mimeType="text/markdown",
-                        description=f"Cursor rules for project {project.name}",
-                    )
-                )
-        finally:
-            db.close()
-    
-    return resources
+    PERFORMANCE OPTIMIZATION: Returns empty list to speed up MCP initialization.
+    Resources are accessed dynamically via read_resource() when needed.
+    This prevents slow database queries during initial connection.
+    """
+    # Return empty list for fast initialization
+    # Resources will be loaded dynamically when accessed via read_resource()
+    return []
 
 
 async def read_project_resource(uri: str) -> str:
