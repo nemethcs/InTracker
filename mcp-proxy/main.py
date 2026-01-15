@@ -53,14 +53,14 @@ class BackendConnectionManager:
         self.backend_url = backend_url
         self.client = httpx.AsyncClient(timeout=30.0)
     
-    async def connect_with_retry(
+    async def connect_with_retry_stream(
         self, 
         endpoint: str, 
         headers: dict,
         max_attempts: int = MAX_RECONNECT_ATTEMPTS,
         delay: int = RECONNECT_DELAY
-    ) -> httpx.Response:
-        """Connect to backend with automatic retry on failure.
+    ):
+        """Connect to backend with automatic retry on failure (streaming mode).
         
         Args:
             endpoint: Backend endpoint URL
@@ -68,8 +68,8 @@ class BackendConnectionManager:
             max_attempts: Maximum number of connection attempts
             delay: Delay between attempts in seconds
             
-        Returns:
-            httpx.Response: Streaming response from backend
+        Yields:
+            bytes: SSE event data from backend stream
             
         Raises:
             HTTPException: If all connection attempts fail
@@ -80,20 +80,29 @@ class BackendConnectionManager:
             try:
                 logger.info(f"🔄 Connecting to backend (attempt {attempt}/{max_attempts}): {endpoint}")
                 
-                response = await self.client.get(
+                # Use streaming mode to avoid timeout on long-lived SSE connections
+                async with self.client.stream(
+                    "GET",
                     endpoint,
                     headers=headers,
-                    timeout=None,  # No timeout for SSE streaming
-                )
-                
-                if response.status_code == 200:
-                    logger.info(f"✅ Connected to backend successfully")
-                    backend_health_status["healthy"] = True
-                    backend_health_status["last_check"] = datetime.utcnow()
-                    return response
-                else:
-                    logger.warning(f"⚠️  Backend returned status {response.status_code}")
-                    last_error = f"Backend returned status {response.status_code}"
+                    timeout=60.0,  # 60s timeout for connection establishment (backend may be slow to respond)
+                ) as response:
+                    if response.status_code == 200:
+                        logger.info(f"✅ Connected to backend successfully, starting stream...")
+                        backend_health_status["healthy"] = True
+                        backend_health_status["last_check"] = datetime.utcnow()
+                        
+                        # Stream data from backend
+                        async for chunk in response.aiter_bytes():
+                            if chunk:
+                                yield chunk
+                        
+                        # Stream ended normally
+                        logger.info(f"📭 Backend stream ended normally")
+                        return
+                    else:
+                        logger.warning(f"⚠️  Backend returned status {response.status_code}")
+                        last_error = f"Backend returned status {response.status_code}"
                     
             except Exception as e:
                 logger.warning(f"❌ Connection attempt {attempt} failed: {e}")
@@ -128,11 +137,8 @@ class BackendConnectionManager:
         
         while True:
             try:
-                # Connect to backend
-                response = await self.connect_with_retry(endpoint, headers)
-                
-                # Stream events
-                async for chunk in response.aiter_bytes():
+                # Connect to backend and stream (with automatic retry)
+                async for chunk in self.connect_with_retry_stream(endpoint, headers):
                     if chunk:
                         yield chunk
                         # Reset reconnect count on successful data
@@ -229,11 +235,15 @@ async def health_check():
 
 
 @app.get("/mcp/sse")
+@app.post("/mcp/sse")
 async def mcp_sse_proxy(
     request: Request,
     x_api_key: Optional[str] = Header(None, alias="X-API-Key")
 ):
     """Proxy SSE endpoint for MCP connections.
+    
+    Supports both GET (SSE) and POST (Streamable HTTP) methods.
+    Cursor tries POST first (Streamable HTTP), then falls back to GET (SSE).
     
     This endpoint:
     1. Accepts connections from MCP clients (Cursor)

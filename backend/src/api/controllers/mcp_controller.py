@@ -73,13 +73,34 @@ async def mcp_health_check():
 
 
 class MCPSSEASGIApp:
-    """ASGI app wrapper for MCP SSE endpoint with Redis session persistence."""
+    """ASGI app wrapper for MCP SSE endpoint with Redis session persistence.
+    
+    Supports both GET (SSE) and POST (Streamable HTTP) methods.
+    Cursor tries POST first (Streamable HTTP), then falls back to GET (SSE).
+    Both methods return the same SSE stream.
+    """
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
-        if scope["type"] != "http" or scope["method"] != "GET":
+        # Accept both GET (SSE) and POST (Streamable HTTP) methods
+        if scope["type"] != "http" or scope["method"] not in ["GET", "POST"]:
             from starlette.responses import Response
             response = Response(status_code=405)
             await response(scope, receive, send)
             return
+        
+        # For POST requests (Streamable HTTP), read and discard the body
+        # The MCP SDK sends initialization data in POST body, but we don't need it
+        # as we handle initialization through SSE events
+        if scope["method"] == "POST":
+            # Read the request body to avoid connection issues
+            while True:
+                message = await receive()
+                if message["type"] == "http.request":
+                    # Body received, continue processing
+                    if not message.get("more_body", False):
+                        break
+                elif message["type"] == "http.disconnect":
+                    # Client disconnected
+                    return
         
         # Extract connection ID from query params or headers (for session rehydration)
         connection_id = None
@@ -238,6 +259,7 @@ class MCPMessagesASGIApp:
 
 
 @router.get("/sse")
+@router.post("/sse")
 async def mcp_sse_endpoint(request: Request):
     """
     MCP Server SSE (Server-Sent Events) endpoint for Cursor integration.

@@ -243,8 +243,8 @@ export function ProjectDetail() {
     // Subscribe to connection events
     signalrService.on('connected', handleConnected)
     signalrService.on('reconnected', handleConnected)
-    
-    // Fetch todos using store - it will auto-update via SignalR
+
+      // Fetch todos using store - it will auto-update via SignalR
       fetchTodos(undefined, undefined, id)
 
     // Subscribe to SignalR real-time updates
@@ -469,7 +469,7 @@ export function ProjectDetail() {
           )}
 
           {/* Resume Context Card - Separate card for project status summary */}
-          {currentProject.resume_context && (
+                {currentProject.resume_context && (
             <Card className="border-l-4 border-l-secondary">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Resume Context</CardTitle>
@@ -487,7 +487,7 @@ export function ProjectDetail() {
                     return (
                       <div className="space-y-3">
                         {rc.last && (
-                          <div>
+                        <div>
                             <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
                               <Clock className="h-3 w-3" />
                               Last Session
@@ -495,10 +495,10 @@ export function ProjectDetail() {
                             <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
                               {rc.last}
                             </p>
-                          </div>
-                        )}
+                        </div>
+                      )}
                         {rc.now && (
-                          <div>
+                        <div>
                             <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
                               <CheckSquare className="h-3 w-3" />
                               Current Status
@@ -506,10 +506,10 @@ export function ProjectDetail() {
                             <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
                               {rc.now}
                             </p>
-                          </div>
-                        )}
+                        </div>
+                      )}
                         {rc.next && (
-                          <div>
+                        <div>
                             <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
                               <ChevronRight className="h-3 w-3" />
                               Next Steps
@@ -517,9 +517,9 @@ export function ProjectDetail() {
                             <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
                               {rc.next}
                             </p>
-                          </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
+                    </div>
                     )
                   }
                   
@@ -546,8 +546,8 @@ export function ProjectDetail() {
                           ) : (
                             <p className="text-sm text-muted-foreground italic">No session summary available</p>
                           )}
-                        </div>
-                      )}
+                  </div>
+                )}
                       
                       {/* Current Status */}
                       {now && (
@@ -649,7 +649,7 @@ export function ProjectDetail() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <h2 className="text-xl sm:text-2xl font-bold">Next Tasks</h2>
+              <h2 className="text-xl sm:text-2xl font-bold">Next Tasks</h2>
                 {todos.length > 0 && (
                   <Badge variant="secondary" className="text-xs">
                     {todos.length} {todos.length === 1 ? 'task' : 'tasks'}
@@ -677,10 +677,10 @@ export function ProjectDetail() {
               </Card>
             ) : (
               <>
-                <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
                   {paginatedTodos.map((todo) => (
-                    <TodoCard key={todo.id} todo={todo} />
-                  ))}
+                  <TodoCard key={todo.id} todo={todo} />
+                ))}
                 </div>
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between mt-4">
@@ -708,7 +708,7 @@ export function ProjectDetail() {
                         <ChevronRight className="h-4 w-4" />
                       </Button>
                     </div>
-                  </div>
+              </div>
                 )}
               </>
             )}
@@ -761,18 +761,18 @@ export function ProjectDetail() {
       {/* Completed Items Section - Collapsible */}
       {(completedFeatures.length > 0 || completedTodos.length > 0) && (
         <div className="mt-8">
-          <Accordion type="single" collapsible className="w-full">
+        <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="completed-items">
-              <AccordionTrigger className="text-xl sm:text-2xl font-bold">
-                <div className="flex items-center gap-2">
+            <AccordionTrigger className="text-xl sm:text-2xl font-bold">
+              <div className="flex items-center gap-2">
                   <CheckCircle2 className={iconSize('md')} />
                   <span>Completed Items</span>
                   <Badge variant="secondary" className="text-xs">
                     {completedFeatures.length + completedTodos.length} {completedFeatures.length + completedTodos.length === 1 ? 'item' : 'items'}
                   </Badge>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
                 <div className="space-y-6 pt-4">
                   {/* Completed Features */}
                   {completedFeatures.length > 0 && (
@@ -791,7 +791,7 @@ export function ProjectDetail() {
                                     <CardTitle className="mb-1 line-clamp-2">{feature.name}</CardTitle>
                                     <CardDescription className="line-clamp-2">
                                       {feature.description || 'No description'}
-                                    </CardDescription>
+                    </CardDescription>
                                   </div>
                                   <Badge 
                                     variant={
@@ -804,7 +804,7 @@ export function ProjectDetail() {
                                     {feature.status}
                                   </Badge>
                                 </div>
-                              </CardHeader>
+                  </CardHeader>
                               <CardContent>
                                 <div className="flex items-center justify-between text-sm">
                                   <span className="text-muted-foreground">
@@ -815,9 +815,9 @@ export function ProjectDetail() {
                                       {feature.progress_percentage}% complete
                                     </span>
                                   )}
-                                </div>
-                              </CardContent>
-                            </Card>
+                    </div>
+                  </CardContent>
+                </Card>
                           </Link>
                         ))}
                       </div>
@@ -826,30 +826,30 @@ export function ProjectDetail() {
 
                   {/* Completed Todos */}
                   {completedTodos.length > 0 && (
-                    <div>
+        <div>
                       <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
                         <CheckSquare className="h-5 w-5" />
                         Completed Todos ({completedTodos.length})
                       </h3>
-                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {completedTodos.map((todo) => (
                           <Card key={todo.id} className="hover:shadow-lg transition-shadow">
-                            <CardHeader>
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
                                   <CardTitle className="mb-1 line-clamp-2">{todo.title}</CardTitle>
                                   {todo.description && (
                                     <CardDescription className="line-clamp-2">
                                       {todo.description}
-                                    </CardDescription>
+                        </CardDescription>
                                   )}
-                                </div>
+                      </div>
                                 <Badge variant="outline" className="ml-2 flex-shrink-0">
                                   done
                                 </Badge>
-                              </div>
-                            </CardHeader>
-                            <CardContent>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
                               <div className="space-y-2">
                                 {todo.featureName && (
                                   <div className="flex items-center gap-2 text-sm">
@@ -858,33 +858,33 @@ export function ProjectDetail() {
                                       to={`/projects/${id}/features/${todo.feature_id}`}
                                       className="text-primary hover:underline"
                                       onClick={(e) => e.stopPropagation()}
-                                    >
+                            >
                                       {todo.featureName}
                                     </Link>
-                                  </div>
+                      </div>
                                 )}
                                 <div className="flex items-center justify-between text-sm">
                                   <span className="text-muted-foreground">
                                     {format(new Date(todo.completed_at || todo.updated_at), 'MMM d, yyyy')}
-                                  </span>
+                            </span>
                                   {todo.priority && (
                                     <Badge variant="outline" className="text-xs capitalize">
                                       {todo.priority}
                                     </Badge>
                                   )}
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
+                        </div>
+                    </div>
+                  </CardContent>
+                </Card>
                         ))}
                       </div>
-                    </div>
-                  )}
-                </div>
+          </div>
+        )}
+        </div>
               </AccordionContent>
             </AccordionItem>
           </Accordion>
-        </div>
+      </div>
       )}
 
       {/* Feature Editor Dialog */}
