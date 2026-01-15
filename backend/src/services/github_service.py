@@ -297,6 +297,11 @@ class GitHubService:
     def list_user_repositories(self) -> List[Dict[str, Any]]:
         """List all repositories accessible to the current user.
         
+        Includes:
+        - User's own repositories
+        - Repositories where user is a collaborator
+        - Organization repositories where user is a member
+        
         Returns:
             List of repository dictionaries with:
                 - id: Repository ID
@@ -313,7 +318,9 @@ class GitHubService:
 
         try:
             user = self.client.get_user()
-            repos = user.get_repos()
+            # Get all repositories: own, collaborator, and organization member
+            # affiliation parameter: 'owner', 'collaborator', 'organization_member'
+            repos = user.get_repos(affiliation="all")
             return [
                 {
                     "id": repo.id,
