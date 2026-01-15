@@ -26,7 +26,8 @@ interface TodoEditorProps {
   onOpenChange: (open: boolean) => void
   todo?: Todo | null
   featureId?: string
-  elementId: string
+  projectId?: string  // Required if elementId is not provided
+  elementId?: string  // Optional - if not provided, projectId must be provided
   onSave: (data: TodoCreate | TodoUpdate) => Promise<void>
 }
 
@@ -35,6 +36,7 @@ export function TodoEditor({
   onOpenChange,
   todo,
   featureId,
+  projectId,
   elementId,
   onSave,
 }: TodoEditorProps) {
@@ -76,13 +78,23 @@ export function TodoEditor({
         } as TodoUpdate)
       } else {
         // Create new todo
-        await onSave({
-          element_id: elementId,
+        // If elementId is not provided, use projectId (backend will use default element)
+        const todoData: TodoCreate = {
           title,
           description: description || undefined,
           feature_id: featureId,
           priority,
-        } as TodoCreate)
+        }
+        
+        if (elementId) {
+          todoData.element_id = elementId
+        } else if (projectId) {
+          todoData.project_id = projectId
+        } else {
+          throw new Error('Either elementId or projectId must be provided')
+        }
+        
+        await onSave(todoData)
       }
       onOpenChange(false)
     } catch (error) {

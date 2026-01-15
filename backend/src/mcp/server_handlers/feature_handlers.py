@@ -49,6 +49,10 @@ async def handle_feature_tool(name: str, arguments: dict) -> list[TextContent] |
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 
+        elif name == "mcp_delete_feature":
+            result = await feature.handle_delete_feature(arguments["featureId"])
+            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+
         return None
     except Exception as e:
         return [TextContent(type="text", text=f"Error: {str(e)}")]

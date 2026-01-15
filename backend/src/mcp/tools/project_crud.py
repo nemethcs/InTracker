@@ -281,7 +281,7 @@ async def handle_update_project(
         project = ProjectService.update_project(
             db=db,
             project_id=UUID(project_id),
-            user_id=user_id,
+            current_user_id=user_id,
             name=name,
             description=description,
             status=status,

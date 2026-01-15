@@ -30,6 +30,14 @@ async def create_todo(
     """Create a new todo."""
     user_id = UUID(current_user["user_id"])
     try:
+        # If element_id is not provided, get project_id from feature or use provided project_id
+        project_id = todo_data.project_id
+        if not project_id and todo_data.feature_id:
+            # Get project_id from feature
+            feature = feature_service.get_feature_by_id(db=db, feature_id=todo_data.feature_id)
+            if feature:
+                project_id = feature.project_id
+        
         todo = todo_service.create_todo(
             db=db,
             element_id=todo_data.element_id,
@@ -42,6 +50,7 @@ async def create_todo(
             created_by=user_id,
             assigned_to=todo_data.assigned_to,
             current_user_id=user_id,
+            project_id=project_id,
         )
         
         # Broadcast todo creation via SignalR

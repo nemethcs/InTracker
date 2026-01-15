@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from src.database.models import Todo, ProjectElement, Feature
 from src.database.base import set_current_user_id, reset_current_user_id
+from src.services.project_service import ProjectService
 
 
 class TodoService:
@@ -14,7 +15,7 @@ class TodoService:
     @staticmethod
     def create_todo(
         db: Session,
-        element_id: UUID,
+        element_id: Optional[UUID],
         title: str,
         description: Optional[str] = None,
         status: str = "new",
@@ -24,14 +25,31 @@ class TodoService:
         created_by: Optional[UUID] = None,
         assigned_to: Optional[UUID] = None,
         current_user_id: Optional[UUID] = None,
+        project_id: Optional[UUID] = None,
     ) -> Todo:
-        """Create a new todo."""
+        """Create a new todo.
+        
+        If element_id is not provided, automatically uses the project's default element.
+        If project_id is not provided and element_id is None, raises ValueError.
+        """
         # Set current user ID for audit trail
         token = None
         if current_user_id:
             token = set_current_user_id(current_user_id)
         
         try:
+            # If element_id is not provided, get or create default element
+            if element_id is None:
+                if project_id is None:
+                    raise ValueError("Either element_id or project_id must be provided")
+                # Get or create default element for the project
+                default_element = ProjectService.get_or_create_default_element(
+                    db=db,
+                    project_id=project_id,
+                    current_user_id=current_user_id,
+                )
+                element_id = default_element.id
+            
             # Verify element exists
             element = db.query(ProjectElement).filter(ProjectElement.id == element_id).first()
             if not element:

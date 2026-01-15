@@ -214,6 +214,7 @@ class Feature(Base):
     todos = relationship("Todo", back_populates="feature", cascade="all, delete-orphan")
     feature_elements = relationship("FeatureElement", back_populates="feature", cascade="all, delete-orphan")
     github_branches = relationship("GitHubBranch", back_populates="feature")
+    documents = relationship("Document", back_populates="feature")
     assigned_user = relationship("User", foreign_keys=[assigned_to], back_populates="assigned_features")
     creator = relationship("User", foreign_keys=[created_by], back_populates="created_features")
 
@@ -295,7 +296,8 @@ class Document(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     element_id = Column(UUID(as_uuid=True), ForeignKey("project_elements.id", ondelete="SET NULL"), nullable=True)
-    type = Column(String, nullable=False, index=True)  # architecture, adr, domain, constraints, runbook, ai_instructions
+    feature_id = Column(UUID(as_uuid=True), ForeignKey("features.id", ondelete="SET NULL"), nullable=True, index=True)
+    type = Column(String, nullable=False, index=True)  # architecture, adr, notes
     title = Column(String, nullable=False)
     content = Column(Text, nullable=False)  # Markdown format
     tags = Column(ARRAY(String), default=[])
@@ -309,10 +311,12 @@ class Document(Base):
     # Relationships
     project = relationship("Project", back_populates="documents")
     element = relationship("ProjectElement", back_populates="documents")
+    feature = relationship("Feature", back_populates="documents")
 
     __table_args__ = (
         Index("idx_documents_project", "project_id"),
         Index("idx_documents_element", "element_id"),
+        Index("idx_documents_feature", "feature_id"),
         Index("idx_documents_type", "type"),
     )
 

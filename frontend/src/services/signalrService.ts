@@ -24,6 +24,61 @@ class SignalRService {
   private reconnectTimer: NodeJS.Timeout | null = null
   private isConnecting = false
   private eventHandlers: Map<string, Set<Function>> = new Map()
+  private tokenRefreshInterval: NodeJS.Timeout | null = null
+  private lastUsedToken: string | null = null
+
+  /**
+   * Check if token is expired or about to expire
+   */
+  private isTokenExpired(token: string): boolean {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      const expiresAt = payload.exp * 1000 // Convert to milliseconds
+      const now = Date.now()
+      // Consider token expired if it expires within 1 minute
+      return expiresAt - now < 60000
+    } catch {
+      return true // If we can't parse, consider it expired
+    }
+  }
+
+  /**
+   * Refresh access token using refresh token
+   */
+  private async refreshAccessToken(): Promise<string | null> {
+    try {
+      const refreshToken = localStorage.getItem('refresh_token')
+      if (!refreshToken) {
+        return null
+      }
+
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      })
+
+      if (!response.ok) {
+        return null
+      }
+
+      const data = await response.json()
+      const { access_token, refresh_token: newRefreshToken } = data.tokens
+
+      localStorage.setItem('access_token', access_token)
+      if (newRefreshToken) {
+        localStorage.setItem('refresh_token', newRefreshToken)
+      }
+
+      return access_token
+    } catch (error) {
+      console.error('Failed to refresh token:', error)
+      return null
+    }
+  }
 
   /**
    * Initialize SignalR connection
@@ -36,11 +91,28 @@ class SignalRService {
     this.isConnecting = true
 
     try {
+      // Get current token from localStorage or parameter
+      let currentToken = token || localStorage.getItem('access_token') || ''
+      
+      // Check if token is expired, if so, refresh it
+      if (currentToken && this.isTokenExpired(currentToken)) {
+        console.log('Token expired, refreshing...')
+        const newToken = await this.refreshAccessToken()
+        if (newToken) {
+          currentToken = newToken
+        } else {
+          // If refresh failed, try to continue with existing token
+          console.warn('Token refresh failed, attempting connection with existing token')
+        }
+      }
+      
+      this.lastUsedToken = currentToken
+      
       const signalrUrl = import.meta.env.VITE_SIGNALR_URL || 'http://localhost:3000/signalr/hub'
       
       // Build URL with token as query parameter
-      const urlWithToken = token 
-        ? `${signalrUrl}?access_token=${encodeURIComponent(token)}`
+      const urlWithToken = currentToken 
+        ? `${signalrUrl}?access_token=${encodeURIComponent(currentToken)}`
         : signalrUrl
       
       // Connect to SignalR hub
@@ -68,8 +140,13 @@ class SignalRService {
       // Connection state handlers
       this.connection.onclose((error) => {
         this.isConnecting = false
+        // Stop token refresh monitor
+        if (this.tokenRefreshInterval) {
+          clearInterval(this.tokenRefreshInterval)
+          this.tokenRefreshInterval = null
+        }
         if (error) {
-          this.attemptReconnect(token)
+          this.attemptReconnect()
         }
       })
 
@@ -90,20 +167,52 @@ class SignalRService {
       this.reconnectAttempts = 0
       this.reconnectDelay = 1000
       
+      // Start token refresh monitor
+      this.startTokenRefreshMonitor()
+      
       // Emit connected event so components can join project groups
       this.emit('connected', { connectionId: this.connection.connectionId })
     } catch (error) {
       console.error('SignalR connection failed:', error)
       this.isConnecting = false
-      this.attemptReconnect(token)
+      this.attemptReconnect()
       throw error
     }
   }
 
   /**
+   * Monitor token changes and reconnect if token is refreshed
+   */
+  private startTokenRefreshMonitor(): void {
+    // Clear existing interval
+    if (this.tokenRefreshInterval) {
+      clearInterval(this.tokenRefreshInterval)
+    }
+
+    // Check every 5 seconds if token has changed
+    this.tokenRefreshInterval = setInterval(async () => {
+      const currentToken = localStorage.getItem('access_token')
+      
+      // If token has changed, reconnect with new token
+      if (currentToken && currentToken !== this.lastUsedToken) {
+        console.log('Token refreshed, reconnecting SignalR...')
+        this.lastUsedToken = currentToken
+        
+        // Disconnect and reconnect with new token
+        try {
+          await this.disconnect()
+          await this.connect(currentToken)
+        } catch (error) {
+          console.error('Failed to reconnect with new token:', error)
+        }
+      }
+    }, 5000) // Check every 5 seconds
+  }
+
+  /**
    * Attempt to reconnect with exponential backoff
    */
-  private attemptReconnect(token?: string): void {
+  private attemptReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('Max reconnection attempts reached')
       return
@@ -115,7 +224,9 @@ class SignalRService {
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectAttempts++
-      this.connect(token).catch((error) => {
+      // Always use the latest token from localStorage
+      const currentToken = localStorage.getItem('access_token') || undefined
+      this.connect(currentToken).catch((error) => {
         console.error('Reconnection failed:', error)
       })
     }, this.reconnectDelay)
@@ -314,6 +425,11 @@ class SignalRService {
       this.reconnectTimer = null
     }
 
+    if (this.tokenRefreshInterval) {
+      clearInterval(this.tokenRefreshInterval)
+      this.tokenRefreshInterval = null
+    }
+
     if (this.connection) {
       try {
         await this.connection.stop()
@@ -328,6 +444,7 @@ class SignalRService {
     this.isConnecting = false
     this.reconnectAttempts = 0
     this.reconnectDelay = 1000
+    this.lastUsedToken = null
   }
 
   /**
