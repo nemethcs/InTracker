@@ -67,6 +67,9 @@ class MCPSSEASGIApp:
             return
         
         # Verify API key and get user_id
+        import logging
+        logger = logging.getLogger(__name__)
+        
         api_key = None
         headers = scope.get("headers", [])
         for key, value in headers:
@@ -74,18 +77,40 @@ class MCPSSEASGIApp:
                 api_key = value.decode()
                 break
         
+        if not api_key:
+            logger.warning("MCP SSE connection attempt without API key")
+            response = JSONResponse(
+                content={"detail": "Missing API key"},
+                status_code=401
+            )
+            await response(scope, receive, send)
+            return
+        
+        logger.info(f"MCP SSE connection attempt with API key: {api_key[:20]}...")
+        
         try:
             user_id = verify_api_key(api_key)
+            logger.info(f"API key verified successfully, user_id: {user_id}")
             # Set the user_id in MCP middleware for this connection
             if user_id:
                 from src.mcp.middleware.auth import set_mcp_api_key
                 set_mcp_api_key(api_key)  # This will extract and set user_id
+                logger.info(f"MCP API key set for user: {user_id}")
         except HTTPException as e:
+            logger.error(f"API key verification failed: {e.detail}")
             # Return error response and stop processing
             # Don't re-raise to avoid global exception handler duplicate response
             response = JSONResponse(
                 content={"detail": e.detail},
                 status_code=e.status_code
+            )
+            await response(scope, receive, send)
+            return
+        except Exception as e:
+            logger.error(f"Unexpected error during API key verification: {e}", exc_info=True)
+            response = JSONResponse(
+                content={"detail": "Internal server error during authentication"},
+                status_code=500
             )
             await response(scope, receive, send)
             return
