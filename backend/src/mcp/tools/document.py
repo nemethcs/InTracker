@@ -121,7 +121,7 @@ def get_create_document_tool() -> MCPTool:
     """Get create document tool definition."""
     return MCPTool(
         name="mcp_create_document",
-        description="Create a new document for a project, optionally linked to an element or todo",
+        description="Create a new document for a project. Documents are automatically linked to features. Optionally can be linked to an element or todo.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -133,8 +133,9 @@ def get_create_document_tool() -> MCPTool:
                 },
                 "title": {"type": "string", "description": "Document title"},
                 "content": {"type": "string", "description": "Document content (Markdown)"},
+                "featureId": {"type": "string", "description": "Optional feature UUID to link. If not provided and todoId is provided, will use todo's feature."},
                 "elementId": {"type": "string", "description": "Optional element UUID to link"},
-                "todoId": {"type": "string", "description": "Optional todo UUID to link (will link to todo's element)"},
+                "todoId": {"type": "string", "description": "Optional todo UUID to link (will link to todo's element and feature if featureId not provided)"},
                 "tags": {"type": "array", "items": {"type": "string"}, "description": "Optional tags"},
             },
             "required": ["projectId", "type", "title", "content"],
@@ -147,6 +148,7 @@ async def handle_create_document(
     type: str,
     title: str,
     content: str,
+    feature_id: Optional[str] = None,
     element_id: Optional[str] = None,
     todo_id: Optional[str] = None,
     tags: Optional[List[str]] = None,
@@ -159,8 +161,9 @@ async def handle_create_document(
         if not project:
             return {"error": "Project not found"}
 
-        # If todo_id is provided, get the element from the todo
+        # If todo_id is provided, get the element and feature from the todo
         final_element_id = None
+        final_feature_id = None
         if todo_id:
             # Use TodoService to get todo
             todo = TodoService.get_todo_by_id(db, UUID(todo_id))
@@ -168,16 +171,24 @@ async def handle_create_document(
                 return {"error": "Todo not found"}
             # Use todo's element_id
             final_element_id = todo.element_id
+            # Use todo's feature_id if feature_id not explicitly provided
+            if not feature_id and todo.feature_id:
+                final_feature_id = todo.feature_id
             # Verify element belongs to project using ElementService
-            element = ElementService.get_element_by_id(db, final_element_id)
-            if not element or element.project_id != UUID(project_id):
-                return {"error": "Todo's element does not belong to this project"}
+            if final_element_id:
+                element = ElementService.get_element_by_id(db, final_element_id)
+                if not element or element.project_id != UUID(project_id):
+                    return {"error": "Todo's element does not belong to this project"}
         elif element_id:
             final_element_id = UUID(element_id)
             # Verify element if provided using ElementService
             element = ElementService.get_element_by_id(db, final_element_id)
             if not element or element.project_id != UUID(project_id):
                 return {"error": "Element not found or does not belong to this project"}
+        
+        # Use provided feature_id if available
+        if feature_id:
+            final_feature_id = UUID(feature_id)
 
         # Use DocumentService to create document
         document = DocumentService.create_document(
@@ -187,6 +198,7 @@ async def handle_create_document(
             title=title,
             content=content,
             element_id=final_element_id,
+            feature_id=final_feature_id,
             tags=tags,
         )
 
@@ -214,6 +226,7 @@ async def handle_create_document(
             "title": document.title,
             "type": document.type,
             "element_id": str(document.element_id) if document.element_id else None,
+            "feature_id": str(document.feature_id) if document.feature_id else None,
             "todo_id": todo_id if todo_id else None,
         }
     finally:
