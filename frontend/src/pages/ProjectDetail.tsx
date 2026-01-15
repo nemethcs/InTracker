@@ -104,11 +104,12 @@ export function ProjectDetail() {
   }, [features])
 
   // Get last 3 completed todos (status: done) for Context & Activity
+  // IMPORTANT: Only show todos that are actually "done" status
   const lastCompletedTodos = useMemo(() => {
     const completed = allTodos
       .filter(todo => {
-        if (todo.status !== 'done') return false
-        return true
+        // STRICT: Only include todos with status === 'done'
+        return todo.status === 'done'
       })
       .sort((a, b) => {
         // Use completed_at if available, otherwise fallback to updated_at
@@ -550,11 +551,22 @@ export function ProjectDetail() {
                                 <div>
                                   <p className="text-xs font-medium text-muted-foreground mb-1">Next Todos:</p>
                                   <ul className="list-disc list-inside space-y-0.5 text-sm text-foreground">
-                                    {now.next_todos.slice(0, 3).map((todo: any) => (
-                                      <li key={todo.id || todo.title} className="text-xs">
-                                        {todo.title}
-                                      </li>
-                                    ))}
+                                    {now.next_todos
+                                      .filter((todo: any) => {
+                                        // Filter out todos that are already done
+                                        // Check if todo exists in allTodos and has status 'done'
+                                        if (todo.id) {
+                                          const actualTodo = allTodos.find(t => t.id === todo.id)
+                                          return !actualTodo || actualTodo.status !== 'done'
+                                        }
+                                        return true
+                                      })
+                                      .slice(0, 3)
+                                      .map((todo: any) => (
+                                        <li key={todo.id || todo.title} className="text-xs">
+                                          {todo.title}
+                                        </li>
+                                      ))}
                                   </ul>
                                 </div>
                               )}
