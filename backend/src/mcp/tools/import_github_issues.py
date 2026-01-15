@@ -70,13 +70,9 @@ async def handle_import_github_issues(
             return {"error": "Project does not have a GitHub repository connected"}
         
         # Parse GitHub URL
-        github_url = project.github_repo_url
-        if "github.com/" in github_url:
-            parts = github_url.replace("https://github.com/", "").replace(".git", "").split("/")
-            if len(parts) < 2:
-                return {"error": "Invalid GitHub repository URL"}
-            owner, repo = parts[0], parts[1]
-        else:
+        from src.services.github_service import GitHubService
+        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+        if not owner or not repo:
             return {"error": "Invalid GitHub repository URL format"}
         
         # Get GitHub client (fix: use get_github_service().client)

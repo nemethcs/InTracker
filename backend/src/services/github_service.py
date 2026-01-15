@@ -298,5 +298,45 @@ class GitHubService:
             return None
 
 
+    @staticmethod
+    def parse_github_url(github_url: str) -> tuple[Optional[str], Optional[str]]:
+        """Parse GitHub repository URL to extract owner and repo name.
+        
+        Supports formats:
+        - https://github.com/owner/repo
+        - https://github.com/owner/repo.git
+        - git@github.com:owner/repo.git
+        
+        Args:
+            github_url: GitHub repository URL
+            
+        Returns:
+            Tuple of (owner, repo) or (None, None) if parsing fails
+        """
+        if not github_url:
+            return None, None
+        
+        try:
+            # Remove protocol and domain
+            if "github.com/" in github_url:
+                # Handle https://github.com/owner/repo or git@github.com:owner/repo
+                if github_url.startswith("https://github.com/"):
+                    parts = github_url.replace("https://github.com/", "").split("/")
+                elif github_url.startswith("git@github.com:"):
+                    parts = github_url.replace("git@github.com:", "").split("/")
+                else:
+                    # Fallback: try to extract from any github.com URL
+                    parts = github_url.split("github.com/")[-1].split("/")
+                
+                if len(parts) >= 2:
+                    owner = parts[0]
+                    repo = parts[1].replace(".git", "").strip()
+                    return owner, repo
+        except Exception:
+            pass
+        
+        return None, None
+
+
 # Global instance
 github_service = GitHubService()

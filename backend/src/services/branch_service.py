@@ -121,11 +121,10 @@ class BranchService:
             raise ValueError("Project does not have a connected GitHub repository")
 
         # Parse repo owner and name
-        repo_parts = project.github_repo_url.replace("https://github.com/", "").split("/")
-        if len(repo_parts) != 2:
+        from src.services.github_service import GitHubService
+        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+        if not owner or not repo:
             raise ValueError("Invalid GitHub repository URL format")
-
-        owner, repo = repo_parts
 
         # Get branches from GitHub
         branches = github_service.list_branches(owner=owner, repo=repo)

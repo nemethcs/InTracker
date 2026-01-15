@@ -145,11 +145,10 @@ async def handle_get_repo_info(project_id: str) -> dict:
             return error_dict or {"error": "Cannot access project"}
 
         # Parse repo owner and name
-        repo_parts = project.github_repo_url.replace("https://github.com/", "").split("/")
-        if len(repo_parts) != 2:
+        from src.services.github_service import GitHubService
+        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+        if not owner or not repo:
             return {"error": "Invalid GitHub repository URL format"}
-
-        owner, repo = repo_parts
 
         # Use GitHubService to get repo info
         github_service = get_github_service()

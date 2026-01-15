@@ -44,11 +44,9 @@ async def handle_link_element_to_issue(element_id: str, issue_number: int) -> di
             return {"error": "Project does not have a connected GitHub repository"}
 
         # Parse repo owner and name
-        repo_parts = project.github_repo_url.replace("https://github.com/", "").split("/")
-        if len(repo_parts) != 2:
+        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+        if not owner or not repo:
             return {"error": "Invalid GitHub repository URL format"}
-
-        owner, repo = repo_parts
 
         # Get issue from GitHub to validate
         github_service = get_github_service()
@@ -113,11 +111,9 @@ async def handle_get_github_issue(project_id: str, issue_number: int) -> dict:
             return {"error": "Project does not have a connected GitHub repository"}
 
         # Parse repo owner and name
-        repo_parts = project.github_repo_url.replace("https://github.com/", "").split("/")
-        if len(repo_parts) != 2:
+        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+        if not owner or not repo:
             return {"error": "Invalid GitHub repository URL format"}
-
-        owner, repo = repo_parts
 
         # Get issue from GitHub
         github_service = get_github_service()
@@ -187,11 +183,9 @@ async def handle_create_github_issue(
             return {"error": "Project does not have a connected GitHub repository"}
 
         # Parse repo owner and name
-        repo_parts = project.github_repo_url.replace("https://github.com/", "").split("/")
-        if len(repo_parts) != 2:
+        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+        if not owner or not repo:
             return {"error": "Invalid GitHub repository URL format"}
-
-        owner, repo = repo_parts
 
         # Create issue on GitHub
         github_service = get_github_service()

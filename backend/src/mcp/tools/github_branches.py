@@ -109,11 +109,9 @@ async def handle_create_branch_for_feature(feature_id: str, base_branch: str = "
             return {"error": "Project does not have a connected GitHub repository"}
 
         # Parse repo owner and name
-        repo_parts = project.github_repo_url.replace("https://github.com/", "").split("/")
-        if len(repo_parts) != 2:
+        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+        if not owner or not repo:
             return {"error": "Invalid GitHub repository URL format"}
-
-        owner, repo = repo_parts
 
         # Generate branch name from feature name
         branch_name = f"feature/{feature.name.lower().replace(' ', '-').replace('_', '-')[:50]}"
@@ -333,11 +331,9 @@ async def handle_get_branch_status(project_id: str, branch_name: str) -> dict:
             return {"error": "Project does not have a connected GitHub repository"}
 
         # Parse repo owner and name
-        repo_parts = project.github_repo_url.replace("https://github.com/", "").split("/")
-        if len(repo_parts) != 2:
+        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+        if not owner or not repo:
             return {"error": "Invalid GitHub repository URL format"}
-
-        owner, repo = repo_parts
 
         # Get branch from database
         github_branch = db.query(GitHubBranch).filter(
@@ -442,11 +438,9 @@ async def handle_get_commits_for_feature(feature_id: str) -> dict:
             }
 
         # Parse repo owner and name
-        repo_parts = project.github_repo_url.replace("https://github.com/", "").split("/")
-        if len(repo_parts) != 2:
+        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+        if not owner or not repo:
             return {"error": "Invalid GitHub repository URL format"}
-
-        owner, repo = repo_parts
 
         # Get GitHub client (fix: use get_github_service().client)
         github_service = get_github_service()

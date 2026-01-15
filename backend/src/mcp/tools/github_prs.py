@@ -57,11 +57,9 @@ async def handle_link_todo_to_pr(todo_id: str, pr_number: int) -> dict:
             return {"error": "Project does not have a connected GitHub repository"}
 
         # Parse repo owner and name
-        repo_parts = project.github_repo_url.replace("https://github.com/", "").split("/")
-        if len(repo_parts) != 2:
+        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+        if not owner or not repo:
             return {"error": "Invalid GitHub repository URL format"}
-
-        owner, repo = repo_parts
 
         # Get PR from GitHub to validate
         github_service = get_github_service()
@@ -126,11 +124,9 @@ async def handle_get_github_pr(project_id: str, pr_number: int) -> dict:
             return {"error": "Project does not have a connected GitHub repository"}
 
         # Parse repo owner and name
-        repo_parts = project.github_repo_url.replace("https://github.com/", "").split("/")
-        if len(repo_parts) != 2:
+        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+        if not owner or not repo:
             return {"error": "Invalid GitHub repository URL format"}
-
-        owner, repo = repo_parts
 
         # Get PR from GitHub
         github_service = get_github_service()
@@ -211,11 +207,9 @@ async def handle_create_github_pr(
             return {"error": "Project does not have a connected GitHub repository"}
 
         # Parse repo owner and name
-        repo_parts = project.github_repo_url.replace("https://github.com/", "").split("/")
-        if len(repo_parts) != 2:
+        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+        if not owner or not repo:
             return {"error": "Invalid GitHub repository URL format"}
-
-        owner, repo = repo_parts
 
         # Create PR on GitHub
         github_service = get_github_service()
