@@ -31,7 +31,7 @@ def get_document_resources(project_id: Optional[str] = None) -> list[Resource]:
                 uri=f"intracker://document/{d.id}",
                 name=f"Document: {d.title}",
                 description=f"{d.type} (v{d.version})",
-                mimeType="text/markdown" if d.type in ["architecture", "adr", "notes"] else "application/json",
+                mimeType="text/markdown" if d.type in ["architecture", "adr", "runbook"] else "application/json",
             )
             for d in documents
         ]
@@ -56,7 +56,17 @@ async def read_document_resource(uri: str) -> str:
         if not document:
             raise ValueError(f"Document not found: {document_id}")
 
-        # Return markdown content for all document types (all are markdown now)
-        return document.content
+        # Return markdown content for markdown types, JSON for others
+        if document.type in ["architecture", "adr", "runbook"]:
+            return document.content
+        else:
+            import json
+            return json.dumps({
+                "id": str(document.id),
+                "title": document.title,
+                "type": document.type,
+                "content": document.content,
+                "version": document.version,
+            }, indent=2)
     finally:
         db.close()

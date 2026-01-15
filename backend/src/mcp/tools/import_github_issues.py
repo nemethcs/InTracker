@@ -155,7 +155,6 @@ async def handle_import_github_issues(
                 status="new" if issue.state == "open" else "done",
                 priority="high" if any(label.name.lower() in ["bug", "critical", "urgent"] for label in issue.labels) else "medium",
                 feature_id=None,
-                project_id=UUID(project_id) if not element_id else None,
             )
             # Update GitHub fields directly (TodoService doesn't handle these)
             todo = db.query(Todo).filter(Todo.id == todo.id).first()

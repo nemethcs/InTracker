@@ -15,26 +15,24 @@ def get_create_todo_tool() -> MCPTool:
     """Get create todo tool definition."""
     return MCPTool(
         name="mcp_create_todo",
-        description="Create a new todo item. If elementId is not provided, automatically uses the project's default element. Either elementId or projectId (or featureId for project lookup) must be provided.",
+        description="Create a new todo item linked to a project element. The todo will be created with status 'new' and can optionally be linked to a feature. Returns the created todo with its ID.",
         inputSchema={
             "type": "object",
             "properties": {
-                "elementId": {"type": "string", "description": "Optional element UUID. If not provided, projectId or featureId must be provided to use default element."},
-                "projectId": {"type": "string", "description": "Optional project UUID. Required if elementId is not provided and featureId is not provided."},
+                "elementId": {"type": "string", "description": "Element UUID"},
                 "title": {"type": "string", "description": "Todo title"},
                 "description": {"type": "string", "description": "Todo description"},
-                "featureId": {"type": "string", "description": "Optional feature UUID. If provided and elementId is not, will use project's default element."},
+                "featureId": {"type": "string", "description": "Optional feature UUID"},
                 "priority": {"type": "string", "enum": ["low", "medium", "high", "critical"], "description": "Priority level"},
             },
-            "required": ["title"],
+            "required": ["elementId", "title"],
         },
     )
 
 
 async def handle_create_todo(
+    element_id: str,
     title: str,
-    element_id: Optional[str] = None,
-    project_id: Optional[str] = None,
     description: Optional[str] = None,
     feature_id: Optional[str] = None,
     priority: Optional[str] = "medium",
@@ -46,38 +44,21 @@ async def handle_create_todo(
         from src.mcp.middleware.auth import get_current_user_id
         user_id = get_current_user_id()
         
-        # Determine project_id if not provided
-        resolved_project_id = None
-        if project_id:
-            resolved_project_id = UUID(project_id)
-        elif feature_id:
-            # Get project_id from feature
-            from src.services.feature_service import FeatureService
-            feature = FeatureService.get_feature_by_id(db, UUID(feature_id))
-            if feature:
-                resolved_project_id = feature.project_id
-            else:
-                return {"error": "Feature not found"}
-        elif not element_id:
-            return {"error": "Either elementId, projectId, or featureId must be provided"}
-        
         # Use TodoService to create todo
         feature_uuid = UUID(feature_id) if feature_id else None
-        element_uuid = UUID(element_id) if element_id else None
         todo = TodoService.create_todo(
             db=db,
-            element_id=element_uuid,
+            element_id=UUID(element_id),
             title=title,
             description=description,
             status="new",
             feature_id=feature_uuid,
             priority=priority or "medium",
             current_user_id=user_id,
-            project_id=resolved_project_id,
         )
 
         # Get element for project_id and broadcast
-        element = db.query(ProjectElement).filter(ProjectElement.id == todo.element_id).first()
+        element = db.query(ProjectElement).filter(ProjectElement.id == UUID(element_id)).first()
         if not element:
             return {"error": "Element not found after todo creation"}
 
