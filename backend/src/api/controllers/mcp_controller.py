@@ -117,9 +117,6 @@ class MCPSSEASGIApp:
         
         # Pre-load tools and resources before running server (optimization)
         # This ensures tools/resources are cached before first request
-        import logging
-        logger = logging.getLogger(__name__)
-        
         try:
             from src.mcp.server import _load_tools, _load_resources
             logger.info("Pre-loading MCP tools and resources...")
