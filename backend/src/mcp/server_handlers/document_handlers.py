@@ -24,6 +24,7 @@ async def handle_document_tool(name: str, arguments: dict) -> list[TextContent] 
                 arguments["type"],
                 arguments["title"],
                 arguments["content"],
+                arguments.get("featureId"),
                 arguments.get("elementId"),
                 arguments.get("todoId"),
                 arguments.get("tags"),
