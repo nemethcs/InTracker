@@ -4,7 +4,7 @@ export interface Document {
   id: string
   project_id: string
   element_id?: string
-  type: 'architecture' | 'adr' | 'domain' | 'constraints' | 'runbook' | 'ai_instructions'
+  type: 'architecture' | 'adr' | 'notes'
   title: string
   content: string
   tags: string[]

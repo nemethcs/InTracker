@@ -295,7 +295,7 @@ class Document(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     element_id = Column(UUID(as_uuid=True), ForeignKey("project_elements.id", ondelete="SET NULL"), nullable=True)
-    type = Column(String, nullable=False, index=True)  # architecture, adr, domain, constraints, runbook, ai_instructions
+    type = Column(String, nullable=False, index=True)  # architecture, adr, notes
     title = Column(String, nullable=False)
     content = Column(Text, nullable=False)  # Markdown format
     tags = Column(ARRAY(String), default=[])

@@ -9,7 +9,7 @@ class DocumentBase(BaseModel):
     """Base document schema."""
     type: str = Field(
         ...,
-        pattern="^(architecture|adr|domain|constraints|runbook|ai_instructions)$",
+        pattern="^(architecture|adr|notes)$",
     )
     title: str = Field(..., min_length=1, max_length=255)
     content: str = Field(..., min_length=1)

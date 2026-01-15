@@ -67,7 +67,7 @@ def get_list_documents_tool() -> MCPTool:
                 "projectId": {"type": "string", "description": "Project UUID"},
                 "type": {
                     "type": "string",
-                    "enum": ["architecture", "adr", "domain", "constraints", "runbook", "ai_instructions"],
+                    "enum": ["architecture", "adr", "notes"],
                     "description": "Filter by document type",
                 },
             },
@@ -128,7 +128,7 @@ def get_create_document_tool() -> MCPTool:
                 "projectId": {"type": "string", "description": "Project UUID"},
                 "type": {
                     "type": "string",
-                    "enum": ["architecture", "adr", "domain", "constraints", "runbook", "ai_instructions"],
+                    "enum": ["architecture", "adr", "notes"],
                     "description": "Document type",
                 },
                 "title": {"type": "string", "description": "Document title"},

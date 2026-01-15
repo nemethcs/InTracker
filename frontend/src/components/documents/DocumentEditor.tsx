@@ -101,10 +101,7 @@ export function DocumentEditor({
                 <SelectContent>
                   <SelectItem value="architecture">Architecture</SelectItem>
                   <SelectItem value="adr">ADR (Architecture Decision Record)</SelectItem>
-                  <SelectItem value="domain">Domain</SelectItem>
-                  <SelectItem value="constraints">Constraints</SelectItem>
-                  <SelectItem value="runbook">Runbook</SelectItem>
-                  <SelectItem value="ai_instructions">AI Instructions</SelectItem>
+                  <SelectItem value="notes">Notes</SelectItem>
                 </SelectContent>
               </Select>
             </FormField>
