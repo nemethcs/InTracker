@@ -173,6 +173,17 @@ async def mcp_sse_endpoint(request: Request):
     app = MCPSSEASGIApp()
     try:
         await app(request.scope, request.receive, request._send)
+    except (ConnectionError, BrokenPipeError, OSError) as e:
+        # Connection closed gracefully - don't log as error
+        import logging
+        logging.info(f"MCP SSE connection closed gracefully: {e}")
+    except RuntimeError as e:
+        # "Response already sent" errors are expected - ignore them
+        if "Response already sent" in str(e) or "already completed" in str(e):
+            pass  # Ignore - this is expected when client disconnects
+        else:
+            import logging
+            logging.error(f"MCP SSE endpoint error: {e}", exc_info=True)
     except Exception as e:
         # Log but don't raise - ASGI app may have already sent response
         import logging
@@ -192,6 +203,17 @@ async def mcp_messages_endpoint(path: str, request: Request):
     app = MCPMessagesASGIApp()
     try:
         await app(request.scope, request.receive, request._send)
+    except (ConnectionError, BrokenPipeError, OSError) as e:
+        # Connection closed gracefully - don't log as error
+        import logging
+        logging.info(f"MCP messages connection closed gracefully: {e}")
+    except RuntimeError as e:
+        # "Response already sent" errors are expected - ignore them
+        if "Response already sent" in str(e) or "already completed" in str(e):
+            pass  # Ignore - this is expected when client disconnects
+        else:
+            import logging
+            logging.error(f"MCP messages endpoint error: {e}", exc_info=True)
     except Exception as e:
         # Log but don't raise - ASGI app may have already sent response
         import logging
