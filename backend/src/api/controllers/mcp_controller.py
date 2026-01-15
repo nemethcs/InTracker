@@ -12,6 +12,12 @@ router = APIRouter(prefix="/mcp", tags=["mcp"])
 # Create SSE transport
 sse_transport = SseServerTransport("/mcp/messages/")
 
+# Global lock and state for MCP initialization
+import asyncio
+_mcp_init_lock = asyncio.Lock()
+_mcp_initialized = False
+_mcp_init_time = None
+
 
 def verify_api_key(api_key: Optional[str]) -> Optional[str]:
     """Verify API key and return user_id if valid.
@@ -94,62 +100,55 @@ class MCPSSEASGIApp:
         # connect_sse returns an async context manager
         # When entered, it returns (read_stream, write_stream)
         # We need to run the MCP server with these streams
-        import asyncio
         import logging
+        import time
+        global _mcp_init_lock, _mcp_initialized, _mcp_init_time
         
-        max_retries = 3
-        retry_delay = 0.5  # 500ms
+        # If server was just initialized (within last 2 seconds), wait a bit
+        # This prevents race conditions when multiple clients connect simultaneously
+        if _mcp_init_time and (time.time() - _mcp_init_time) < 2.0:
+            wait_time = 2.0 - (time.time() - _mcp_init_time)
+            logging.info(f"Waiting {wait_time:.2f}s for MCP server to fully initialize...")
+            await asyncio.sleep(wait_time)
         
-        for attempt in range(max_retries):
+        # Use lock to serialize connection initialization
+        async with _mcp_init_lock:
             try:
                 cm = sse_transport.connect_sse(scope, receive, send)
                 async with cm as streams:
                     read_stream, write_stream = streams
                     
-                    # Add a small delay to ensure server is ready
-                    if attempt > 0:
-                        await asyncio.sleep(retry_delay * attempt)
+                    # Wait a bit on first connection to let initialization complete
+                    if not _mcp_initialized:
+                        logging.info("First MCP connection - waiting for initialization...")
+                        await asyncio.sleep(1.0)
+                        _mcp_initialized = True
+                        _mcp_init_time = time.time()
                     
                     await mcp_server.run(
                         read_stream,
                         write_stream,
                         mcp_server.create_initialization_options(),
                     )
-                # If we get here, connection completed successfully
-                break
-                
+                    
             except BaseException as e:
                 # Catch all exceptions including ExceptionGroup
                 error_msg = str(e)
                 
-                # Check for initialization race condition
-                if "Received request before initialization was complete" in error_msg:
-                    # Initialization race condition - retry
-                    if attempt < max_retries - 1:
-                        logging.warning(f"MCP initialization race condition (attempt {attempt + 1}/{max_retries}), retrying...")
-                        await asyncio.sleep(retry_delay)
-                        continue
-                    else:
-                        logging.error(f"MCP initialization failed after {max_retries} attempts")
-                        # Don't re-raise - client will retry connection
-                        break
-                
                 # Check for response already sent errors (ignore)
-                elif "Response already sent" in error_msg or "already completed" in error_msg:
+                if "Response already sent" in error_msg or "already completed" in error_msg:
                     # Response already sent - ignore
-                    break
+                    pass
                 
                 # Check for graceful connection close
                 elif isinstance(e, (ConnectionError, BrokenPipeError, OSError)):
                     # Connection closed gracefully (client disconnected or server restart)
                     # This is normal - Cursor will automatically reconnect
                     logging.info(f"MCP SSE connection closed: {e}")
-                    break
                 
-                # All other errors - log and break
+                # Log all other errors
                 else:
                     logging.error(f"MCP SSE connection error: {e}", exc_info=True)
-                    break
 
 
 class MCPMessagesASGIApp:
