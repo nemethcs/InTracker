@@ -142,10 +142,12 @@ async def get_projects_access(
 @router.get("/projects/{project_id}/branches")
 async def list_project_branches(
     project_id: UUID,
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Number of items per page"),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List branches for a project."""
+    """List branches for a project with pagination."""
     # Check project access
     if not project_service.check_user_access(
         db=db,
@@ -157,7 +159,13 @@ async def list_project_branches(
             detail="You don't have access to this project",
         )
 
-    branches = branch_service.get_branches_by_project(db=db, project_id=project_id)
+    skip = (page - 1) * page_size
+    branches, total = branch_service.get_branches_by_project(
+        db=db,
+        project_id=project_id,
+        skip=skip,
+        limit=page_size,
+    )
 
     return {
         "branches": [
@@ -170,6 +178,9 @@ async def list_project_branches(
             }
             for branch in branches
         ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
         "count": len(branches),
     }
 

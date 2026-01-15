@@ -65,14 +65,29 @@ class BranchService:
     def get_branches_by_project(
         db: Session,
         project_id: UUID,
-    ) -> List[GitHubBranch]:
-        """Get all branches for a project."""
-        return (
+        skip: int = 0,
+        limit: Optional[int] = None,
+    ) -> tuple[List[GitHubBranch], int]:
+        """Get branches for a project with pagination.
+        
+        Returns:
+            Tuple of (branches list, total count)
+        """
+        query = (
             db.query(GitHubBranch)
             .filter(GitHubBranch.project_id == project_id)
-            .order_by(GitHubBranch.created_at.desc())
-            .all()
         )
+        
+        total = query.count()
+        query = query.order_by(GitHubBranch.created_at.desc())
+        
+        if skip > 0:
+            query = query.offset(skip)
+        if limit is not None and limit > 0:
+            query = query.limit(limit)
+        
+        branches = query.all()
+        return branches, total
 
     @staticmethod
     def get_branches_by_feature(

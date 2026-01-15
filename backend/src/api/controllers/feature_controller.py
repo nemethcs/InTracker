@@ -68,10 +68,12 @@ async def list_features(
     project_id: UUID,
     status_filter: Optional[str] = Query(None, alias="status"),
     sort: Optional[str] = Query("updated_at_desc", description="Sort order: updated_at_desc (default), updated_at_asc, created_at_desc, created_at_asc, name_asc, name_desc"),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Number of items per page"),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List features for a project. Default sort: updated_at DESC (newest first)."""
+    """List features for a project with pagination. Default sort: updated_at DESC (newest first)."""
     # Check project access
     if not project_service.check_user_access(
         db=db,
@@ -83,14 +85,22 @@ async def list_features(
             detail="You don't have access to this project",
         )
 
+    skip = (page - 1) * page_size
     features, total = feature_service.get_features_by_project(
         db=db,
         project_id=project_id,
         status=status_filter,
         sort=sort,
+        skip=skip,
+        limit=page_size,
     )
 
-    return FeatureListResponse(features=features, total=total)
+    return FeatureListResponse(
+        features=features,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/{feature_id}", response_model=FeatureResponse)
@@ -225,10 +235,12 @@ async def delete_feature(
 async def get_feature_todos(
     feature_id: UUID,
     status_filter: Optional[str] = Query(None, alias="status"),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Number of items per page"),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get todos for a feature."""
+    """Get todos for a feature with pagination."""
     feature = feature_service.get_feature_by_id(db=db, feature_id=feature_id)
     if not feature:
         raise HTTPException(
@@ -252,17 +264,30 @@ async def get_feature_todos(
         feature_id=feature_id,
         status=status_filter,
     )
+    
+    # Apply pagination
+    total = len(todos)
+    skip = (page - 1) * page_size
+    paginated_todos = todos[skip:skip + page_size]
 
-    return {"todos": todos, "count": len(todos)}
+    return {
+        "todos": paginated_todos,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "count": len(paginated_todos),
+    }
 
 
 @router.get("/{feature_id}/elements")
 async def get_feature_elements(
     feature_id: UUID,
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Number of items per page"),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get elements linked to a feature."""
+    """Get elements linked to a feature with pagination."""
     feature = feature_service.get_feature_by_id(db=db, feature_id=feature_id)
     if not feature:
         raise HTTPException(
@@ -282,8 +307,19 @@ async def get_feature_elements(
         )
 
     elements = feature_service.get_feature_elements(db=db, feature_id=feature_id)
+    
+    # Apply pagination
+    total = len(elements)
+    skip = (page - 1) * page_size
+    paginated_elements = elements[skip:skip + page_size]
 
-    return {"elements": elements, "count": len(elements)}
+    return {
+        "elements": paginated_elements,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "count": len(paginated_elements),
+    }
 
 
 @router.post("/{feature_id}/elements/{element_id}", status_code=status.HTTP_201_CREATED)

@@ -122,14 +122,33 @@ class McpKeyService:
         return api_key.user_id
 
     @staticmethod
-    def get_keys_by_user(db: Session, user_id: UUID, include_inactive: bool = False) -> list[McpApiKey]:
-        """Get all MCP API keys for a user."""
+    def get_keys_by_user(
+        db: Session,
+        user_id: UUID,
+        include_inactive: bool = False,
+        skip: int = 0,
+        limit: Optional[int] = None,
+    ) -> tuple[list[McpApiKey], int]:
+        """Get MCP API keys for a user with pagination.
+        
+        Returns:
+            Tuple of (keys list, total count)
+        """
         query = db.query(McpApiKey).filter(McpApiKey.user_id == user_id)
         
         if not include_inactive:
             query = query.filter(McpApiKey.is_active == True)
         
-        return query.order_by(McpApiKey.created_at.desc()).all()
+        total = query.count()
+        query = query.order_by(McpApiKey.created_at.desc())
+        
+        if skip > 0:
+            query = query.offset(skip)
+        if limit is not None and limit > 0:
+            query = query.limit(limit)
+        
+        keys = query.all()
+        return keys, total
 
     @staticmethod
     def revoke_key(db: Session, key_id: UUID, user_id: UUID) -> bool:

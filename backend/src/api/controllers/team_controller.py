@@ -64,19 +64,20 @@ async def create_team(
 @router.get("", response_model=TeamListResponse)
 async def list_teams(
     current_user: dict = Depends(get_current_user),
-    skip: int = 0,
-    limit: int = 100,
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Number of items per page"),
     db: Session = Depends(get_db),
 ):
-    """List teams. Returns user's teams or all teams if admin."""
+    """List teams with pagination. Returns user's teams or all teams if admin."""
     user_id = UUID(current_user["user_id"])
     user_role = current_user.get("role")
 
+    skip = (page - 1) * page_size
     # Admins can see all teams, others only their teams
     if user_role == "admin":
-        teams, total = TeamService.list_teams(db, user_id=None, skip=skip, limit=limit)
+        teams, total = TeamService.list_teams(db, user_id=None, skip=skip, limit=page_size)
     else:
-        teams, total = TeamService.list_teams(db, user_id=user_id, skip=skip, limit=limit)
+        teams, total = TeamService.list_teams(db, user_id=user_id, skip=skip, limit=page_size)
 
     # Convert UUIDs to strings for response
     teams_data = [
@@ -91,7 +92,7 @@ async def list_teams(
         }
         for team in teams
     ]
-    return TeamListResponse(teams=teams_data, total=total)
+    return TeamListResponse(teams=teams_data, total=total, page=page, page_size=page_size)
 
 
 @router.get("/{team_id}", response_model=TeamResponse)

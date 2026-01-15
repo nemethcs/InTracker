@@ -84,9 +84,11 @@ class TeamLanguageRequest(BaseModel):
 
 
 class TeamListResponse(BaseModel):
-    """Team list response schema."""
+    """Team list response schema with pagination."""
     teams: List[TeamResponse]
     total: int
+    page: Optional[int] = Field(None, description="Current page number (1-indexed)")
+    page_size: Optional[int] = Field(None, description="Number of items per page")
 
 
 class TeamInvitationResponse(BaseModel):
