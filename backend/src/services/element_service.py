@@ -88,38 +88,78 @@ class ElementService:
         project_id: UUID,
         parent_id: Optional[UUID] = None,
     ) -> List[dict]:
-        """Build hierarchical element tree with statistics."""
-        from src.database.models import Todo, FeatureElement
-        from sqlalchemy import func
+        """Build hierarchical element tree with statistics.
+        
+        Optimized to avoid N+1 queries by using bulk queries with aggregation.
+        """
+        from src.database.models import Todo, FeatureElement, Feature
+        from sqlalchemy import func, case
 
         elements = ElementService.get_project_elements_tree(db, project_id, parent_id)
+        
+        if not elements:
+            return []
+        
+        element_ids = [e.id for e in elements]
         result = []
 
-        for element in elements:
-            # Count todos for this element
-            todos_count = db.query(func.count(Todo.id)).filter(
-                Todo.element_id == element.id
-            ).scalar() or 0
-            
-            todos_done_count = db.query(func.count(Todo.id)).filter(
-                Todo.element_id == element.id,
-                Todo.status == "done"
-            ).scalar() or 0
-
-            # Count features linked to this element
-            features_count = db.query(func.count(FeatureElement.feature_id)).filter(
-                FeatureElement.element_id == element.id
-            ).scalar() or 0
-
-            # Get linked feature names
-            from src.database.models import Feature
-            linked_features = (
-                db.query(Feature)
-                .join(FeatureElement)
-                .filter(FeatureElement.element_id == element.id)
-                .all()
+        # OPTIMIZATION: Bulk query todos counts for all elements at once
+        # Group by element_id and count todos and done todos
+        todos_stats = (
+            db.query(
+                Todo.element_id,
+                func.count(Todo.id).label('todos_count'),
+                func.sum(
+                    case((Todo.status == "done", 1), else_=0)
+                ).label('todos_done_count')
             )
-            linked_feature_names = [f.name for f in linked_features]
+            .filter(Todo.element_id.in_(element_ids))
+            .group_by(Todo.element_id)
+            .all()
+        )
+        
+        # Create a dict for quick lookup: element_id -> (todos_count, todos_done_count)
+        todos_dict = {
+            eid: (count, done_count or 0)
+            for eid, count, done_count in todos_stats
+        }
+
+        # OPTIMIZATION: Bulk query feature counts for all elements at once
+        features_counts = (
+            db.query(
+                FeatureElement.element_id,
+                func.count(FeatureElement.feature_id).label('features_count')
+            )
+            .filter(FeatureElement.element_id.in_(element_ids))
+            .group_by(FeatureElement.element_id)
+            .all()
+        )
+        
+        # Create a dict for quick lookup: element_id -> features_count
+        features_count_dict = {
+            eid: count for eid, count in features_counts
+        }
+
+        # OPTIMIZATION: Bulk query linked features for all elements at once
+        linked_features_query = (
+            db.query(FeatureElement.element_id, Feature.name)
+            .join(Feature, FeatureElement.feature_id == Feature.id)
+            .filter(FeatureElement.element_id.in_(element_ids))
+            .all()
+        )
+        
+        # Create a dict for quick lookup: element_id -> [feature_names]
+        linked_features_dict = {}
+        for eid, feature_name in linked_features_query:
+            if eid not in linked_features_dict:
+                linked_features_dict[eid] = []
+            linked_features_dict[eid].append(feature_name)
+
+        # Build result using pre-fetched data
+        for element in elements:
+            todos_count, todos_done_count = todos_dict.get(element.id, (0, 0))
+            features_count = features_count_dict.get(element.id, 0)
+            linked_feature_names = linked_features_dict.get(element.id, [])
 
             element_dict = {
                 "id": str(element.id),
