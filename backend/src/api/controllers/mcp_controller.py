@@ -80,9 +80,6 @@ class MCPSSEASGIApp:
     Both methods return the same SSE stream.
     """
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
-        method = scope.get("method", "UNKNOWN")
-        logger.info(f"DEBUG: MCPSSEASGIApp called with method: {method}")
-        
         # Accept both GET (SSE) and POST (Streamable HTTP) methods
         if scope["type"] != "http" or scope["method"] not in ["GET", "POST"]:
             from starlette.responses import Response
@@ -94,17 +91,14 @@ class MCPSSEASGIApp:
         # The MCP SDK sends initialization data in POST body, but we don't need it
         # as we handle initialization through SSE events
         if scope["method"] == "POST":
-            logger.info(f"DEBUG: Reading POST body...")
             # Read the request body to avoid connection issues
             while True:
                 message = await receive()
                 if message["type"] == "http.request":
                     # Body received, continue processing
                     if not message.get("more_body", False):
-                        logger.info(f"DEBUG: POST body fully read")
                         break
                 elif message["type"] == "http.disconnect":
-                    logger.info(f"DEBUG: Client disconnected during POST body read")
                     # Client disconnected
                     return
         
@@ -167,13 +161,10 @@ class MCPSSEASGIApp:
         # No global lock needed - MCP SDK and Redis are already thread-safe
         # Global lock was causing deadlocks with multiple concurrent connections
         
-        logger.info(f"DEBUG: Calling sse_transport.connect_sse() for connection: {connection_id[:8]}...")
         try:
             cm = sse_transport.connect_sse(scope, receive, send)
-            logger.info(f"DEBUG: connect_sse() returned context manager for connection: {connection_id[:8]}...")
             
             async with cm as streams:
-                logger.info(f"DEBUG: Context manager entered for connection: {connection_id[:8]}...")
                 read_stream, write_stream = streams
                 
                 logger.info(f"🚀 MCP server running for connection: {connection_id[:8]}...")
@@ -299,14 +290,9 @@ async def mcp_sse_endpoint(request: Request):
     NOTE: This endpoint uses a custom ASGI app that handles its own responses.
     We don't return anything to avoid FastAPI trying to send a response.
     """
-    logger.info(f"🔥 DEBUG: mcp_sse_endpoint called! Method: {request.method}, URL: {request.url}")
-    logger.info(f"🔥 DEBUG: Headers: {dict(request.headers)}")
-    
     app = MCPSSEASGIApp()
     try:
-        logger.info(f"🔥 DEBUG: About to call MCPSSEASGIApp...")
         await app(request.scope, request.receive, request._send)
-        logger.info(f"🔥 DEBUG: MCPSSEASGIApp returned")
     except (ConnectionError, BrokenPipeError, OSError) as e:
         # Connection closed gracefully - don't log as error
         import logging
