@@ -6,7 +6,6 @@ import { useFeatureStore } from '@/stores/featureStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useTodoStore } from '@/stores/todoStore'
 import { adminService, type Team } from '@/services/adminService'
-import { elementService, type ElementTree as ElementTreeData } from '@/services/elementService'
 import { documentService, type Document } from '@/services/documentService'
 import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,15 +16,12 @@ import { Button } from '@/components/ui/button'
 import { FeatureEditor } from '@/components/features/FeatureEditor'
 import { FeatureCard } from '@/components/features/FeatureCard'
 import { ProjectEditor } from '@/components/projects/ProjectEditor'
-import { ElementTree } from '@/components/elements/ElementTree'
-import { ElementDetailDialog } from '@/components/elements/ElementDetailDialog'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { ActiveUsers } from '@/components/collaboration/ActiveUsers'
 import { DocumentEditor } from '@/components/documents/DocumentEditor'
-import { Plus, Edit, FileText, CheckSquare, UsersRound, ChevronDown, ChevronRight, ChevronLeft, Clock, FolderKanban, Layers } from 'lucide-react'
+import { Plus, Edit, FileText, CheckSquare, UsersRound, ChevronDown, ChevronRight, ChevronLeft, Clock, FolderKanban } from 'lucide-react'
 import { iconSize } from '@/components/ui/Icon'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { format } from 'date-fns'
 import type { Feature } from '@/services/featureService'
 import type { Todo } from '@/services/todoService'
@@ -41,13 +37,11 @@ export function ProjectDetail() {
   const [featureEditorOpen, setFeatureEditorOpen] = useState(false)
   const [editingFeature, setEditingFeature] = useState<any>(null)
   const [projectEditorOpen, setProjectEditorOpen] = useState(false)
-  const [elementTree, setElementTree] = useState<ElementTreeData | null>(null)
   const [todosPage, setTodosPage] = useState(1)
   const TODOS_PER_PAGE = 4
 
   // Filter and sort todos: only open todos (exclude "done" status) for this project
   // Backend already filters by project_id via JOIN with ProjectElement in get_todos_by_project
-  // We trust backend filtering completely - no need for element tree filtering
   // Sort by priority (critical > high > medium > low) and status (in_progress > new)
   // Use useMemo to avoid recalculating on every render
   const todos = useMemo(() => {
@@ -115,15 +109,7 @@ export function ProjectDetail() {
     const completed = allTodos
       .filter(todo => {
         if (todo.status !== 'done') return false
-        if (!id || !elementTree) return true
-        const findElementInTree = (elements: any[]): boolean => {
-          for (const el of elements) {
-            if (el.id === todo.element_id) return true
-            if (el.children && findElementInTree(el.children)) return true
-          }
-          return false
-        }
-        return findElementInTree(elementTree.elements)
+        return true
       })
       .sort((a, b) => {
         // Use completed_at if available, otherwise fallback to updated_at
@@ -138,7 +124,7 @@ export function ProjectDetail() {
       ...todo,
       featureName: todo.feature_id ? features.find(f => f.id === todo.feature_id)?.name : undefined
     }))
-  }, [allTodos, id, elementTree, features])
+  }, [allTodos, id, features])
 
   // Get last worked feature (has in_progress or done todos, or was recently updated)
   const lastWorkedFeature = useMemo(() => {
@@ -171,11 +157,8 @@ export function ProjectDetail() {
     
     return featuresWithActiveTodos[0].feature
   }, [sortedFeatures, allTodos])
-  const [isLoadingElements, setIsLoadingElements] = useState(false)
   const [documents, setDocuments] = useState<Document[]>([])
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false)
-  const [selectedElement, setSelectedElement] = useState<any>(null)
-  const [elementDetailOpen, setElementDetailOpen] = useState(false)
   const [documentEditorOpen, setDocumentEditorOpen] = useState(false)
   const [editingDocument, setEditingDocument] = useState<Document | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
@@ -224,21 +207,8 @@ export function ProjectDetail() {
     signalrService.on('connected', handleConnected)
     signalrService.on('reconnected', handleConnected)
     
-    // Load element tree
-    setIsLoadingElements(true)
-    elementService.getProjectTree(id)
-        .then((tree) => {
-          console.log('Element tree loaded:', tree)
-          setElementTree(tree)
-          setIsLoadingElements(false)
-        })
-        .catch((error) => {
-          console.error('Failed to load element tree:', error)
-          setElementTree(null)
-          setIsLoadingElements(false)
-        })
-
-      setIsLoadingDocuments(true)
+    // Load documents
+    setIsLoadingDocuments(true)
       documentService.listDocuments(id)
         .then((docs) => {
           setDocuments(docs)
@@ -617,61 +587,7 @@ export function ProjectDetail() {
         </div>
       </div>
 
-      {/* Project Structure & Documents: Full-width sections */}
-      <div className="space-y-6">
-        {/* Element Tree Section - Collapsible with Accordion */}
-        <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="project-structure">
-            <AccordionTrigger className="text-xl sm:text-2xl font-bold">
-              <div className="flex items-center gap-2">
-                <Layers className={iconSize('md')} />
-                <span>Project Structure</span>
-                {elementTree && elementTree.elements && elementTree.elements.length > 0 && (
-                  <span className="text-sm font-normal text-muted-foreground">
-                    ({elementTree.elements.length} {elementTree.elements.length === 1 ? 'element' : 'elements'})
-                  </span>
-                )}
-              </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              {isLoadingElements ? (
-                <Card>
-                  <CardContent className="py-8">
-                    <LoadingState variant="combined" size="md" skeletonCount={3} />
-                  </CardContent>
-                </Card>
-              ) : elementTree && elementTree.elements && elementTree.elements.length > 0 ? (
-                <Card className="overflow-hidden">
-                  <CardHeader className="pb-3">
-                    <CardDescription>
-                      Click on an element to view details. Use the chevron icons to expand/collapse folders.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="max-h-[400px] overflow-y-auto">
-                      <ElementTree
-                        elements={elementTree.elements}
-                        onElementClick={(element) => {
-                          setSelectedElement(element)
-                          setElementDetailOpen(true)
-                        }}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <EmptyState
-                  icon={<Layers className="h-12 w-12 text-muted-foreground" />}
-                  title="No elements yet"
-                  description="Elements are created automatically when you add features and todos to the project."
-                  variant="compact"
-                />
-              )}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-
-        {/* Documents Section */}
+      {/* Documents Section */}
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <h2 className="text-xl sm:text-2xl font-bold">Documents</h2>
@@ -710,30 +626,6 @@ export function ProjectDetail() {
                 : []
               const firstTodo = elementTodos.length > 0 ? elementTodos[0] : null
 
-              // Helper function to find element in tree
-              const findElementInTree = (elements: any[], targetId: string): any => {
-                for (const el of elements) {
-                  if (el.id === targetId) {
-                    return el
-                  }
-                  if (el.children) {
-                    const found = findElementInTree(el.children, targetId)
-                    if (found) return found
-                  }
-                }
-                return null
-              }
-
-              const handleViewTodos = (e: React.MouseEvent) => {
-                e.preventDefault()
-                if (document.element_id && elementTree) {
-                  const element = findElementInTree(elementTree.elements, document.element_id)
-                  if (element) {
-                    setSelectedElement(element)
-                    setElementDetailOpen(true)
-                  }
-                }
-              }
 
               return (
                 <Card key={document.id} className="hover:shadow-lg transition-shadow">
@@ -767,25 +659,13 @@ export function ProjectDetail() {
                             </span>
                           )}
                         </div>
-                        {document.element_id && (
-                          firstTodo && firstTodo.feature_id ? (
-                            <Link to={`/projects/${id}/features/${firstTodo.feature_id}`}>
-                              <Button variant="ghost" size="sm" className="h-7 text-xs">
-                                <CheckSquare className="mr-1 h-3 w-3" />
-                                View Todos
-                              </Button>
-                            </Link>
-                          ) : (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-7 text-xs"
-                              onClick={handleViewTodos}
-                            >
+                        {firstTodo && firstTodo.feature_id && (
+                          <Link to={`/projects/${id}/features/${firstTodo.feature_id}`}>
+                            <Button variant="ghost" size="sm" className="h-7 text-xs">
                               <CheckSquare className="mr-1 h-3 w-3" />
                               View Todos
                             </Button>
-                          )
+                          </Link>
                         )}
                       </div>
                       
@@ -859,16 +739,6 @@ export function ProjectDetail() {
         />
       )}
 
-      {/* Element Detail Dialog */}
-      {id && (
-        <ElementDetailDialog
-          open={elementDetailOpen}
-          onOpenChange={setElementDetailOpen}
-          element={selectedElement}
-          projectId={id}
-        />
-      )}
-
       {/* Document Editor Dialog */}
       {id && (
         <DocumentEditor
@@ -881,7 +751,6 @@ export function ProjectDetail() {
           }}
           document={editingDocument}
           projectId={id}
-          elementId={selectedElement?.id}
           onSave={async (data) => {
             try {
               if (editingDocument) {

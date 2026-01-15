@@ -5,7 +5,6 @@ import { useTodos } from '@/hooks/useTodos'
 import { useFeatureStore } from '@/stores/featureStore'
 import { useTodoStore } from '@/stores/todoStore'
 import { signalrService } from '@/services/signalrService'
-import { elementService, type ElementTree } from '@/services/elementService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -47,36 +46,8 @@ export function FeatureDetail() {
   const [todoEditorOpen, setTodoEditorOpen] = useState(false)
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null)
   const [featureEditorOpen, setFeatureEditorOpen] = useState(false)
-  const [elementTree, setElementTree] = useState<ElementTree | null>(null)
-  const [isLoadingElements, setIsLoadingElements] = useState(false)
 
   const feature = features.find(f => f.id === featureId)
-  
-  // Get element ID for new todos - use first element from project tree or feature's linked elements
-  const elementId = useMemo(() => {
-    if (!elementTree || !elementTree.elements || elementTree.elements.length === 0) {
-      return undefined
-    }
-    
-    // Helper function to find first element in tree (recursive)
-    const findFirstElement = (elements: any[]): string | undefined => {
-      for (const el of elements) {
-        // Prefer component or module type elements
-        if (el.type === 'component' || el.type === 'module') {
-          return el.id
-        }
-        // Check children recursively
-        if (el.children && el.children.length > 0) {
-          const childId = findFirstElement(el.children)
-          if (childId) return childId
-        }
-      }
-      // Fallback to first element
-      return elements[0]?.id
-    }
-    
-    return findFirstElement(elementTree.elements)
-  }, [elementTree])
 
   // Sort todos by position (if available), then by created_at
   // IMPORTANT: This must be before any early returns to maintain hook order
@@ -102,23 +73,6 @@ export function FeatureDetail() {
     in_progress: sortedTodos.filter(t => t.status === 'in_progress'),
     done: sortedTodos.filter(t => t.status === 'done'),
   }
-
-  // Load element tree for project
-  useEffect(() => {
-    if (!projectId) return
-
-    setIsLoadingElements(true)
-    elementService.getProjectTree(projectId)
-      .then((tree) => {
-        setElementTree(tree)
-        setIsLoadingElements(false)
-      })
-      .catch((error) => {
-        console.error('Failed to load element tree:', error)
-        setElementTree(null)
-        setIsLoadingElements(false)
-      })
-  }, [projectId])
 
   // Subscribe to SignalR real-time updates
   useEffect(() => {
@@ -410,7 +364,7 @@ export function FeatureDetail() {
         }}
         todo={editingTodo}
         featureId={featureId}
-        elementId={elementId || undefined}
+        projectId={projectId}
         onSave={async (data) => {
           try {
             if (editingTodo) {
