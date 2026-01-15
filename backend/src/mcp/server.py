@@ -14,6 +14,7 @@ from src.mcp.tools import (
     idea,
     import_tools,
     onboarding,
+    team,
 )
 from src.mcp.server_handlers import (
     handle_project_tool,
@@ -25,6 +26,7 @@ from src.mcp.server_handlers import (
     handle_idea_tool,
     handle_import_tool,
     handle_onboarding_tool,
+    handle_team_tool,
 )
 # Pre-import resources to ensure they're available at initialization
 from src.mcp.resources import project_resources, feature_resources, document_resources
@@ -101,6 +103,9 @@ async def list_tools() -> list[Tool]:
         import_tools.get_analyze_codebase_tool(),
         # Onboarding tools
         onboarding.get_verify_connection_tool(),
+        # Team tools
+        team.get_list_teams_tool(),
+        team.get_get_team_tool(),
     ]
 
 
@@ -118,6 +123,7 @@ async def call_tool(name: str, arguments: dict):
         handle_idea_tool,
         handle_import_tool,
         handle_onboarding_tool,
+        handle_team_tool,
     ]
     
     for handler in handlers:

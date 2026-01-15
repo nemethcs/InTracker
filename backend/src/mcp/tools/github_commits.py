@@ -4,10 +4,17 @@ from mcp.types import Tool as MCPTool
 
 
 def get_parse_commit_message_tool() -> MCPTool:
-    """Get parse commit message tool definition."""
+    """Get parse commit message tool definition.
+    
+    Parses conventional commit format: "type(scope): description [feature:id]"
+    Useful for validating commit messages and extracting feature IDs.
+    
+    In Cursor + InTracker workflow, commits are made locally, but this tool can be used
+    to validate commit message format and extract metadata.
+    """
     return MCPTool(
         name="mcp_parse_commit_message",
-        description="Parse commit message for metadata",
+        description="Parse commit message for metadata. Parses conventional commit format: 'type(scope): description [feature:id]'. Useful for validating commit messages and extracting feature IDs. In Cursor + InTracker workflow, commits are made locally, but this tool can be used to validate format.",
         inputSchema={
             "type": "object",
             "properties": {

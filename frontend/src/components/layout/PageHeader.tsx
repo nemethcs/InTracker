@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 
 interface PageHeaderProps {
   title: string | ReactNode
-  description?: string
+  description?: string | ReactNode
   actions?: ReactNode
   className?: string
 }
@@ -14,7 +14,13 @@ export function PageHeader({ title, description, actions, className }: PageHeade
       <div className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
         {description && (
-          <p className="text-muted-foreground text-sm">{description}</p>
+          <div className="text-muted-foreground text-sm">
+            {typeof description === 'string' ? (
+              <p>{description}</p>
+            ) : (
+              description
+            )}
+          </div>
         )}
       </div>
       {actions && (

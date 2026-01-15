@@ -1,13 +1,16 @@
 """Team controller."""
 from typing import Optional
 from uuid import UUID
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from src.database.base import get_db
-from src.database.models import Team, TeamMember, User, User
+from src.database.models import Team, TeamMember, User
 from src.services.team_service import TeamService
 from src.services.invitation_service import InvitationService
+from src.services.email_service import email_service
 from src.api.middleware.auth import get_current_user, get_current_team_leader, get_current_admin_user
+from src.config import settings
 from src.api.schemas.team import (
     TeamCreateRequest,
     TeamUpdateRequest,
@@ -435,6 +438,101 @@ async def create_team_invitation(
         inviter = db.query(User).filter(User.id == current_user_id).first()
         inviter_name = inviter.name if inviter else None
 
+        # If email is provided, check if user already exists
+        existing_user = None
+        if send_email_to:
+            existing_user = db.query(User).filter(User.email.ilike(send_email_to)).first()
+            
+            # If user exists and is not already a team member, add them directly
+            if existing_user:
+                from src.database.models import TeamMember
+                existing_member = db.query(TeamMember).filter(
+                    TeamMember.team_id == team_id,
+                    TeamMember.user_id == existing_user.id
+                ).first()
+                
+                if existing_member:
+                    # User is already a team member
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"User with email {send_email_to} is already a member of this team",
+                    )
+                else:
+                    # Add existing user directly to team
+                    team_member = TeamService.add_member(
+                        db=db,
+                        team_id=team_id,
+                        user_id=existing_user.id,
+                        role=member_role,
+                    )
+                    # Send notification email to existing user
+                    frontend_url = settings.FRONTEND_URL
+                    if not frontend_url or frontend_url == "*":
+                        frontend_url = "https://intracker.kesmarki.com"
+                    team_url = f"{frontend_url}/teams"
+                    
+                    inviter_text = f" from {inviter_name}" if inviter_name else ""
+                    subject = f"You've been added to {team.name} on InTracker"
+                    html_content = f"""
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="utf-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Team Member Added</title>
+                    </head>
+                    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                            <h1 style="color: #2563eb; margin-top: 0;">You've been added to {team.name}!</h1>
+                        </div>
+                        
+                        <div style="background-color: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+                            <p>Hello,</p>
+                            
+                            <p>You've been added{inviter_text} to <strong>{team.name}</strong> on InTracker as a <strong>{member_role}</strong>.</p>
+                            
+                            <div style="text-align: center; margin: 30px 0;">
+                                <a href="{team_url}" 
+                                   style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                                    View Team
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; text-align: center;">
+                            <p>This is an automated message from InTracker. Please do not reply to this email.</p>
+                        </div>
+                    </body>
+                    </html>
+                    """
+                    plain_text_content = f"""
+You've been added{inviter_text} to {team.name} on InTracker as a {member_role}.
+
+View your team: {team_url}
+
+This is an automated message from InTracker. Please do not reply to this email.
+                    """.strip()
+                    
+                    email_sent = email_service.send_email(
+                        to_email=send_email_to,
+                        subject=subject,
+                        html_content=html_content,
+                        plain_text_content=plain_text_content,
+                    )
+                    
+                    # Return invitation response with special code to indicate direct add
+                    # Frontend can check if code starts with "DIRECT_ADD:" to know user was added directly
+                    return TeamInvitationResponse(
+                        code=f"DIRECT_ADD:{team_member.id}",  # Special code to indicate direct add
+                        type="team",
+                        team_id=str(team_id),
+                        expires_at=None,
+                        created_at=team_member.joined_at.isoformat() if team_member.joined_at else datetime.utcnow().isoformat(),
+                        email_sent_to=send_email_to,
+                        email_sent_at=datetime.utcnow().isoformat() if email_sent else None,
+                    )
+
+        # User doesn't exist, create invitation
         invitation = InvitationService.generate_team_invitation(
             db=db,
             team_id=team_id,

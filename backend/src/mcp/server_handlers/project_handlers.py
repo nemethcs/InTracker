@@ -96,8 +96,13 @@ async def handle_project_tool(name: str, arguments: dict) -> list[TextContent] |
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 
         elif name == "mcp_identify_project_by_path":
+            # Path is required according to tool definition
+            if "path" not in arguments:
+                return [TextContent(type="text", text=json.dumps({
+                    "error": "Path parameter is required. In Docker environment, MCP server cannot access local file system without explicit path."
+                }, indent=2))]
             result = await project.handle_identify_project_by_path(
-                arguments.get("path"),
+                arguments["path"],
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 

@@ -111,6 +111,8 @@ class TodoService:
         limit: int = 100,
     ) -> tuple[List[Todo], int]:
         """Get todos for a project."""
+        from sqlalchemy import case
+        
         query = (
             db.query(Todo)
             .join(ProjectElement)
@@ -121,7 +123,18 @@ class TodoService:
             query = query.filter(Todo.status == status)
 
         total = query.count()
-        todos = query.order_by(Todo.position, Todo.created_at).offset(skip).limit(limit).all()
+        # Order by status priority (new, in_progress first, then done), then by position and created_at
+        status_priority = case(
+            (Todo.status == 'new', 0),
+            (Todo.status == 'in_progress', 1),
+            (Todo.status == 'done', 2),
+            else_=3
+        )
+        todos = query.order_by(
+            status_priority,
+            Todo.position,
+            Todo.created_at
+        ).offset(skip).limit(limit).all()
 
         return todos, total
 

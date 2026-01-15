@@ -27,6 +27,17 @@ def create_intracker_integration_section() -> RulesSection:
      - `tested`: Implemented and tested, but NOT in dev branch yet
      - `done`: Tested AND merged to dev branch (only after merge!)
 
+**If user requests new work on a feature:**
+   - **CRITICAL: You work BOTH locally (git commands) AND via MCP (InTracker tracking)!**
+   - Create todo (MCP): `mcp_create_todo(elementId, title, description, featureId?, priority?)`
+   - Update status (MCP): `mcp_update_todo_status(todoId, "in_progress", expectedVersion)`
+   - Implement changes (LOCAL - edit files, test)
+   - Commit (LOCAL): `git commit -m "feat(scope): description [feature:featureId]"`
+   - Push (LOCAL): `git push origin feature/{feature-name}`
+   - Update status (MCP): `mcp_update_todo_status(todoId, "tested", expectedVersion)` (only if tested!)
+   - After merge: `mcp_update_todo_status(todoId, "done", expectedVersion)` (only after tested AND merged!)
+   - **REMEMBER: Git commands run LOCALLY, InTracker updates via MCP!**
+
 **Feature Management:**
 - **Create features:** `mcp_create_feature(projectId, name, description, elementIds?)`
   - **{LANG:feature_language_note}**

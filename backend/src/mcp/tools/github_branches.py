@@ -63,10 +63,21 @@ async def handle_get_branches(project_id: str, feature_id: Optional[str] = None)
 
 
 def get_create_branch_for_feature_tool() -> MCPTool:
-    """Get create branch for feature tool definition."""
+    """Get create branch for feature tool definition.
+    
+    NOTE: In the Cursor + InTracker workflow, branches are typically created locally using git commands.
+    This tool creates a branch on GitHub and links it to a feature. Use this if you need to create
+    the branch on GitHub first, otherwise prefer creating the branch locally and using 
+    mcp_link_branch_to_feature to link it.
+    
+    Recommended workflow:
+    1. Create branch locally: git checkout -b feature/feature-name develop
+    2. Push to GitHub: git push -u origin feature/feature-name
+    3. Link to feature: mcp_link_branch_to_feature(featureId, "feature/feature-name")
+    """
     return MCPTool(
         name="mcp_create_branch_for_feature",
-        description="Create a GitHub branch for a feature",
+        description="Create a GitHub branch for a feature. NOTE: In Cursor + InTracker workflow, branches are typically created locally using git commands. This tool creates the branch on GitHub and links it. For optimal workflow, create branch locally first, then use mcp_link_branch_to_feature to link it.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -148,15 +159,24 @@ async def handle_create_branch_for_feature(feature_id: str, base_branch: str = "
 
 
 def get_link_branch_to_feature_tool() -> MCPTool:
-    """Get link branch to feature tool definition."""
+    """Get link branch to feature tool definition.
+    
+    RECOMMENDED: Use this tool after creating a branch locally with git commands.
+    This is the preferred workflow in Cursor + InTracker integration.
+    
+    Workflow:
+    1. Create branch locally: git checkout -b feature/feature-name develop
+    2. Push to GitHub: git push -u origin feature/feature-name
+    3. Link to feature: mcp_link_branch_to_feature(featureId, "feature/feature-name")
+    """
     return MCPTool(
         name="mcp_link_branch_to_feature",
-        description="Link a GitHub branch to a feature",
+        description="Link a GitHub branch to a feature. RECOMMENDED: Use this after creating a branch locally with git commands. This is the preferred workflow in Cursor + InTracker integration.",
         inputSchema={
             "type": "object",
             "properties": {
                 "featureId": {"type": "string", "description": "Feature UUID"},
-                "branchName": {"type": "string", "description": "Branch name"},
+                "branchName": {"type": "string", "description": "Branch name (e.g., 'feature/feature-name')"},
             },
             "required": ["featureId", "branchName"],
         },
@@ -367,10 +387,19 @@ async def handle_get_branch_status(project_id: str, branch_name: str) -> dict:
 
 
 def get_get_commits_for_feature_tool() -> MCPTool:
-    """Get commits for feature tool definition."""
+    """Get commits for feature tool definition.
+    
+    NOTE: In Cursor + InTracker workflow, commits are made locally using git commands.
+    This tool retrieves commits from GitHub for a feature's branches. Useful for:
+    - Tracking commit history
+    - Statistics and reporting
+    - Validating commit messages
+    
+    Commits are typically made locally, but this tool provides visibility into GitHub commit history.
+    """
     return MCPTool(
         name="mcp_get_commits_for_feature",
-        description="Get commits for a feature",
+        description="Get commits for a feature from GitHub. NOTE: In Cursor + InTracker workflow, commits are made locally using git commands. This tool retrieves commits from GitHub for tracking history, statistics, and validation.",
         inputSchema={
             "type": "object",
             "properties": {

@@ -295,11 +295,13 @@ export function Settings() {
         // If redirect_path is /onboarding, let onboarding handle the callback
         // We need to check the redirect_path from Redis, but we can infer it from the state
         // For now, check if user is in onboarding flow
+        // IMPORTANT: Admins should NEVER be redirected to onboarding, even if setup_completed is false
         const currentUserBeforeCallback = useAuthStore.getState().user
-        const isOnboardingFlow = currentUserBeforeCallback && !currentUserBeforeCallback.setup_completed
+        const isAdmin = currentUserBeforeCallback?.role === 'admin'
+        const isOnboardingFlow = currentUserBeforeCallback && !currentUserBeforeCallback.setup_completed && !isAdmin
         
         if (isOnboardingFlow) {
-          // User is in onboarding flow, redirect to onboarding with query params
+          // User is in onboarding flow (and not admin), redirect to onboarding with query params
           // Let onboarding handle the callback
           navigate(`/onboarding?code=${code}&state=${state}`, { replace: true })
           return
