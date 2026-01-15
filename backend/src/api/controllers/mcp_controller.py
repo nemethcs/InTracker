@@ -94,26 +94,59 @@ class MCPSSEASGIApp:
         # connect_sse returns an async context manager
         # When entered, it returns (read_stream, write_stream)
         # We need to run the MCP server with these streams
-        try:
-            cm = sse_transport.connect_sse(scope, receive, send)
-            async with cm as streams:
-                read_stream, write_stream = streams
-                await mcp_server.run(
-                    read_stream,
-                    write_stream,
-                    mcp_server.create_initialization_options(),
-                )
-        except (ConnectionError, BrokenPipeError, OSError) as e:
-            # Connection closed gracefully (client disconnected or server restart)
-            # This is normal - Cursor will automatically reconnect
-            import logging
-            logging.info(f"MCP SSE connection closed: {e}")
-            # Don't log as error - this is expected behavior
-        except Exception as e:
-            # If MCP server fails with unexpected error, log it
-            import logging
-            logging.error(f"MCP SSE connection error: {e}", exc_info=True)
-            # Don't re-raise - response may have already been sent
+        import asyncio
+        import logging
+        
+        max_retries = 3
+        retry_delay = 0.5  # 500ms
+        
+        for attempt in range(max_retries):
+            try:
+                cm = sse_transport.connect_sse(scope, receive, send)
+                async with cm as streams:
+                    read_stream, write_stream = streams
+                    
+                    # Add a small delay to ensure server is ready
+                    if attempt > 0:
+                        await asyncio.sleep(retry_delay * attempt)
+                    
+                    await mcp_server.run(
+                        read_stream,
+                        write_stream,
+                        mcp_server.create_initialization_options(),
+                    )
+                # If we get here, connection completed successfully
+                break
+                
+            except RuntimeError as e:
+                error_msg = str(e)
+                if "Received request before initialization was complete" in error_msg:
+                    # Initialization race condition - retry
+                    if attempt < max_retries - 1:
+                        logging.warning(f"MCP initialization race condition (attempt {attempt + 1}/{max_retries}), retrying...")
+                        await asyncio.sleep(retry_delay)
+                        continue
+                    else:
+                        logging.error(f"MCP initialization failed after {max_retries} attempts")
+                        # Don't re-raise - client will retry connection
+                elif "Response already sent" in error_msg or "already completed" in error_msg:
+                    # Response already sent - ignore
+                    break
+                else:
+                    # Other RuntimeError - log and break
+                    logging.error(f"MCP SSE RuntimeError: {e}", exc_info=True)
+                    break
+                    
+            except (ConnectionError, BrokenPipeError, OSError) as e:
+                # Connection closed gracefully (client disconnected or server restart)
+                # This is normal - Cursor will automatically reconnect
+                logging.info(f"MCP SSE connection closed: {e}")
+                break
+                
+            except Exception as e:
+                # If MCP server fails with unexpected error, log it
+                logging.error(f"MCP SSE connection error: {e}", exc_info=True)
+                break
 
 
 class MCPMessagesASGIApp:
