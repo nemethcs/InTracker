@@ -17,7 +17,7 @@ import { FeatureCard } from '@/components/features/FeatureCard'
 import { ProjectEditor } from '@/components/projects/ProjectEditor'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { ActiveUsers } from '@/components/collaboration/ActiveUsers'
-import { Plus, Edit, CheckSquare, UsersRound, ChevronDown, ChevronRight, ChevronLeft, Clock, FolderKanban, CheckCircle2 } from 'lucide-react'
+import { Plus, Edit, CheckSquare, UsersRound, ChevronDown, ChevronRight, ChevronLeft, Clock, FolderKanban, CheckCircle2, AlertCircle } from 'lucide-react'
 import { iconSize } from '@/components/ui/Icon'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
@@ -450,34 +450,169 @@ export function ProjectDetail() {
                   </div>
                 )}
                 
-                {/* Resume Context */}
-                {currentProject.resume_context && (
-                  <div className={lastCompletedTodos.length > 0 || lastWorkedFeature ? "pt-4 border-t" : ""}>
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                      Resume Context
-                    </h3>
-                    <div className="space-y-2.5">
-                      {currentProject.resume_context.last && (
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Resume Context Card - Separate card for project status summary */}
+          {currentProject.resume_context && (
+            <Card className="border-l-4 border-l-secondary">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Resume Context</CardTitle>
+                <CardDescription className="text-xs">
+                  Project status and current progress
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 pt-0">
+                {/* Format resume context based on structure */}
+                {(() => {
+                  const rc = currentProject.resume_context
+                  
+                  // If resume_context has simple string fields (last, now, next)
+                  if (typeof rc.last === 'string' || typeof rc.now === 'string' || typeof rc.next === 'string') {
+                    return (
+                      <div className="space-y-3">
+                        {rc.last && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                              <Clock className="h-3 w-3" />
+                              Last Session
+                            </h4>
+                            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                              {rc.last}
+                            </p>
+                          </div>
+                        )}
+                        {rc.now && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                              <CheckSquare className="h-3 w-3" />
+                              Current Status
+                            </h4>
+                            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                              {rc.now}
+                            </p>
+                          </div>
+                        )}
+                        {rc.next && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                              <ChevronRight className="h-3 w-3" />
+                              Next Steps
+                            </h4>
+                            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                              {rc.next}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }
+                  
+                  // If resume_context has complex structure (objects)
+                  const last = rc.last
+                  const now = rc.now
+                  const next = rc.next_blockers || rc.next
+                  
+                  return (
+                    <div className="space-y-3">
+                      {/* Last Session */}
+                      {last && (
                         <div>
-                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Last</h4>
-                          <p className="text-xs text-foreground line-clamp-3">{currentProject.resume_context.last}</p>
+                          <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                            <Clock className="h-3 w-3" />
+                            Last Session
+                          </h4>
+                          {typeof last === 'string' ? (
+                            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{last}</p>
+                          ) : last.session_summary ? (
+                            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                              {last.session_summary}
+                            </p>
+                          ) : (
+                            <p className="text-sm text-muted-foreground italic">No session summary available</p>
+                          )}
                         </div>
                       )}
-                      {currentProject.resume_context.now && (
+                      
+                      {/* Current Status */}
+                      {now && (
                         <div>
-                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Now</h4>
-                          <p className="text-xs text-foreground line-clamp-3">{currentProject.resume_context.now}</p>
+                          <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                            <CheckSquare className="h-3 w-3" />
+                            Current Status
+                          </h4>
+                          {typeof now === 'string' ? (
+                            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{now}</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {now.next_todos && now.next_todos.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">Next Todos:</p>
+                                  <ul className="list-disc list-inside space-y-0.5 text-sm text-foreground">
+                                    {now.next_todos.slice(0, 3).map((todo: any) => (
+                                      <li key={todo.id || todo.title} className="text-xs">
+                                        {todo.title}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              {now.immediate_goals && now.immediate_goals.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">Immediate Goals:</p>
+                                  <ul className="list-disc list-inside space-y-0.5 text-sm text-foreground">
+                                    {now.immediate_goals.map((goal: string, idx: number) => (
+                                      <li key={idx} className="text-xs">{goal}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
-                      {currentProject.resume_context.next && (
+                      
+                      {/* Blockers */}
+                      {rc.blockers && (
                         <div>
-                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Next</h4>
-                          <p className="text-xs text-foreground line-clamp-3">{currentProject.resume_context.next}</p>
+                          <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                            <AlertCircle className="h-3 w-3" />
+                            Blockers
+                          </h4>
+                          {Array.isArray(rc.blockers) && rc.blockers.length > 0 ? (
+                            <ul className="list-disc list-inside space-y-0.5 text-sm text-foreground">
+                              {rc.blockers.map((blocker: string, idx: number) => (
+                                <li key={idx} className="text-xs">{blocker}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-muted-foreground italic">No blockers</p>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Constraints */}
+                      {rc.constraints && (
+                        <div>
+                          <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                            <FolderKanban className="h-3 w-3" />
+                            Constraints
+                          </h4>
+                          {Array.isArray(rc.constraints) && rc.constraints.length > 0 ? (
+                            <ul className="list-disc list-inside space-y-0.5 text-sm text-foreground">
+                              {rc.constraints.map((constraint: string, idx: number) => (
+                                <li key={idx} className="text-xs">{constraint}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-muted-foreground italic">No constraints</p>
+                          )}
                         </div>
                       )}
                     </div>
-                  </div>
-                )}
+                  )
+                })()}
               </CardContent>
             </Card>
           )}
