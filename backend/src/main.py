@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from fastapi import HTTPException
 from starlette.middleware.gzip import GZipMiddleware
 from src.config import settings
+from src.api.middleware.validation import ValidationMiddleware
 from contextlib import asynccontextmanager
 import os
 import logging
@@ -97,6 +98,9 @@ else:
         cors_origins = [settings.CORS_ORIGIN]
     else:
         cors_origins = ["*"]
+
+# Validation middleware (should be first to catch invalid requests early)
+app.add_middleware(ValidationMiddleware)
 
 # Compression middleware (should be added before CORS)
 app.add_middleware(
