@@ -13,7 +13,9 @@ import { Button } from '@/components/ui/button'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { TodoEditor } from '@/components/todos/TodoEditor'
 import { FeatureEditor } from '@/components/features/FeatureEditor'
-import { ArrowLeft, Plus, CheckCircle2, Circle, AlertCircle, Clock, User, Edit } from 'lucide-react'
+import { DocumentEditor } from '@/components/documents/DocumentEditor'
+import { documentService, type Document } from '@/services/documentService'
+import { ArrowLeft, Plus, CheckCircle2, Circle, AlertCircle, Clock, User, Edit, FileText } from 'lucide-react'
 import { iconSize } from '@/components/ui/Icon'
 import { format } from 'date-fns'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -46,6 +48,10 @@ export function FeatureDetail() {
   const [todoEditorOpen, setTodoEditorOpen] = useState(false)
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null)
   const [featureEditorOpen, setFeatureEditorOpen] = useState(false)
+  const [documents, setDocuments] = useState<Document[]>([])
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false)
+  const [documentEditorOpen, setDocumentEditorOpen] = useState(false)
+  const [editingDocument, setEditingDocument] = useState<Document | null>(null)
 
   const feature = features.find(f => f.id === featureId)
 
@@ -142,6 +148,23 @@ export function FeatureDetail() {
       }
     }
   }, [projectId, featureId, refetchTodos])
+
+  // Load documents for this feature
+  useEffect(() => {
+    if (!projectId || !featureId) return
+
+    setIsLoadingDocuments(true)
+    documentService.listDocuments(projectId, undefined, undefined, featureId)
+      .then((docs) => {
+        setDocuments(docs)
+        setIsLoadingDocuments(false)
+      })
+      .catch((error) => {
+        console.error('Failed to load documents:', error)
+        setDocuments([])
+        setIsLoadingDocuments(false)
+      })
+  }, [projectId, featureId])
 
   if (featuresLoading) {
     return (
@@ -353,6 +376,93 @@ export function FeatureDetail() {
         )}
       </div>
 
+      {/* Documents Section */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <h2 className="text-xl sm:text-2xl font-bold">Documents</h2>
+          <Button onClick={() => {
+            setEditingDocument(null)
+            setDocumentEditorOpen(true)
+          }}>
+            <Plus className="mr-2 h-4 w-4" />
+            New Document
+          </Button>
+        </div>
+        {isLoadingDocuments ? (
+          <LoadingState variant="combined" size="md" skeletonCount={3} />
+        ) : documents.length === 0 ? (
+          <EmptyState
+            icon={<FileText className="h-12 w-12 text-muted-foreground" />}
+            title="No documents yet"
+            description="Create your first document for this feature"
+            variant="compact"
+          />
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {documents.map((document) => {
+              // Get preview of content (first 200 characters, strip markdown)
+              const preview = document.content
+                ? document.content
+                    .replace(/[#*_`\[\]]/g, '')
+                    .replace(/\n/g, ' ')
+                    .trim()
+                    .substring(0, 200)
+                : 'No content'
+
+              return (
+                <Card key={document.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => {
+                  setEditingDocument(document)
+                  setDocumentEditorOpen(true)
+                }}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="mb-1">{document.title}</CardTitle>
+                        <CardDescription className="line-clamp-1">
+                          {document.type.replace('_', ' ')}
+                        </CardDescription>
+                      </div>
+                      <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {/* Content Preview */}
+                      <div className="text-sm text-muted-foreground line-clamp-3 min-h-[3.5rem]">
+                        {preview}
+                        {document.content && document.content.length > 200 && '...'}
+                      </div>
+                      
+                      <div className="flex items-center justify-between text-sm pt-2 border-t">
+                        <Badge variant="outline" className="capitalize text-xs">
+                          {document.type.replace('_', ' ')}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          v{document.version}
+                        </span>
+                      </div>
+                      
+                      {document.tags && document.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {document.tags.slice(0, 3).map((tag) => (
+                            <span
+                              key={tag}
+                              className="px-2 py-0.5 text-xs bg-secondary rounded-md"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Todo Editor Dialog */}
       <TodoEditor
         open={todoEditorOpen}
@@ -379,6 +489,41 @@ export function FeatureDetail() {
           }
         }}
       />
+
+      {/* Document Editor Dialog */}
+      {projectId && featureId && (
+        <DocumentEditor
+          open={documentEditorOpen}
+          onOpenChange={(open) => {
+            setDocumentEditorOpen(open)
+            if (!open) {
+              setEditingDocument(null)
+            }
+          }}
+          document={editingDocument}
+          projectId={projectId}
+          onSave={async (data) => {
+            try {
+              if (editingDocument) {
+                await documentService.updateDocument(editingDocument.id, data as any)
+              } else {
+                // Create new document with feature_id
+                await documentService.createDocument({
+                  ...data as any,
+                  project_id: projectId,
+                  feature_id: featureId,
+                })
+              }
+              // Reload documents
+              const docs = await documentService.listDocuments(projectId, undefined, undefined, featureId)
+              setDocuments(docs)
+            } catch (error) {
+              console.error('Failed to save document:', error)
+              throw error
+            }
+          }}
+        />
+      )}
 
       {/* Feature Editor Dialog */}
       {projectId && (
