@@ -92,13 +92,17 @@ class MCPSSEASGIApp:
         
         # Pre-load tools and resources before running server (optimization)
         # This ensures tools/resources are cached before first request
-        from src.mcp.server import _load_tools, _load_resources
+        import logging
+        logger = logging.getLogger(__name__)
+        
         try:
+            from src.mcp.server import _load_tools, _load_resources
+            logger.info("Pre-loading MCP tools and resources...")
             _load_tools()
             _load_resources()
+            logger.info("MCP tools and resources pre-loaded successfully")
         except Exception as e:
-            import logging
-            logging.warning(f"Failed to pre-load MCP tools/resources: {e}")
+            logger.warning(f"Failed to pre-load MCP tools/resources: {e}", exc_info=True)
             # Continue anyway - tools will load on first list_tools() call
         
         # Based on MCP SDK source code inspection:
@@ -106,9 +110,11 @@ class MCPSSEASGIApp:
         # When entered, it returns (read_stream, write_stream)
         # We need to run the MCP server with these streams
         try:
+            logger.info("Establishing MCP SSE connection...")
             cm = sse_transport.connect_sse(scope, receive, send)
             async with cm as streams:
                 read_stream, write_stream = streams
+                logger.info("MCP SSE streams established, starting server...")
                 await mcp_server.run(
                     read_stream,
                     write_stream,
@@ -117,8 +123,7 @@ class MCPSSEASGIApp:
         except Exception as e:
             # If MCP server fails, don't let global exception handler catch it
             # as it may have already sent a response
-            import logging
-            logging.error(f"MCP SSE connection error: {e}", exc_info=True)
+            logger.error(f"MCP SSE connection error: {e}", exc_info=True)
             # Don't re-raise - response may have already been sent
 
 
