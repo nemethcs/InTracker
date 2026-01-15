@@ -1,6 +1,6 @@
 """Pydantic schemas for projects."""
 from pydantic import BaseModel, Field, field_serializer
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from uuid import UUID
 
@@ -33,6 +33,7 @@ class ProjectUpdate(BaseModel):
     github_repo_url: Optional[str] = None
     github_repo_id: Optional[str] = None
     team_id: Optional[UUID] = Field(None, description="Team ID that will own this project")
+    resume_context: Optional[Dict[str, Any]] = Field(None, description="Resume context JSON object")
 
 
 class ProjectResponse(ProjectBase):
@@ -44,6 +45,7 @@ class ProjectResponse(ProjectBase):
     created_at: datetime
     updated_at: datetime
     last_session_at: Optional[datetime] = None
+    resume_context: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True

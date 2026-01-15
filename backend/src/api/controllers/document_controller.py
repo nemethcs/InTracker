@@ -46,6 +46,7 @@ async def create_document(
         title=document_data.title,
         content=document_data.content,
         element_id=document_data.element_id,
+        feature_id=document_data.feature_id,
         tags=document_data.tags,
         current_user_id=user_id,
     )
@@ -71,6 +72,7 @@ async def list_project_documents(
     project_id: UUID,
     type_filter: Optional[str] = Query(None, alias="type"),
     element_id: Optional[UUID] = Query(None),
+    feature_id: Optional[UUID] = Query(None),
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -95,6 +97,7 @@ async def list_project_documents(
         project_id=project_id,
         type=type_filter,
         element_id=element_id,
+        feature_id=feature_id,
         search=search,
         skip=skip,
         limit=page_size,

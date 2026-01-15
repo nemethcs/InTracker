@@ -17,7 +17,8 @@ export interface Todo {
 }
 
 export interface TodoCreate {
-  element_id: string
+  element_id?: string  // Optional - if not provided, project_id must be provided
+  project_id?: string  // Optional - required if element_id is not provided
   title: string
   description?: string
   feature_id?: string

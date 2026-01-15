@@ -4,7 +4,8 @@ export interface Document {
   id: string
   project_id: string
   element_id?: string
-  type: 'architecture' | 'adr' | 'domain' | 'constraints' | 'runbook' | 'ai_instructions'
+  feature_id?: string
+  type: 'architecture' | 'adr' | 'notes'
   title: string
   content: string
   tags: string[]
@@ -16,6 +17,7 @@ export interface Document {
 export interface DocumentCreate {
   project_id: string
   element_id?: string
+  feature_id?: string
   type: Document['type']
   title: string
   content: string
@@ -36,10 +38,11 @@ export interface DocumentListResponse {
 }
 
 export const documentService = {
-  async listDocuments(projectId: string, type?: string, elementId?: string): Promise<Document[]> {
+  async listDocuments(projectId: string, type?: string, elementId?: string, featureId?: string): Promise<Document[]> {
     const params: Record<string, string> = {}
     if (type) params.type = type
     if (elementId) params.element_id = elementId
+    if (featureId) params.feature_id = featureId
 
     const response = await api.get(`/documents/project/${projectId}`, { params })
     // Backend returns { documents: [...], total, page, page_size }

@@ -6,8 +6,6 @@ import { useFeatureStore } from '@/stores/featureStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useTodoStore } from '@/stores/todoStore'
 import { adminService, type Team } from '@/services/adminService'
-import { elementService, type ElementTree as ElementTreeData } from '@/services/elementService'
-import { documentService, type Document } from '@/services/documentService'
 import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingState } from '@/components/ui/LoadingState'
@@ -17,12 +15,9 @@ import { Button } from '@/components/ui/button'
 import { FeatureEditor } from '@/components/features/FeatureEditor'
 import { FeatureCard } from '@/components/features/FeatureCard'
 import { ProjectEditor } from '@/components/projects/ProjectEditor'
-import { ElementTree } from '@/components/elements/ElementTree'
-import { ElementDetailDialog } from '@/components/elements/ElementDetailDialog'
 import { TodoCard } from '@/components/todos/TodoCard'
 import { ActiveUsers } from '@/components/collaboration/ActiveUsers'
-import { DocumentEditor } from '@/components/documents/DocumentEditor'
-import { Plus, Edit, FileText, CheckSquare, UsersRound, ChevronDown, ChevronRight, ChevronLeft, Clock, FolderKanban, Layers } from 'lucide-react'
+import { Plus, Edit, CheckSquare, UsersRound, ChevronDown, ChevronRight, ChevronLeft, Clock, FolderKanban, CheckCircle2, AlertCircle } from 'lucide-react'
 import { iconSize } from '@/components/ui/Icon'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
@@ -41,13 +36,11 @@ export function ProjectDetail() {
   const [featureEditorOpen, setFeatureEditorOpen] = useState(false)
   const [editingFeature, setEditingFeature] = useState<any>(null)
   const [projectEditorOpen, setProjectEditorOpen] = useState(false)
-  const [elementTree, setElementTree] = useState<ElementTreeData | null>(null)
   const [todosPage, setTodosPage] = useState(1)
   const TODOS_PER_PAGE = 4
 
   // Filter and sort todos: only open todos (exclude "done" status) for this project
   // Backend already filters by project_id via JOIN with ProjectElement in get_todos_by_project
-  // We trust backend filtering completely - no need for element tree filtering
   // Sort by priority (critical > high > medium > low) and status (in_progress > new)
   // Use useMemo to avoid recalculating on every render
   const todos = useMemo(() => {
@@ -110,25 +103,31 @@ export function ProjectDetail() {
     })
   }, [features])
 
-  // Get last 3 completed todos (status: done)
+  // Get last 3 completed todos (status: done) for Context & Activity
+  // IMPORTANT: Only show todos that are actually "done" status and have completed_at or recent updated_at
   const lastCompletedTodos = useMemo(() => {
     const completed = allTodos
       .filter(todo => {
+        // STRICT: Only include todos with status === 'done'
         if (todo.status !== 'done') return false
-        if (!id || !elementTree) return true
-        const findElementInTree = (elements: any[]): boolean => {
-          for (const el of elements) {
-            if (el.id === todo.element_id) return true
-            if (el.children && findElementInTree(el.children)) return true
-          }
-          return false
-        }
-        return findElementInTree(elementTree.elements)
+        
+        // Only show todos that have completed_at set (were actually completed)
+        // OR have updated_at within last 30 days (recently marked as done)
+        const updatedAt = new Date(todo.updated_at).getTime()
+        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000)
+        
+        // Prefer completed_at, but allow updated_at if recent
+        return todo.completed_at || updatedAt > thirtyDaysAgo
       })
       .sort((a, b) => {
-        // Use completed_at if available, otherwise fallback to updated_at
-        const aTime = a.completed_at ? new Date(a.completed_at).getTime() : new Date(a.updated_at).getTime()
-        const bTime = b.completed_at ? new Date(b.completed_at).getTime() : new Date(b.updated_at).getTime()
+        // Prioritize completed_at, then updated_at
+        // Most recent first
+        const aTime = a.completed_at 
+          ? new Date(a.completed_at).getTime() 
+          : new Date(a.updated_at).getTime()
+        const bTime = b.completed_at 
+          ? new Date(b.completed_at).getTime() 
+          : new Date(b.updated_at).getTime()
         return bTime - aTime
       })
       .slice(0, 3)
@@ -138,7 +137,35 @@ export function ProjectDetail() {
       ...todo,
       featureName: todo.feature_id ? features.find(f => f.id === todo.feature_id)?.name : undefined
     }))
-  }, [allTodos, id, elementTree, features])
+  }, [allTodos, id, features])
+
+  // Get all completed todos (status: done) for Completed Items section
+  const completedTodos = useMemo(() => {
+    const completed = allTodos
+      .filter(todo => todo.status === 'done')
+      .sort((a, b) => {
+        // Use completed_at if available, otherwise fallback to updated_at
+        const aTime = a.completed_at ? new Date(a.completed_at).getTime() : new Date(a.updated_at).getTime()
+        const bTime = b.completed_at ? new Date(b.completed_at).getTime() : new Date(b.updated_at).getTime()
+        return bTime - aTime
+      })
+    
+    // Enrich with feature names
+    return completed.map(todo => ({
+      ...todo,
+      featureName: todo.feature_id ? features.find(f => f.id === todo.feature_id)?.name : undefined
+    }))
+  }, [allTodos, features])
+
+  // Get all completed features (status: merged, tested, done) for Completed Items section
+  const completedFeatures = useMemo(() => {
+    return features
+      .filter(f => f.status === 'merged' || f.status === 'tested' || f.status === 'done')
+      .sort((a, b) => {
+        // Sort by updated_at (most recent first)
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      })
+  }, [features])
 
   // Get last worked feature (has in_progress or done todos, or was recently updated)
   const lastWorkedFeature = useMemo(() => {
@@ -171,13 +198,6 @@ export function ProjectDetail() {
     
     return featuresWithActiveTodos[0].feature
   }, [sortedFeatures, allTodos])
-  const [isLoadingElements, setIsLoadingElements] = useState(false)
-  const [documents, setDocuments] = useState<Document[]>([])
-  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false)
-  const [selectedElement, setSelectedElement] = useState<any>(null)
-  const [elementDetailOpen, setElementDetailOpen] = useState(false)
-  const [documentEditorOpen, setDocumentEditorOpen] = useState(false)
-  const [editingDocument, setEditingDocument] = useState<Document | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
 
   useEffect(() => {
@@ -223,31 +243,6 @@ export function ProjectDetail() {
     // Subscribe to connection events
     signalrService.on('connected', handleConnected)
     signalrService.on('reconnected', handleConnected)
-    
-    // Load element tree
-    setIsLoadingElements(true)
-    elementService.getProjectTree(id)
-        .then((tree) => {
-          console.log('Element tree loaded:', tree)
-          setElementTree(tree)
-          setIsLoadingElements(false)
-        })
-        .catch((error) => {
-          console.error('Failed to load element tree:', error)
-          setElementTree(null)
-          setIsLoadingElements(false)
-        })
-
-      setIsLoadingDocuments(true)
-      documentService.listDocuments(id)
-        .then((docs) => {
-          setDocuments(docs)
-          setIsLoadingDocuments(false)
-        })
-        .catch((error) => {
-          console.error('Failed to load documents:', error)
-          setIsLoadingDocuments(false)
-        })
 
       // Fetch todos using store - it will auto-update via SignalR
       fetchTodos(undefined, undefined, id)
@@ -469,34 +464,180 @@ export function ProjectDetail() {
                   </div>
                 )}
                 
-                {/* Resume Context */}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Resume Context Card - Separate card for project status summary */}
                 {currentProject.resume_context && (
-                  <div className={lastCompletedTodos.length > 0 || lastWorkedFeature ? "pt-4 border-t" : ""}>
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                      Resume Context
-                    </h3>
-                    <div className="space-y-2.5">
-                      {currentProject.resume_context.last && (
+            <Card className="border-l-4 border-l-secondary">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Resume Context</CardTitle>
+                <CardDescription className="text-xs">
+                  Project status and current progress
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 pt-0">
+                {/* Format resume context based on structure */}
+                {(() => {
+                  const rc = currentProject.resume_context
+                  
+                  // If resume_context has simple string fields (last, now, next)
+                  if (typeof rc.last === 'string' || typeof rc.now === 'string' || typeof rc.next === 'string') {
+                    return (
+                      <div className="space-y-3">
+                        {rc.last && (
                         <div>
-                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Last</h4>
-                          <p className="text-xs text-foreground line-clamp-3">{currentProject.resume_context.last}</p>
+                            <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                              <Clock className="h-3 w-3" />
+                              Last Session
+                            </h4>
+                            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                              {rc.last}
+                            </p>
                         </div>
                       )}
-                      {currentProject.resume_context.now && (
+                        {rc.now && (
                         <div>
-                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Now</h4>
-                          <p className="text-xs text-foreground line-clamp-3">{currentProject.resume_context.now}</p>
+                            <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                              <CheckSquare className="h-3 w-3" />
+                              Current Status
+                            </h4>
+                            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                              {rc.now}
+                            </p>
                         </div>
                       )}
-                      {currentProject.resume_context.next && (
+                        {rc.next && (
                         <div>
-                          <h4 className="text-xs font-medium text-muted-foreground mb-1">Next</h4>
-                          <p className="text-xs text-foreground line-clamp-3">{currentProject.resume_context.next}</p>
+                            <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                              <ChevronRight className="h-3 w-3" />
+                              Next Steps
+                            </h4>
+                            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                              {rc.next}
+                            </p>
                         </div>
                       )}
                     </div>
+                    )
+                  }
+                  
+                  // If resume_context has complex structure (objects)
+                  const last = rc.last
+                  const now = rc.now
+                  const next = rc.next_blockers || rc.next
+                  
+                  return (
+                    <div className="space-y-3">
+                      {/* Last Session */}
+                      {last && (
+                        <div>
+                          <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                            <Clock className="h-3 w-3" />
+                            Last Session
+                          </h4>
+                          {typeof last === 'string' ? (
+                            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{last}</p>
+                          ) : last.session_summary ? (
+                            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                              {last.session_summary}
+                            </p>
+                          ) : (
+                            <p className="text-sm text-muted-foreground italic">No session summary available</p>
+                          )}
                   </div>
                 )}
+                      
+                      {/* Current Status */}
+                      {now && (
+                        <div>
+                          <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                            <CheckSquare className="h-3 w-3" />
+                            Current Status
+                          </h4>
+                          {typeof now === 'string' ? (
+                            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{now}</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {now.next_todos && now.next_todos.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">Next Todos:</p>
+                                  <ul className="list-disc list-inside space-y-0.5 text-sm text-foreground">
+                                    {now.next_todos
+                                      .filter((todo: any) => {
+                                        // Filter out todos that are already done
+                                        // Check if todo exists in allTodos and has status 'done'
+                                        if (todo.id) {
+                                          const actualTodo = allTodos.find(t => t.id === todo.id)
+                                          return !actualTodo || actualTodo.status !== 'done'
+                                        }
+                                        return true
+                                      })
+                                      .slice(0, 3)
+                                      .map((todo: any) => (
+                                        <li key={todo.id || todo.title} className="text-xs">
+                                          {todo.title}
+                                        </li>
+                                      ))}
+                                  </ul>
+                                </div>
+                              )}
+                              {now.immediate_goals && now.immediate_goals.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-1">Immediate Goals:</p>
+                                  <ul className="list-disc list-inside space-y-0.5 text-sm text-foreground">
+                                    {now.immediate_goals.map((goal: string, idx: number) => (
+                                      <li key={idx} className="text-xs">{goal}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Blockers */}
+                      {rc.blockers && (
+                        <div>
+                          <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                            <AlertCircle className="h-3 w-3" />
+                            Blockers
+                          </h4>
+                          {Array.isArray(rc.blockers) && rc.blockers.length > 0 ? (
+                            <ul className="list-disc list-inside space-y-0.5 text-sm text-foreground">
+                              {rc.blockers.map((blocker: string, idx: number) => (
+                                <li key={idx} className="text-xs">{blocker}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-muted-foreground italic">No blockers</p>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Constraints */}
+                      {rc.constraints && (
+                        <div>
+                          <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                            <FolderKanban className="h-3 w-3" />
+                            Constraints
+                          </h4>
+                          {Array.isArray(rc.constraints) && rc.constraints.length > 0 ? (
+                            <ul className="list-disc list-inside space-y-0.5 text-sm text-foreground">
+                              {rc.constraints.map((constraint: string, idx: number) => (
+                                <li key={idx} className="text-xs">{constraint}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-muted-foreground italic">No constraints</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
               </CardContent>
             </Card>
           )}
@@ -508,7 +649,7 @@ export function ProjectDetail() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <h2 className="text-xl sm:text-2xl font-bold">Next Tasks</h2>
+              <h2 className="text-xl sm:text-2xl font-bold">Next Tasks</h2>
                 {todos.length > 0 && (
                   <Badge variant="secondary" className="text-xs">
                     {todos.length} {todos.length === 1 ? 'task' : 'tasks'}
@@ -536,10 +677,10 @@ export function ProjectDetail() {
               </Card>
             ) : (
               <>
-                <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
                   {paginatedTodos.map((todo) => (
-                    <TodoCard key={todo.id} todo={todo} />
-                  ))}
+                  <TodoCard key={todo.id} todo={todo} />
+                ))}
                 </div>
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between mt-4">
@@ -567,7 +708,7 @@ export function ProjectDetail() {
                         <ChevronRight className="h-4 w-4" />
                       </Button>
                     </div>
-                  </div>
+              </div>
                 )}
               </>
             )}
@@ -617,199 +758,134 @@ export function ProjectDetail() {
         </div>
       </div>
 
-      {/* Project Structure & Documents: Full-width sections */}
-      <div className="space-y-6">
-        {/* Element Tree Section - Collapsible with Accordion */}
+      {/* Completed Items Section - Collapsible */}
+      {(completedFeatures.length > 0 || completedTodos.length > 0) && (
+        <div className="mt-8">
         <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="project-structure">
+            <AccordionItem value="completed-items">
             <AccordionTrigger className="text-xl sm:text-2xl font-bold">
               <div className="flex items-center gap-2">
-                <Layers className={iconSize('md')} />
-                <span>Project Structure</span>
-                {elementTree && elementTree.elements && elementTree.elements.length > 0 && (
-                  <span className="text-sm font-normal text-muted-foreground">
-                    ({elementTree.elements.length} {elementTree.elements.length === 1 ? 'element' : 'elements'})
-                  </span>
-                )}
+                  <CheckCircle2 className={iconSize('md')} />
+                  <span>Completed Items</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {completedFeatures.length + completedTodos.length} {completedFeatures.length + completedTodos.length === 1 ? 'item' : 'items'}
+                  </Badge>
               </div>
             </AccordionTrigger>
             <AccordionContent>
-              {isLoadingElements ? (
-                <Card>
-                  <CardContent className="py-8">
-                    <LoadingState variant="combined" size="md" skeletonCount={3} />
-                  </CardContent>
-                </Card>
-              ) : elementTree && elementTree.elements && elementTree.elements.length > 0 ? (
-                <Card className="overflow-hidden">
-                  <CardHeader className="pb-3">
-                    <CardDescription>
-                      Click on an element to view details. Use the chevron icons to expand/collapse folders.
+                <div className="space-y-6 pt-4">
+                  {/* Completed Features */}
+                  {completedFeatures.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                        <FolderKanban className="h-5 w-5" />
+                        Completed Features ({completedFeatures.length})
+                      </h3>
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {completedFeatures.map((feature) => (
+                          <Link key={feature.id} to={`/projects/${id}/features/${feature.id}`}>
+                            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+                              <CardHeader>
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <CardTitle className="mb-1 line-clamp-2">{feature.name}</CardTitle>
+                                    <CardDescription className="line-clamp-2">
+                                      {feature.description || 'No description'}
                     </CardDescription>
+                                  </div>
+                                  <Badge 
+                                    variant={
+                                      feature.status === 'merged' ? 'default' :
+                                      feature.status === 'tested' ? 'secondary' :
+                                      'outline'
+                                    }
+                                    className="ml-2 flex-shrink-0"
+                                  >
+                                    {feature.status}
+                                  </Badge>
+                                </div>
                   </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="max-h-[400px] overflow-y-auto">
-                      <ElementTree
-                        elements={elementTree.elements}
-                        onElementClick={(element) => {
-                          setSelectedElement(element)
-                          setElementDetailOpen(true)
-                        }}
-                      />
+                              <CardContent>
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">
+                                    {format(new Date(feature.updated_at), 'MMM d, yyyy')}
+                                  </span>
+                                  {feature.progress_percentage !== undefined && (
+                                    <span className="text-muted-foreground">
+                                      {feature.progress_percentage}% complete
+                                    </span>
+                                  )}
                     </div>
                   </CardContent>
                 </Card>
-              ) : (
-                <EmptyState
-                  icon={<Layers className="h-12 w-12 text-muted-foreground" />}
-                  title="No elements yet"
-                  description="Elements are created automatically when you add features and todos to the project."
-                  variant="compact"
-                />
-              )}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-        {/* Documents Section */}
+                  {/* Completed Todos */}
+                  {completedTodos.length > 0 && (
         <div>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <h2 className="text-xl sm:text-2xl font-bold">Documents</h2>
-            <Button onClick={() => {
-              setEditingDocument(null)
-              setDocumentEditorOpen(true)
-            }}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Document
-            </Button>
-          </div>
-        {isLoadingDocuments ? (
-          <LoadingState variant="combined" size="md" skeletonCount={3} />
-        ) : documents.length === 0 ? (
-          <EmptyState
-            icon={<FileText className="h-12 w-12 text-muted-foreground" />}
-            title="No documents yet"
-            description="Create your first document to get started"
-            variant="compact"
-          />
-        ) : (
+                      <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                        <CheckSquare className="h-5 w-5" />
+                        Completed Todos ({completedTodos.length})
+                      </h3>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {documents.map((document) => {
-              // Get preview of content (first 200 characters, strip markdown)
-              const preview = document.content
-                ? document.content
-                    .replace(/[#*`\[\]]/g, '') // Remove markdown syntax
-                    .replace(/\n/g, ' ') // Replace newlines with spaces
-                    .trim()
-                    .substring(0, 200)
-                : 'No content'
-              
-              // Get first open todo for this element if exists
-              const elementTodos = document.element_id 
-                ? todos.filter(t => t.element_id === document.element_id && t.status !== 'done')
-                : []
-              const firstTodo = elementTodos.length > 0 ? elementTodos[0] : null
-
-              // Helper function to find element in tree
-              const findElementInTree = (elements: any[], targetId: string): any => {
-                for (const el of elements) {
-                  if (el.id === targetId) {
-                    return el
-                  }
-                  if (el.children) {
-                    const found = findElementInTree(el.children, targetId)
-                    if (found) return found
-                  }
-                }
-                return null
-              }
-
-              const handleViewTodos = (e: React.MouseEvent) => {
-                e.preventDefault()
-                if (document.element_id && elementTree) {
-                  const element = findElementInTree(elementTree.elements, document.element_id)
-                  if (element) {
-                    setSelectedElement(element)
-                    setElementDetailOpen(true)
-                  }
-                }
-              }
-
-              return (
-                <Card key={document.id} className="hover:shadow-lg transition-shadow">
+                        {completedTodos.map((todo) => (
+                          <Card key={todo.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <CardTitle className="mb-1">{document.title}</CardTitle>
-                        <CardDescription className="line-clamp-1">
-                          {document.type.replace('_', ' ')}
+                                  <CardTitle className="mb-1 line-clamp-2">{todo.title}</CardTitle>
+                                  {todo.description && (
+                                    <CardDescription className="line-clamp-2">
+                                      {todo.description}
                         </CardDescription>
+                                  )}
                       </div>
-                      <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                                <Badge variant="outline" className="ml-2 flex-shrink-0">
+                                  done
+                                </Badge>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
-                      {/* Content Preview */}
-                      <div className="text-sm text-muted-foreground line-clamp-3 min-h-[3.5rem]">
-                        {preview}
-                        {document.content && document.content.length > 200 && '...'}
-                      </div>
-                      
-                      <div className="flex items-center justify-between text-sm pt-2 border-t">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="capitalize text-xs">
-                            {document.type.replace('_', ' ')}
-                          </Badge>
-                          {elementTodos.length > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                              {elementTodos.length} open {elementTodos.length === 1 ? 'todo' : 'todos'}
-                            </span>
-                          )}
-                        </div>
-                        {document.element_id && (
-                          firstTodo && firstTodo.feature_id ? (
-                            <Link to={`/projects/${id}/features/${firstTodo.feature_id}`}>
-                              <Button variant="ghost" size="sm" className="h-7 text-xs">
-                                <CheckSquare className="mr-1 h-3 w-3" />
-                                View Todos
-                              </Button>
-                            </Link>
-                          ) : (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-7 text-xs"
-                              onClick={handleViewTodos}
+                              <div className="space-y-2">
+                                {todo.featureName && (
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <FolderKanban className="h-4 w-4 text-muted-foreground" />
+                                    <Link 
+                                      to={`/projects/${id}/features/${todo.feature_id}`}
+                                      className="text-primary hover:underline"
+                                      onClick={(e) => e.stopPropagation()}
                             >
-                              <CheckSquare className="mr-1 h-3 w-3" />
-                              View Todos
-                            </Button>
-                          )
-                        )}
+                                      {todo.featureName}
+                                    </Link>
                       </div>
-                      
-                      {document.tags && document.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 pt-1">
-                          {document.tags.slice(0, 3).map((tag) => (
-                            <span
-                              key={tag}
-                              className="px-2 py-0.5 text-xs bg-secondary rounded-md"
-                            >
-                              {tag}
+                                )}
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-muted-foreground">
+                                    {format(new Date(todo.completed_at || todo.updated_at), 'MMM d, yyyy')}
                             </span>
-                          ))}
+                                  {todo.priority && (
+                                    <Badge variant="outline" className="text-xs capitalize">
+                                      {todo.priority}
+                                    </Badge>
+                                  )}
                         </div>
-                      )}
                     </div>
                   </CardContent>
                 </Card>
-              )
-            })}
+                        ))}
+                      </div>
           </div>
         )}
         </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
       </div>
+      )}
 
       {/* Feature Editor Dialog */}
       {id && (
@@ -859,54 +935,6 @@ export function ProjectDetail() {
         />
       )}
 
-      {/* Element Detail Dialog */}
-      {id && (
-        <ElementDetailDialog
-          open={elementDetailOpen}
-          onOpenChange={setElementDetailOpen}
-          element={selectedElement}
-          projectId={id}
-        />
-      )}
-
-      {/* Document Editor Dialog */}
-      {id && (
-        <DocumentEditor
-          open={documentEditorOpen}
-          onOpenChange={(open) => {
-            setDocumentEditorOpen(open)
-            if (!open) {
-              setEditingDocument(null)
-            }
-          }}
-          document={editingDocument}
-          projectId={id}
-          elementId={selectedElement?.id}
-          onSave={async (data) => {
-            try {
-              if (editingDocument) {
-                await documentService.updateDocument(editingDocument.id, data as any)
-              } else {
-                await documentService.createDocument(data as any)
-              }
-              // Reload documents
-              setIsLoadingDocuments(true)
-              documentService.listDocuments(id)
-                .then((docs) => {
-                  setDocuments(docs)
-                  setIsLoadingDocuments(false)
-                })
-                .catch((error) => {
-                  console.error('Failed to reload documents:', error)
-                  setIsLoadingDocuments(false)
-                })
-            } catch (error) {
-              console.error('Failed to save document:', error)
-              throw error // Re-throw to let DocumentEditor handle the error
-            }
-          }}
-        />
-      )}
     </div>
   )
 }
