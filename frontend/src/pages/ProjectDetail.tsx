@@ -104,17 +104,30 @@ export function ProjectDetail() {
   }, [features])
 
   // Get last 3 completed todos (status: done) for Context & Activity
-  // IMPORTANT: Only show todos that are actually "done" status
+  // IMPORTANT: Only show todos that are actually "done" status and have completed_at or recent updated_at
   const lastCompletedTodos = useMemo(() => {
     const completed = allTodos
       .filter(todo => {
         // STRICT: Only include todos with status === 'done'
-        return todo.status === 'done'
+        if (todo.status !== 'done') return false
+        
+        // Only show todos that have completed_at set (were actually completed)
+        // OR have updated_at within last 30 days (recently marked as done)
+        const updatedAt = new Date(todo.updated_at).getTime()
+        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000)
+        
+        // Prefer completed_at, but allow updated_at if recent
+        return todo.completed_at || updatedAt > thirtyDaysAgo
       })
       .sort((a, b) => {
-        // Use completed_at if available, otherwise fallback to updated_at
-        const aTime = a.completed_at ? new Date(a.completed_at).getTime() : new Date(a.updated_at).getTime()
-        const bTime = b.completed_at ? new Date(b.completed_at).getTime() : new Date(b.updated_at).getTime()
+        // Prioritize completed_at, then updated_at
+        // Most recent first
+        const aTime = a.completed_at 
+          ? new Date(a.completed_at).getTime() 
+          : new Date(a.updated_at).getTime()
+        const bTime = b.completed_at 
+          ? new Date(b.completed_at).getTime() 
+          : new Date(b.updated_at).getTime()
         return bTime - aTime
       })
       .slice(0, 3)
