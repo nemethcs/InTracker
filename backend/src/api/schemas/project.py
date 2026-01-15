@@ -1,6 +1,6 @@
 """Pydantic schemas for projects."""
 from pydantic import BaseModel, Field, field_serializer
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from uuid import UUID
 
@@ -44,6 +44,7 @@ class ProjectResponse(ProjectBase):
     created_at: datetime
     updated_at: datetime
     last_session_at: Optional[datetime] = None
+    resume_context: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True
