@@ -30,74 +30,36 @@ class CursorDeeplinkService:
         Returns:
             Cursor chat deeplink URL
         """
-        # Build the message for the agent
+        # Build the message for the agent (shortened to avoid URL length limits)
         message_parts = [
-            f"Szedd le git-ből ezt a projektet, nézd át és hozd létre az InTracker-ben:",
-            "",
-            f"Repository: {repo_url}",
-            f"Owner: {repo_owner}",
-            f"Name: {repo_name}",
+            f"Szedd le git-ből ezt a projektet, nézd át és hozd létre az InTracker-ben: {repo_url}",
             "",
             "Lépések:",
-            "",
-            "1. **Git clone és projekt átnézése:**",
-            f"   - Klónozd le a repository-t: `git clone {repo_url}`",
-            "   - Nézd át a projekt struktúráját, fájlokat, dokumentációt (README.md, package.json, requirements.txt, stb.)",
-            "   - Elemezd a kódot, technológiákat, függőségeket",
-            "   - Olvasd el a README-t és egyéb dokumentációt",
-            "",
-            "2. **InTracker projekt létrehozása:**",
-            "   - Használd az MCP tool-okat az InTracker-ben",
-            "   - Hozd létre a projektet az `mcp_create_project` tool-lal",
-            "   - Töltsd ki MINDEN mezőt alaposan:",
-            "     * **name**: A projekt neve (pl. a repository neve vagy egy leíró név)",
-            "     * **description**: Részletes leírás a projekt céljáról, funkcionalitásáról (README alapján)",
-            "     * **tags**: Célszerű címkék (pl. ai, web-app, api, stb.)",
-            "     * **technology_tags**: Használt technológiák (pl. react, typescript, python, fastapi, stb.)",
-            "     * **cursor_instructions**: Részletes utasítások az AI agenteknek a projektről",
-            "     * **github_repo_url**: A repository URL-je",
+            f"1. Klónozd: `git clone {repo_url}`",
+            "2. Nézd át a projektet (struktúra, README, kód, tech stack)",
+            "3. Hozd létre az InTracker-ben az mcp_create_project tool-lal:",
+            "   - name, description (README alapján), tags, technology_tags",
+            "   - cursor_instructions (AI agenteknek), github_repo_url",
         ]
         
         if team_id:
-            message_parts.append(f"     * **team_id**: {team_id}")
+            message_parts.append(f"   - team_id: {team_id}")
         
-        message_parts.extend([
-            "",
-            "3. **Feature branch-ek létrehozása:**",
-        ])
+        message_parts.append("4. Feature branch-ek létrehozása (ha vannak):")
         
         if feature_branches:
-            message_parts.append("   - A következő feature branch-eket hozd létre feature-ként az InTracker-ben:")
-            for branch in feature_branches:
-                message_parts.append(f"     * {branch}")
-            message_parts.append("   - Használd az `mcp_create_feature` tool-t minden feature branch-hez")
+            branches_str = ", ".join(feature_branches[:5])  # Limit to first 5
+            if len(feature_branches) > 5:
+                branches_str += f" (+{len(feature_branches)-5} more)"
+            message_parts.append(f"   - {branches_str}")
+            message_parts.append("   - Használd az mcp_create_feature tool-t")
         else:
-            message_parts.append("   - Ha vannak feature branch-ek (feature/*, feat/*, stb.), hozd létre őket feature-ként")
-            message_parts.append("   - Használd az `mcp_create_feature` tool-t")
+            message_parts.append("   - Ha vannak feature/* vagy feat/* branch-ek, hozd létre őket")
         
         message_parts.extend([
+            "5. Goals és constraints kitöltése (mcp_update_project)",
             "",
-            "4. **Goals és Constraints kitöltése:**",
-            "   - A projekt elemzése alapján töltse ki a goals-t és constraints-et",
-            "   - Használd az `mcp_update_project` tool-t",
-            "   - A goals tartalmazza a projekt fő céljait, célközönségét",
-            "   - A constraints tartalmazza a technikai korlátokat, architektúra döntéseket",
-            "",
-            "5. **Projekt struktúra elemzése (opcionális):**",
-            "   - Ha van lehetőség, elemezd a projekt fájlstruktúráját",
-            "   - Hozz létre project element-eket a főbb modulokhoz/komponensekhez",
-            "",
-            "**Fontos:**",
-            "- Minden mezőt alaposan tölts ki, ne hagyj üres mezőket!",
-            "- A description legyen részletes és informatív",
-            "- A cursor_instructions legyen hasznos az AI agenteknek",
-            "- A technology_tags tartalmazza az összes használt technológiát",
-            "",
-            "**MCP Tools használata:**",
-            "- `mcp_create_project`: Projekt létrehozása",
-            "- `mcp_create_feature`: Feature-k létrehozása feature branch-ekhez",
-            "- `mcp_update_project`: Goals és constraints frissítése",
-            "- `mcp_parse_file_structure`: Projekt struktúra elemzése (opcionális)",
+            "Fontos: Minden mezőt tölts ki alaposan!",
         ])
         
         message = "\n".join(message_parts)
