@@ -96,12 +96,102 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app with lifespan and optimized JSON serialization
 app = FastAPI(
     title="InTracker API",
-    description="AI-first project management system API",
+    description="""
+    InTracker is an AI-first project management system API.
+    
+    ## Features
+    
+    * **Project Management**: Create and manage projects with features, todos, and elements
+    * **Team Collaboration**: Team-based access control and member management
+    * **GitHub Integration**: Connect GitHub repositories, manage branches, issues, and PRs
+    * **Session Tracking**: Track development sessions with goals and progress
+    * **Documentation**: Store and manage project documentation
+    * **MCP Integration**: Model Context Protocol server for AI agent integration
+    
+    ## Authentication
+    
+    Most endpoints require JWT authentication. Include the access token in the Authorization header:
+    
+    ```
+    Authorization: Bearer <access_token>
+    ```
+    
+    Get your access token by:
+    1. Registering with an invitation code: `POST /auth/register`
+    2. Logging in: `POST /auth/login`
+    3. Using the refresh token: `POST /auth/refresh`
+    
+    ## Rate Limiting
+    
+    API rate limiting is not currently implemented. Please use the API responsibly.
+    
+    ## Support
+    
+    For issues and questions, please contact the development team.
+    """,
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
     default_response_class=ORJSONResponse,
+    openapi_tags=[
+        {
+            "name": "auth",
+            "description": "Authentication endpoints for user registration, login, and token management.",
+        },
+        {
+            "name": "projects",
+            "description": "Project management endpoints for creating, updating, and managing projects.",
+        },
+        {
+            "name": "features",
+            "description": "Feature management endpoints for organizing work into features.",
+        },
+        {
+            "name": "todos",
+            "description": "Todo management endpoints for tracking individual tasks.",
+        },
+        {
+            "name": "elements",
+            "description": "Element management endpoints for organizing project structure.",
+        },
+        {
+            "name": "sessions",
+            "description": "Session tracking endpoints for development sessions.",
+        },
+        {
+            "name": "documents",
+            "description": "Document management endpoints for project documentation.",
+        },
+        {
+            "name": "github",
+            "description": "GitHub integration endpoints for repository and branch management.",
+        },
+        {
+            "name": "ideas",
+            "description": "Idea management endpoints for capturing and converting ideas to projects.",
+        },
+        {
+            "name": "teams",
+            "description": "Team management endpoints for team creation, member management, and invitations.",
+        },
+        {
+            "name": "admin",
+            "description": "Admin endpoints for user management, migrations, and system administration.",
+        },
+        {
+            "name": "mcp",
+            "description": "MCP (Model Context Protocol) server endpoints for AI agent integration.",
+        },
+        {
+            "name": "mcp-keys",
+            "description": "MCP API key management endpoints for generating and managing API keys.",
+        },
+        {
+            "name": "audit",
+            "description": "Audit trail endpoints for tracking changes to entities.",
+        },
+    ],
 )
 
 # CORS middleware
