@@ -285,6 +285,7 @@ export function McpKeySettings() {
                         variant="outline"
                         size="icon"
                         onClick={handleCopyKey}
+                        aria-label={copied ? "MCP key copied" : "Copy MCP key"}
                       >
                         {copied ? (
                           <CheckCircle2 className={`${iconSize('sm')} text-success`} />

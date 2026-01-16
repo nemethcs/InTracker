@@ -96,6 +96,7 @@ export function TeamMembers({
                           variant="ghost"
                           size="sm"
                           onClick={() => onRemoveMember(member.user_id)}
+                          aria-label={`Remove member ${displayName} from team`}
                         >
                           <UserMinus className="h-4 w-4 text-destructive" />
                         </Button>

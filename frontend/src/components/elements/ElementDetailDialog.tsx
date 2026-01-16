@@ -160,7 +160,12 @@ export function ElementDetailDialog({ open, onOpenChange, element, projectId }: 
                       </div>
                       {todo.feature_id && projectId && (
                         <Link to={`/projects/${projectId}/features/${todo.feature_id}`}>
-                          <Button variant="ghost" size="sm" className="h-6">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6"
+                            aria-label={`View feature for todo: ${todo.title}`}
+                          >
                             <ExternalLink className="h-3 w-3" />
                           </Button>
                         </Link>

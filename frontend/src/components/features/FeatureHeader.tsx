@@ -19,7 +19,7 @@ export const FeatureHeader = memo(function FeatureHeader({ projectId, feature, o
       title={
         <div className="flex items-center gap-2 sm:gap-4">
           <Link to={`/projects/${projectId}`}>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" aria-label="Go back to project">
               <ArrowLeft className={iconSize('sm')} />
             </Button>
           </Link>

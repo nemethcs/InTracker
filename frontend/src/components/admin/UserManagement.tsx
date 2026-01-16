@@ -155,6 +155,7 @@ export function UserManagement() {
                       variant="destructive"
                       size="sm"
                       onClick={() => handleDeleteUser(user.id)}
+                      aria-label={`Delete user ${user.email}`}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
