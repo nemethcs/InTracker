@@ -67,6 +67,8 @@ function ElementNode({
         className="flex items-center gap-2 p-2.5 rounded-md hover:bg-accent/50 cursor-pointer transition-colors group border-b border-border/50"
         onClick={() => onElementClick?.(element)}
         style={{ paddingLeft: `${depth * 1.5 + 0.5}rem` }}
+        // Note: Using inline style for dynamic padding based on depth
+        // This is acceptable as it's calculated dynamically and not a static value
       >
         {hasChildren ? (
           <button

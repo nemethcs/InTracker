@@ -142,7 +142,7 @@ export function UserManagement() {
                       </span>
                     )}
                     {user.is_active && (
-                      <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                      <span className="px-2 py-1 rounded text-xs bg-primary/20 text-primary dark:bg-primary/30 dark:text-primary-foreground">
                         Active
                       </span>
                     )}

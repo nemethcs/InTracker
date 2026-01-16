@@ -59,8 +59,8 @@ export function ElementDetailDialog({ open, onOpenChange, element, projectId }: 
   const statusColors = {
     new: 'bg-muted text-muted-foreground',
     in_progress: 'bg-primary/10 text-primary dark:bg-primary/20',
-    tested: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
-    done: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+    tested: 'bg-accent/20 text-accent-foreground dark:bg-accent/30',
+    done: 'bg-primary/20 text-primary dark:bg-primary/30',
   }
 
   return (
