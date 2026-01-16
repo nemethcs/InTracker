@@ -175,26 +175,6 @@ async def mcp_sse_endpoint(request: Request):
     # Don't return anything - ASGI app already handled the response
 
 
-@router.post("/messages")
-@router.post("/messages/")
-async def mcp_messages_endpoint_no_path(request: Request):
-    """
-    MCP Server messages endpoint for POST requests without path.
-    Used by streamableHttp transport.
-    
-    NOTE: This endpoint uses a custom ASGI app that handles its own responses.
-    We don't return anything to avoid FastAPI trying to send a response.
-    """
-    app = MCPMessagesASGIApp()
-    try:
-        await app(request.scope, request.receive, request._send)
-    except Exception as e:
-        # Log but don't raise - ASGI app may have already sent response
-        import logging
-        logging.error(f"MCP messages endpoint error: {e}", exc_info=True)
-    # Don't return anything - ASGI app already handled the response
-
-
 @router.post("/messages/{path:path}")
 async def mcp_messages_endpoint(path: str, request: Request):
     """
