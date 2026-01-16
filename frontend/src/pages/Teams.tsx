@@ -2,15 +2,19 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { adminService, type Team, type Invitation, type TeamMember, type User } from '@/services/adminService'
-import { UsersRound, Mail, Plus, Edit, Trash2, Copy, CheckCircle2, XCircle, UserPlus, UserMinus } from 'lucide-react'
+import { Mail } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/hooks/useToast'
+import { TeamsList } from '@/components/teams/TeamsList'
+import { TeamInfo } from '@/components/teams/TeamInfo'
+import { TeamMembers } from '@/components/teams/TeamMembers'
+import { TeamInvitations } from '@/components/teams/TeamInvitations'
+import { EditTeamDialog } from '@/components/teams/EditTeamDialog'
+import { AddMemberDialog } from '@/components/teams/AddMemberDialog'
+import { InviteEmailDialog } from '@/components/teams/InviteEmailDialog'
+import { TeamLeaderInviteDialog } from '@/components/teams/TeamLeaderInviteDialog'
 
 export function Teams() {
   const { user } = useAuth()
@@ -112,25 +116,25 @@ export function Teams() {
 
   const handleEditTeam = (team: Team) => {
     setSelectedTeam(team)
-    setTeamForm({ name: team.name, description: team.description || '' })
     setEditTeamOpen(true)
   }
 
-  const handleUpdateTeam = async () => {
-    if (!selectedTeam || !teamForm.name.trim()) {
+  const handleUpdateTeam = async (name: string, description: string) => {
+    if (!selectedTeam || !name.trim()) {
       setError('Team name is required')
-      return
+      throw new Error('Team name is required')
     }
     try {
-      await adminService.updateTeam(selectedTeam.id, teamForm)
+      await adminService.updateTeam(selectedTeam.id, { name, description })
       setEditTeamOpen(false)
-      setTeamForm({ name: '', description: '' })
       loadTeams()
       if (selectedTeam) {
         loadTeamDetails(selectedTeam.id)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update team')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update team'
+      setError(errorMessage)
+      throw err
     }
   }
 
@@ -352,37 +356,11 @@ export function Teams() {
         {/* Teams List */}
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">My Teams</h2>
-          {teams.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6 text-center text-muted-foreground">
-                No teams found
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-2">
-              {teams.map((team) => (
-                <Card
-                  key={team.id}
-                  className={`cursor-pointer transition-colors ${
-                    selectedTeam?.id === team.id ? 'border-primary bg-accent' : ''
-                  }`}
-                  onClick={() => handleSelectTeam(team)}
-                >
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold">{team.name}</h3>
-                        {team.description && (
-                          <p className="text-sm text-muted-foreground mt-1">{team.description}</p>
-                        )}
-                      </div>
-                      <UsersRound className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+          <TeamsList
+            teams={teams}
+            selectedTeam={selectedTeam}
+            onSelectTeam={handleSelectTeam}
+          />
         </div>
 
         {/* Team Details */}
@@ -399,401 +377,84 @@ export function Teams() {
               </Button>
             </div>
 
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Team Information</CardTitle>
-                    <CardDescription>{selectedTeam.description || 'No description'}</CardDescription>
-                  </div>
-                  {isTeamLeaderOfSelectedTeam && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditTeam(selectedTeam)}
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Edit
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Team Name</Label>
-                  <p className="text-sm font-medium">{selectedTeam.name}</p>
-                </div>
-                <div>
-                  <Label>Language</Label>
-                  {selectedTeam.language ? (
-                    <p className="text-sm font-medium">
-                      {selectedTeam.language === 'hu' ? 'Hungarian (Magyar)' : selectedTeam.language === 'en' ? 'English' : selectedTeam.language}
-                    </p>
-                  ) : isTeamLeaderOfSelectedTeam ? (
-                    <div className="space-y-2">
-                      <Select
-                        value=""
-                        onValueChange={(value) => handleSetTeamLanguage(selectedTeam.id, value)}
-                      >
-                        <SelectTrigger className="w-full sm:w-[200px]">
-                          <SelectValue placeholder="Select language" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="hu">Hungarian (Magyar)</SelectItem>
-                          <SelectItem value="en">English</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        Set the team language. This can only be set once and cannot be changed later.
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Not set</p>
-                  )}
-                </div>
-                <div>
-                  <Label>Created</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {new Date(selectedTeam.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <TeamInfo
+              team={selectedTeam}
+              isTeamLeader={isTeamLeaderOfSelectedTeam}
+              onEdit={() => handleEditTeam(selectedTeam)}
+              onSetLanguage={(language) => handleSetTeamLanguage(selectedTeam.id, language)}
+            />
 
-            {/* Team Members */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Members</CardTitle>
-                    <CardDescription>Team members and their roles</CardDescription>
-                  </div>
-                  {isTeamLeaderOfSelectedTeam && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleAddMember(selectedTeam)}
-                      disabled={isAdmin && getAvailableUsers(selectedTeam.id).length === 0}
-                    >
-                      <UserPlus className="h-4 w-4 mr-1" />
-                      Add Member
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {teamMembers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No members yet</p>
-                ) : (
-                  <div className="space-y-2">
-                    {teamMembers.map((member) => {
-                      // Use user_name and user_email from backend response, fallback to getUserInfo for backwards compatibility
-                      const displayName = member.user_name || member.user_email || getUserInfo(member.user_id)?.name || getUserInfo(member.user_id)?.email || `User ${member.user_id.slice(0, 8)}...`
-                      const displayEmail = member.user_email || getUserInfo(member.user_id)?.email || ''
-                      return (
-                        <div
-                          key={member.id}
-                          className="flex items-center justify-between p-2 rounded border"
-                        >
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">
-                              {displayName}
-                            </p>
-                            {displayEmail && displayEmail !== displayName && (
-                              <p className="text-xs text-muted-foreground">
-                                {displayEmail}
-                              </p>
-                            )}
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {member.role} • Joined {new Date(member.joined_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {member.role === 'team_leader' && (
-                              <span className="px-2 py-1 rounded text-xs bg-primary/10 text-primary dark:bg-primary/20">
-                                Leader
-                              </span>
-                            )}
-                            {(isTeamLeaderOfSelectedTeam || isAdmin) && (
-                              <>
-                                <select
-                                  value={member.role}
-                                  onChange={(e) => handleUpdateMemberRole(selectedTeam.id, member.user_id, e.target.value)}
-                                  className="h-8 rounded-md border border-input bg-background px-2 py-1 text-sm"
-                                  disabled={!isAdmin && member.role === 'team_leader' && !isTeamLeaderOfSelectedTeam}
-                                >
-                                  <option value="member">Member</option>
-                                  <option value="team_leader">Team Leader</option>
-                                </select>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleRemoveMember(selectedTeam.id, member.user_id)}
-                                >
-                                  <UserMinus className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <TeamMembers
+              teamId={selectedTeam.id}
+              members={teamMembers}
+              allUsers={allUsers}
+              isTeamLeader={isTeamLeaderOfSelectedTeam}
+              isAdmin={isAdmin}
+              onAddMember={() => handleAddMember(selectedTeam)}
+              onRemoveMember={(userId) => handleRemoveMember(selectedTeam.id, userId)}
+              onUpdateRole={(userId, newRole) => handleUpdateMemberRole(selectedTeam.id, userId, newRole)}
+              getAvailableUsers={() => getAvailableUsers(selectedTeam.id)}
+              getUserInfo={getUserInfo}
+            />
 
-            {/* Team Invitations - Visible to team leaders and admins */}
             {(isTeamLeaderOfSelectedTeam || isAdmin) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Invitations</CardTitle>
-                  <CardDescription>Create and manage team invitation codes</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      onClick={() => setInviteEmailOpen(true)}
-                      className="flex-1"
-                    >
-                      <Mail className="h-4 w-4 mr-2" />
-                      Send Member Invitation
-                    </Button>
-                    <Button
-                      onClick={() => handleCreateTeamInvitation(selectedTeam.id)}
-                      variant="outline"
-                    >
-                      Create Code Only
-                    </Button>
-                  </div>
-
-                {teamInvitations.length > 0 && (
-                  <div className="space-y-2">
-                    {teamInvitations.map((inv) => (
-                      <div
-                        key={inv.code}
-                        className="flex items-center justify-between p-2 rounded border"
-                      >
-                        <div className="flex-1">
-                          <code className="text-xs font-mono bg-muted px-2 py-1 rounded">
-                            {inv.code}
-                          </code>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {inv.expires_at
-                              ? `Expires: ${new Date(inv.expires_at).toLocaleDateString()}`
-                              : 'No expiration'}
-                          </p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleCopyCode(inv.code)}
-                        >
-                          {copiedCode === inv.code ? (
-                            <CheckCircle2 className="h-4 w-4" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              <TeamInvitations
+                invitations={teamInvitations}
+                copiedCode={copiedCode}
+                onSendInvitation={() => setInviteEmailOpen(true)}
+                onCreateCodeOnly={() => handleCreateTeamInvitation(selectedTeam.id)}
+                onCopyCode={handleCopyCode}
+              />
             )}
 
-            {/* Edit Team Dialog */}
-            <Dialog open={editTeamOpen} onOpenChange={setEditTeamOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Edit Team</DialogTitle>
-                  <DialogDescription>Update team name and description.</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-team-name">Team Name *</Label>
-                    <Input
-                      id="edit-team-name"
-                      value={teamForm.name}
-                      onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })}
-                      placeholder="Enter team name"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-team-description">Description</Label>
-                    <Input
-                      id="edit-team-description"
-                      value={teamForm.description}
-                      onChange={(e) => setTeamForm({ ...teamForm, description: e.target.value })}
-                      placeholder="Enter team description (optional)"
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setEditTeamOpen(false)}>Cancel</Button>
-                  <Button onClick={handleUpdateTeam}>Update Team</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <EditTeamDialog
+              open={editTeamOpen}
+              onOpenChange={setEditTeamOpen}
+              team={selectedTeam}
+              onUpdate={handleUpdateTeam}
+            />
 
-            {/* Add Member Dialog */}
-            <Dialog open={addMemberOpen} onOpenChange={setAddMemberOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add Member to Team</DialogTitle>
-                  <DialogDescription>Select a user to add to {selectedTeam?.name}.</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="user-select">User *</Label>
-                    <select
-                      id="user-select"
-                      value={selectedUserId}
-                      onChange={(e) => setSelectedUserId(e.target.value)}
-                      className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    >
-                      <option value="">Select a user...</option>
-                      {selectedTeam && getAvailableUsers(selectedTeam.id).map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.name || user.email} ({user.email})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="member-role">Role *</Label>
-                    <select
-                      id="member-role"
-                      value={selectedMemberRole}
-                      onChange={(e) => setSelectedMemberRole(e.target.value)}
-                      className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    >
-                      <option value="member">Member</option>
-                      <option value="team_leader">Team Leader</option>
-                    </select>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setAddMemberOpen(false)}>Cancel</Button>
-                  <Button onClick={handleAddMemberSubmit} disabled={!selectedUserId}>Add Member</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <AddMemberDialog
+              open={addMemberOpen}
+              onOpenChange={setAddMemberOpen}
+              team={selectedTeam}
+              availableUsers={selectedTeam ? getAvailableUsers(selectedTeam.id) : []}
+              selectedUserId={selectedUserId}
+              selectedRole={selectedMemberRole}
+              onUserIdChange={setSelectedUserId}
+              onRoleChange={setSelectedMemberRole}
+              onSubmit={handleAddMemberSubmit}
+            />
 
-            {/* Send Invitation Email Dialog */}
-            <Dialog open={inviteEmailOpen} onOpenChange={(open) => {
-              setInviteEmailOpen(open)
-              if (!open) {
-                setInviteEmail('')
-                setSelectedMemberRole('member')
-              }
-            }}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Send Team Invitation</DialogTitle>
-                  <DialogDescription>
-                    Send an invitation email to join {selectedTeam?.name} as a member.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="invite-email">Email Address *</Label>
-                    <Input
-                      id="invite-email"
-                      type="email"
-                      placeholder="user@example.com"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && inviteEmail.trim()) {
-                          handleInviteEmailSubmit()
-                        }
-                      }}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      An invitation email will be sent to this address with a link to join the team.
-                    </p>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => {
-                    setInviteEmailOpen(false)
-                    setInviteEmail('')
-                    setSelectedMemberRole('member')
-                  }}>Cancel</Button>
-                  <Button 
-                    onClick={handleInviteEmailSubmit} 
-                    disabled={
-                      !inviteEmail.trim() || 
-                      teamInvitations.some(
-                        inv => inv.email_sent_to && inv.email_sent_to.toLowerCase() === inviteEmail.trim().toLowerCase()
-                      )
-                    }
-                  >
-                    <Mail className="h-4 w-4 mr-2" />
-                    {teamInvitations.some(
-                      inv => inv.email_sent_to && inv.email_sent_to.toLowerCase() === inviteEmail.trim().toLowerCase()
-                    ) ? 'Email Already Sent' : 'Send Invitation'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <InviteEmailDialog
+              open={inviteEmailOpen}
+              onOpenChange={setInviteEmailOpen}
+              team={selectedTeam}
+              email={inviteEmail}
+              onEmailChange={setInviteEmail}
+              invitations={teamInvitations}
+              onSubmit={handleInviteEmailSubmit}
+            />
 
           </div>
         )}
       </div>
 
-      {/* Send Team Leader Invitation Dialog - Outside selectedTeam block so it's always accessible */}
       {isAdmin && (
-        <Dialog open={teamLeaderInviteOpen} onOpenChange={(open) => {
-          setTeamLeaderInviteOpen(open)
-          if (open) {
-            // Pre-fill email with current user's email when dialog opens
-            setTeamLeaderInviteEmail(user?.email || '')
-          } else {
-            setTeamLeaderInviteEmail('')
-          }
-        }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Send Team Leader Invitation</DialogTitle>
-              <DialogDescription>
-                Create an invitation for a new team leader. They will register with team_leader role and get their own team automatically created.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="team-leader-invite-email">Email Address (Optional)</Label>
-                <Input
-                  id="team-leader-invite-email"
-                  type="email"
-                  placeholder="user@example.com"
-                  value={teamLeaderInviteEmail}
-                  onChange={(e) => setTeamLeaderInviteEmail(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleTeamLeaderInviteEmailSubmit()
-                    }
-                  }}
-                  autoFocus
-                />
-                <p className="text-xs text-muted-foreground">
-                  If provided, an invitation email will be sent. Otherwise, you'll get an invitation code to share manually.
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => {
-                setTeamLeaderInviteOpen(false)
-                setTeamLeaderInviteEmail('')
-              }}>Cancel</Button>
-              <Button onClick={handleTeamLeaderInviteEmailSubmit}>
-                <Mail className="h-4 w-4 mr-2" />
-                {teamLeaderInviteEmail.trim() ? 'Send Invitation' : 'Create Invitation Code'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <TeamLeaderInviteDialog
+          open={teamLeaderInviteOpen}
+          onOpenChange={(open) => {
+            setTeamLeaderInviteOpen(open)
+            if (open) {
+              setTeamLeaderInviteEmail(user?.email || '')
+            } else {
+              setTeamLeaderInviteEmail('')
+            }
+          }}
+          email={teamLeaderInviteEmail}
+          onEmailChange={setTeamLeaderInviteEmail}
+          onSubmit={handleTeamLeaderInviteEmailSubmit}
+        />
       )}
     </div>
   )
