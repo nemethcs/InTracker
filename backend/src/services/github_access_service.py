@@ -6,6 +6,9 @@ from src.database.models import Project, TeamMember, Team
 from src.services.github_token_service import github_token_service
 from src.services.github_service import GitHubService
 from src.database.base import SessionLocal
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class GitHubAccessService:
@@ -34,17 +37,17 @@ class GitHubAccessService:
         """
         # Get user's GitHub token
         token = github_token_service.get_user_token(db, user_id)
-        print(f"🔍 GitHubAccessService: user_id={user_id}, token={'exists' if token else 'None'}")
+        logger.debug(f"GitHubAccessService: user_id={user_id}, token={'exists' if token else 'None'}")
         if not token:
             # User has no GitHub token, return all projects with has_access=False
-            print(f"⚠️  User {user_id} has no GitHub OAuth token, returning projects with has_access=False")
+            logger.warning(f"User {user_id} has no GitHub OAuth token, returning projects with has_access=False")
             return GitHubAccessService._get_all_user_projects_without_access(db, user_id)
         
         # Initialize GitHub service with user's token
         github_service = GitHubService(user_id=user_id)
         if not github_service.client:
             # GitHub client initialization failed, return all projects with has_access=False
-            print(f"⚠️  GitHub client initialization failed for user {user_id}")
+            logger.warning(f"GitHub client initialization failed for user {user_id}")
             return GitHubAccessService._get_all_user_projects_without_access(db, user_id)
         
         # Get all teams the user belongs to
@@ -84,29 +87,21 @@ class GitHubAccessService:
                     continue
                 
                 # Parse GitHub repo URL to get owner and repo name
-                # Format: https://github.com/owner/repo
                 try:
-                    repo_url = project.github_repo_url
-                    if repo_url.startswith("https://github.com/"):
-                        parts = repo_url.replace("https://github.com/", "").split("/")
-                        if len(parts) >= 2:
-                            owner = parts[0]
-                            repo = parts[1].replace(".git", "")  # Remove .git if present
-                            
-                            # Check repository access using GitHub API
-                            has_access = github_service.validate_repo_access(owner, repo)
-                            
-                            if has_access:
-                                # Try to get more detailed access level
-                                repo_info = github_service.get_repo_info(owner, repo)
-                                if repo_info:
-                                    # Determine access level based on repository permissions
-                                    # For now, we'll use a simple check - if we can read, it's at least read
-                                    # In the future, we could check if user has write/admin permissions
-                                    project_info["has_access"] = True
-                                    project_info["access_level"] = "read"  # Default, could be enhanced
-                                else:
-                                    project_info["has_access"] = False
+                    owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+                    if owner and repo:
+                        # Check repository access using GitHub API
+                        has_access = github_service.validate_repo_access(owner, repo)
+                        
+                        if has_access:
+                            # Try to get more detailed access level
+                            repo_info = github_service.get_repo_info(owner, repo)
+                            if repo_info:
+                                # Determine access level based on repository permissions
+                                # For now, we'll use a simple check - if we can read, it's at least read
+                                # In the future, we could check if user has write/admin permissions
+                                project_info["has_access"] = True
+                                project_info["access_level"] = "read"  # Default, could be enhanced
                             else:
                                 project_info["has_access"] = False
                         else:
@@ -114,7 +109,7 @@ class GitHubAccessService:
                     else:
                         project_info["has_access"] = False
                 except Exception as e:
-                    print(f"⚠️  Error validating access for project {project.id}: {e}")
+                    logger.warning(f"Error validating access for project {project.id}: {e}")
                     project_info["has_access"] = False
                 
                 accessible_projects.append(project_info)
@@ -231,39 +226,28 @@ class GitHubAccessService:
         
         # Parse GitHub repo URL
         try:
-            repo_url = project.github_repo_url
-            if repo_url.startswith("https://github.com/"):
-                parts = repo_url.replace("https://github.com/", "").split("/")
-                if len(parts) >= 2:
-                    owner = parts[0]
-                    repo = parts[1].replace(".git", "")
-                    
-                    # Check repository access
-                    has_access = github_service.validate_repo_access(owner, repo)
-                    
-                    if has_access:
-                        return {
-                            "has_access": True,
-                            "access_level": "read",  # Default, could be enhanced
-                            "error": None,
-                        }
-                    else:
-                        return {
-                            "has_access": False,
-                            "access_level": None,
-                            "error": "User's GitHub token does not have access to this repository",
-                        }
+            owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+            if owner and repo:
+                # Check repository access
+                has_access = github_service.validate_repo_access(owner, repo)
+                
+                if has_access:
+                    return {
+                        "has_access": True,
+                        "access_level": "read",  # Default, could be enhanced
+                        "error": None,
+                    }
                 else:
                     return {
                         "has_access": False,
                         "access_level": None,
-                        "error": "Invalid GitHub repository URL format",
+                        "error": "User's GitHub token does not have access to this repository",
                     }
             else:
                 return {
                     "has_access": False,
                     "access_level": None,
-                    "error": "Invalid GitHub repository URL",
+                    "error": "Invalid GitHub repository URL format",
                 }
         except Exception as e:
             return {

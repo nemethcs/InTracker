@@ -1,5 +1,6 @@
 import axios from 'axios'
-import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios'
+import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios'
+import type { PydanticValidationError } from '@/types/pydantic'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 
@@ -76,10 +77,11 @@ api.interceptors.response.use(
           message = error.response.data.detail
         } else if (Array.isArray(error.response.data.detail)) {
           // Pydantic validation errors
-          message = error.response.data.detail.map((e: any) => {
+          const validationErrors = error.response.data.detail as PydanticValidationError[]
+          message = validationErrors.map((e) => {
             if (typeof e === 'string') return e
             const field = e.loc?.join('.') || 'field'
-            const msg = e.msg || e.message || 'Invalid value'
+            const msg = e.msg || 'Invalid value'
             return `${field}: ${msg}`
           }).join(', ')
         } else if (typeof error.response.data.detail === 'object') {
@@ -90,8 +92,8 @@ api.interceptors.response.use(
       }
       
       // Preserve the original error for better debugging
-      const errorWithDetails = new Error(message)
-      ;(errorWithDetails as any).response = error.response
+      const errorWithDetails = new Error(message) as Error & { response?: AxiosError['response'] }
+      errorWithDetails.response = error.response
       return Promise.reject(errorWithDetails)
     } else if (error.request) {
       // Request made but no response

@@ -76,47 +76,72 @@ const INTracker_BASE_RULES = `# InTracker Workflow Rules
 
 **ALWAYS check branch before starting work on a feature!**
 
-- Check current branch: \`git branch --show-current\`
+**CRITICAL: In Cursor + InTracker workflow, you work BOTH locally (git commands) AND via MCP (InTracker tracking)!**
+
+- Check current branch (LOCAL): \`git branch --show-current\`
 - If working on a feature:
-  - Get feature: \`mcp_get_feature(featureId)\`
-  - Get feature branches: \`mcp_get_feature_branches(featureId)\`
-  - If feature branch exists: \`git checkout feature/{feature-name}\` then \`git pull origin feature/{feature-name}\`
-  - If NO feature branch: \`mcp_create_branch_for_feature(featureId)\` then \`git checkout feature/{feature-name}\`
-- If NOT working on a feature: Use \`develop\` branch
+  - Get feature (MCP): \`mcp_get_feature(featureId)\`
+  - Get feature branches (MCP): \`mcp_get_feature_branches(featureId)\`
+  - If feature branch exists:
+    - Switch to it (LOCAL): \`git checkout feature/{feature-name}\`
+    - Pull latest (LOCAL): \`git pull origin feature/{feature-name}\`
+  - If NO feature branch:
+    - Create it LOCALLY: \`git checkout -b feature/{feature-name} develop\`
+    - Push to GitHub (LOCAL): \`git push -u origin feature/{feature-name}\`
+    - Link to feature (MCP): \`mcp_link_branch_to_feature(featureId, "feature/{feature-name}")\`
+- If NOT working on a feature: Use \`develop\` branch (LOCAL): \`git checkout develop\`
 - **NEVER start working on a feature without checking the branch first!**
+- **REMEMBER: Git commands run LOCALLY, MCP tools track progress in InTracker!**
 
 ## Todo Status Workflow
 
 **Todo statuses:** \`new\` → \`in_progress\` → \`tested\` → \`done\`
 
-1. **Start work:** \`mcp_update_todo_status(todoId, "in_progress", expectedVersion)\`
-2. **After testing:** \`mcp_update_todo_status(todoId, "tested", expectedVersion)\` (only if tested!)
-3. **After merge to dev:** \`mcp_update_todo_status(todoId, "done", expectedVersion)\` (only after tested AND merged!)
+**If user requests new work on a feature:**
+1. Create todo (MCP): \`mcp_create_todo(elementId, title, description, featureId?, priority?)\`
+2. Update status (MCP): \`mcp_update_todo_status(todoId, "in_progress", expectedVersion)\`
+3. Implement changes (LOCAL - edit files, test)
+4. Commit (LOCAL): \`git commit -m "feat(scope): description [feature:featureId]"\`
+5. Push (LOCAL): \`git push origin feature/{feature-name}\`
+6. Update status (MCP): \`mcp_update_todo_status(todoId, "tested", expectedVersion)\` (only if tested!)
+7. After merge: \`mcp_update_todo_status(todoId, "done", expectedVersion)\` (only after tested AND merged!)
+
+**Normal workflow:**
+1. **Start work:** \`mcp_update_todo_status(todoId, "in_progress", expectedVersion)\` (MCP)
+2. **Implement changes:** Edit files, test (LOCAL)
+3. **Commit:** \`git commit -m "..."\` then \`git push\` (LOCAL)
+4. **After testing:** \`mcp_update_todo_status(todoId, "tested", expectedVersion)\` (MCP - only if tested!)
+5. **After merge to dev:** \`mcp_update_todo_status(todoId, "done", expectedVersion)\` (MCP - only after tested AND merged!)
 
 **CRITICAL:**
 - Use \`expectedVersion\` for optimistic locking
 - Only mark as \`tested\` if you actually tested it!
 - Only mark as \`done\` if tested AND merged to dev branch!
+- **REMEMBER: Git commands run LOCALLY, InTracker updates via MCP!**
 
 ## Git Workflow (MANDATORY - Follow this order!)
+
+**CRITICAL: In Cursor + InTracker workflow, you work BOTH locally (git commands) AND via MCP (InTracker tracking)!**
 
 **🚨 Before starting work - BRANCH CHECK (MANDATORY!):**
 - ALWAYS check branch before starting work on a feature!
 - See "Branch Check" section above
+- **REMEMBER: Git commands run LOCALLY, MCP tools track progress in InTracker!**
 
 **During work:**
-- Make code changes
-- Test your changes
+- Make code changes (LOCAL - edit files)
+- Test your changes (LOCAL - run tests)
 - Check for errors: \`read_lints\` tool
-- Fix any issues
+- Fix any issues (LOCAL - edit files)
+- Update todo status (MCP): \`mcp_update_todo_status(todoId, "in_progress")\`
 
 **Before committing:**
-- Check git status: \`git status\`
-- Review changes: \`git diff\`
-- Stage all changes: \`git add -A\`
-- Verify staged changes: \`git status\`
+- Check git status (LOCAL): \`git status\`
+- Review changes (LOCAL): \`git diff\`
+- Stage all changes (LOCAL): \`git add -A\`
+- Verify staged changes (LOCAL): \`git status\`
 
-**Commit (MANDATORY format):**
+**Commit (MANDATORY format - LOCAL):**
 - Format: \`{type}({scope}): {description} [feature:{featureId}]\`
 - Types: \`feat\`, \`fix\`, \`refactor\`, \`docs\`, \`test\`, \`chore\`
 - Include completed todos in commit message body:
@@ -126,17 +151,26 @@ const INTracker_BASE_RULES = `# InTracker Workflow Rules
   - [x] Todo item 1
   - [x] Todo item 2
   \`\`\`
+- Commit LOCALLY: \`git commit -m "..."\`
+- Push LOCALLY: \`git push origin {branch-name}\`
 
 **After committing:**
-- Push to remote: \`git push origin {branch-name}\`
-- Update todo status to \`tested\`: \`mcp_update_todo_status(todoId, "tested")\` (only if tested!)
-- Link todo to PR if PR exists: \`mcp_link_todo_to_pr(todoId, prNumber)\`
+- Update todo status to \`tested\` (MCP): \`mcp_update_todo_status(todoId, "tested")\` (only if tested!)
+- Link todo to PR if PR exists (MCP): \`mcp_link_todo_to_pr(todoId, prNumber)\`
 
 **After merge to dev:**
-- Update todo status to \`done\`: \`mcp_update_todo_status(todoId, "done")\` (only after tested AND merged!)
+- Update todo status to \`done\` (MCP): \`mcp_update_todo_status(todoId, "done")\` (only after tested AND merged!)
+- Switch back to dev (LOCAL): \`git checkout develop\`
+- Pull latest (LOCAL): \`git pull origin develop\`
 
 **CRITICAL Git Rules:**
 - 🚨 ALWAYS check branch before starting work on a feature!
+- 🚨 **Work BOTH locally (git commands) AND via MCP (InTracker tracking)!**
+- ✅ Create branches LOCALLY: \`git checkout -b feature/{name} develop\`
+- ✅ Link branches via MCP: \`mcp_link_branch_to_feature(featureId, branchName)\`
+- ✅ Commit LOCALLY: \`git commit\` then \`git push\`
+- ✅ Update todo status via MCP: \`mcp_update_todo_status(todoId, status)\`
+- NEVER use \`mcp_create_branch_for_feature\` - create branches LOCALLY instead
 - NEVER commit without testing first!
 - NEVER commit to main/master directly! Always use feature branches
 - NEVER commit on wrong branch (e.g., develop when working on a feature)
@@ -144,6 +178,7 @@ const INTracker_BASE_RULES = `# InTracker Workflow Rules
 - ALWAYS use the commit message format with feature ID
 - ALWAYS push after committing
 - ALWAYS update todo status after committing (tested) and after merge (done)
+- NEVER forget to update InTracker via MCP after local git operations
 
 ## InTracker Integration
 
@@ -227,56 +262,72 @@ const guideSections: GuideSection[] = [
       },
       {
         title: '3. Todo-k Létrehozása Feature-hez',
-        description: 'Prompt ötlet todo-k létrehozásához egy feature-hez',
+        description: 'Prompt ötlet todo-k létrehozásához egy feature-hez (ha a felhasználó új igényt ad)',
         type: 'cursor',
-        command: 'Hozz létre részletes todo-kat egy feature-hez. Minden todo legyen specifikus, mérhető és végrehajtható.',
-        deeplink: generateCursorDeeplink('Hozz létre részletes todo-kat egy feature-hez. Minden todo legyen specifikus, mérhető és végrehajtható. Használd az mcp_create_todo tool-t és linkeld a feature-hez.'),
+        command: 'Ha a felhasználó új igényt ad egy feature-hez, hozz létre todo-t, állítsd in_progress-re, dolgozz lokálisan, commit-old, majd frissítsd az InTracker-t.',
+        deeplink: generateCursorDeeplink('Ha a felhasználó új igényt ad egy feature-hez: 1) Hozz létre todo-t (mcp_create_todo), 2) Állítsd in_progress-re (mcp_update_todo_status), 3) Dolgozz lokálisan (kód módosítás), 4) Commit-old lokálisan (git commit), 5) Push-old lokálisan (git push), 6) Frissítsd tested-re (mcp_update_todo_status), 7) Merge után done-ra (mcp_update_todo_status).'),
         tips: [
           'Használd az mcp_get_feature tool-t a feature részleteinek lekéréséhez',
-          'Hozz létre todo-kat az mcp_create_todo tool-lal',
+          'Hozz létre todo-t (MCP): mcp_create_todo(elementId, title, description, featureId?, priority?)',
+          'Állítsd in_progress-re (MCP): mcp_update_todo_status(todoId, "in_progress")',
+          'Dolgozz lokálisan: szerkeszd a fájlokat, teszteld',
+          'Commit-old lokálisan: git commit -m "feat(scope): description [feature:featureId]"',
+          'Push-old lokálisan: git push origin feature/{feature-name}',
+          'Frissítsd tested-re (MCP): mcp_update_todo_status(todoId, "tested") - csak ha tesztelted!',
+          'Merge után done-ra (MCP): mcp_update_todo_status(todoId, "done") - csak ha tested ÉS merged!',
           'Linkeld a todo-kat a feature-hez a featureId paraméterrel',
-          'Használd a team nyelvét a todo cím és leírás létrehozásánál!'
+          'Használd a team nyelvét a todo cím és leírás létrehozásánál!',
+          '🚨 FONTOS: Git parancsok lokálisan, InTracker követés MCP-vel!'
         ]
       },
       {
         title: '4. Következő Todo Elvégzése',
-        description: 'Prompt ötlet a következő todo elvégzéséhez',
+        description: 'Prompt ötlet a következő todo elvégzéséhez (LOCAL code + MCP tracking)',
         type: 'cursor',
-        command: 'Kérdezd le a következő todo-kat a projektből és kezdj el dolgozni az első új todo-n. ELLENŐRIZD A BRANCH-ET mielőtt elkezdesz dolgozni!',
-        deeplink: generateCursorDeeplink('Kérdezd le a következő todo-kat az mcp_get_active_todos tool-lal. ELLENŐRIZD A BRANCH-ET mielőtt elkezdesz dolgozni! Ha feature-n dolgozol, válts a feature branch-re. Frissítsd a todo státuszát in_progress-re.'),
+        command: 'Kérdezd le a következő todo-kat a projektből és kezdj el dolgozni az első új todo-n. ELLENŐRIZD A BRANCH-ET mielőtt elkezdesz dolgozni! Dolgozz lokálisan (kód módosítás) és követd az InTracker-ben (MCP).',
+        deeplink: generateCursorDeeplink('Kérdezd le a következő todo-kat az mcp_get_active_todos tool-lal. ELLENŐRIZD A BRANCH-ET mielőtt elkezdesz dolgozni! Ha feature-n dolgozol, válts a feature branch-re. Frissítsd a todo státuszát in_progress-re (MCP). Dolgozz lokálisan (kód módosítás), commit-old lokálisan, frissítsd az InTracker-t MCP-vel.'),
         tips: [
           'Kérdezd le az aktív todo-kat: mcp_get_active_todos',
           '🚨 MINDIG ellenőrizd a branch-et mielőtt elkezdesz dolgozni!',
-          'Frissítsd a todo státuszát in_progress-re: mcp_update_todo_status',
-          'Használd az expectedVersion-t az optimistic locking-hoz'
+          'Frissítsd a todo státuszát in_progress-re (MCP): mcp_update_todo_status',
+          'Dolgozz lokálisan: szerkeszd a fájlokat, teszteld',
+          'Commit-old lokálisan: git commit -m "..." [feature:featureId]',
+          'Push-old lokálisan: git push origin feature/{feature-name}',
+          'Frissítsd az InTracker-t (MCP): mcp_update_todo_status(todoId, "tested")',
+          'Használd az expectedVersion-t az optimistic locking-hoz',
+          '🚨 FONTOS: Git parancsok lokálisan, InTracker követés MCP-vel!'
         ]
       },
       {
         title: '5. Feature Branch Létrehozása',
-        description: 'Prompt ötlet feature branch létrehozásához',
+        description: 'Prompt ötlet feature branch létrehozásához (LOCAL git + MCP linking)',
         type: 'cursor',
-        command: 'Hozz létre egy feature branch-et egy feature-hez és válts rá. Ellenőrizd, hogy a megfelelő branch-en vagy mielőtt elkezdesz dolgozni.',
-        deeplink: generateCursorDeeplink('Hozz létre egy feature branch-et egy feature-hez az mcp_create_branch_for_feature tool-lal. Válts rá a git checkout paranccsal. Ellenőrizd a branch-et a git branch --show-current paranccsal.'),
+        command: 'Hozz létre egy feature branch-et egy feature-hez lokálisan és linkeld az InTracker-hez. Ellenőrizd, hogy a megfelelő branch-en vagy mielőtt elkezdesz dolgozni.',
+        deeplink: generateCursorDeeplink('Hozz létre egy feature branch-et lokálisan (git checkout -b feature/{name} develop), push-old (git push -u origin feature/{name}), majd linkeld az InTracker-hez (mcp_link_branch_to_feature). Válts rá és ellenőrizd a branch-et.'),
         tips: [
           'Kérdezd le a feature-t: mcp_get_feature',
-          'Hozd létre a feature branch-et: mcp_create_branch_for_feature',
+          'Hozd létre a branch-et LOKÁLISAN: git checkout -b feature/{feature-name} develop',
+          'Push-old a GitHub-ra: git push -u origin feature/{feature-name}',
+          'Linkeld az InTracker-hez: mcp_link_branch_to_feature(featureId, "feature/{feature-name}")',
           'Válts a feature branch-re: git checkout feature/{feature-name}',
-          'Húzd le a legfrissebbet: git pull origin feature/{feature-name}'
+          'Húzd le a legfrissebbet: git pull origin feature/{feature-name}',
+          '🚨 FONTOS: Git parancsok lokálisan, InTracker linkelés MCP-vel!'
         ]
       },
       {
         title: '6. Változások Commit-olása',
-        description: 'Prompt ötlet változások commit-olásához',
+        description: 'Prompt ötlet változások commit-olásához (LOCAL git + MCP tracking)',
         type: 'cursor',
-        command: 'Commit-old a változásokat a megfelelő formátumban. Ellenőrizd a git státuszt, add hozzá a változásokat, és commit-old a feature ID-vel.',
-        deeplink: generateCursorDeeplink('Commit-old a változásokat a megfelelő formátumban. Ellenőrizd a git státuszt, add hozzá a változásokat (git add -A), és commit-old a következő formátumban: {type}({scope}): {description} [feature:{featureId}]. Frissítsd a todo státuszát tested-re.'),
+        command: 'Commit-old a változásokat lokálisan a megfelelő formátumban. Ellenőrizd a git státuszt, add hozzá a változásokat, commit-old és push-old lokálisan. Frissítsd az InTracker-t MCP-vel.',
+        deeplink: generateCursorDeeplink('Commit-old a változásokat lokálisan. Ellenőrizd a git státuszt (git status), add hozzá a változásokat (git add -A), commit-old lokálisan ({type}({scope}): {description} [feature:{featureId}]), push-old lokálisan (git push). Frissítsd az InTracker-t MCP-vel: mcp_update_todo_status(todoId, "tested").'),
         tips: [
-          'Ellenőrizd a git státuszt: git status',
-          'Nézd át a változásokat: git diff',
-          'Add hozzá a változásokat: git add -A',
-          'Commit-old a megfelelő formátumban: {type}({scope}): {description} [feature:{featureId}]',
-          'Push-old a változásokat: git push origin {branch-name}',
-          'Frissítsd a todo státuszát tested-re: mcp_update_todo_status'
+          'Ellenőrizd a git státuszt (LOCAL): git status',
+          'Nézd át a változásokat (LOCAL): git diff',
+          'Add hozzá a változásokat (LOCAL): git add -A',
+          'Commit-old lokálisan: {type}({scope}): {description} [feature:{featureId}]',
+          'Push-old lokálisan: git push origin {branch-name}',
+          'Frissítsd az InTracker-t (MCP): mcp_update_todo_status(todoId, "tested") - csak ha tesztelted!',
+          '🚨 FONTOS: Git parancsok lokálisan, InTracker követés MCP-vel!'
         ]
       },
       {
@@ -352,20 +403,22 @@ const guideSections: GuideSection[] = [
       },
       {
         title: '2. Feature branch lekérése',
-        description: 'Kérdezd le a feature branch-eket',
+        description: 'Kérdezd le a feature branch-eket (MCP)',
         type: 'cursor',
         command: 'mcp_get_feature_branches(featureId="your-feature-id")',
         deeplink: generateCursorDeeplink('Use the mcp_get_feature_branches tool'),
-        warning: 'Ha nincs feature branch, hozd létre: mcp_create_branch_for_feature'
+        warning: 'Ha nincs feature branch, hozd létre LOKÁLISAN: git checkout -b feature/{name} develop, majd linkeld: mcp_link_branch_to_feature'
       },
       {
-        title: '3. Válts feature branch-re',
-        description: 'Ha van feature branch, válts rá',
+        title: '3. Válts feature branch-re vagy hozd létre',
+        description: 'Ha van feature branch, válts rá (LOCAL). Ha nincs, hozd létre lokálisan és linkeld (MCP).',
         type: 'terminal',
-        command: 'git checkout feature/feature-name\ngit pull origin feature/feature-name',
+        command: '# Ha VAN feature branch:\ngit checkout feature/feature-name\ngit pull origin feature/feature-name\n\n# Ha NINCS feature branch:\ngit checkout -b feature/feature-name develop\ngit push -u origin feature/feature-name\n# Aztán linkeld: mcp_link_branch_to_feature(featureId, "feature/feature-name")',
         tips: [
-          'Ha NINCS feature branch, hozd létre: mcp_create_branch_for_feature',
-          'Ha NEM feature-n dolgozol, használd a develop branch-et'
+          'Ha VAN feature branch: válts rá lokálisan (git checkout)',
+          'Ha NINCS feature branch: hozd létre lokálisan (git checkout -b), push-old, majd linkeld MCP-vel',
+          'Ha NEM feature-n dolgozol, használd a develop branch-et',
+          '🚨 FONTOS: Branch létrehozás lokálisan, linkelés MCP-vel!'
         ]
       }
     ]

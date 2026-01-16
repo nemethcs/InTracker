@@ -4,7 +4,7 @@ from uuid import UUID
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
 from src.database.base import SessionLocal
-from src.mcp.services.cache import cache_service
+from src.mcp.services.cache import cache_service, CacheTTL
 from src.services.signalr_hub import broadcast_todo_update, broadcast_feature_update
 from src.services.todo_service import TodoService
 from src.services.feature_service import FeatureService
@@ -369,7 +369,7 @@ async def handle_list_todos(
             "count": len(todos),
         }
 
-        cache_service.set(cache_key, result, ttl=120)  # 2 min TTL
+        cache_service.set(cache_key, result, ttl=CacheTTL.MEDIUM)
         return result
     finally:
         db.close()

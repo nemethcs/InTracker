@@ -9,7 +9,7 @@ class DocumentBase(BaseModel):
     """Base document schema."""
     type: str = Field(
         ...,
-        pattern="^(architecture|adr|domain|constraints|runbook|ai_instructions)$",
+        pattern="^(architecture|adr|notes)$",
     )
     title: str = Field(..., min_length=1, max_length=255)
     content: str = Field(..., min_length=1)
@@ -20,6 +20,7 @@ class DocumentCreate(DocumentBase):
     """Schema for creating a document."""
     project_id: UUID
     element_id: Optional[UUID] = None
+    feature_id: Optional[UUID] = None
 
 
 class DocumentUpdate(BaseModel):
@@ -34,6 +35,7 @@ class DocumentResponse(DocumentBase):
     id: UUID
     project_id: UUID
     element_id: Optional[UUID] = None
+    feature_id: Optional[UUID] = None
     created_by: Optional[UUID] = None
     updated_by: Optional[UUID] = None
     version: int

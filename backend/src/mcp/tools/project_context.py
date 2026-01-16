@@ -4,7 +4,7 @@ from uuid import UUID
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
 from src.database.base import SessionLocal
-from src.mcp.services.cache import cache_service
+from src.mcp.services.cache import cache_service, CacheTTL
 from src.services.project_service import ProjectService
 from src.services.element_service import ElementService
 from src.services.feature_service import FeatureService
@@ -141,7 +141,7 @@ async def handle_get_project_context(
             }
             
             # Cache summary for 5 minutes
-            cache_service.set(cache_key, context, ttl=300)
+            cache_service.set(cache_key, context, ttl=CacheTTL.LONG)
             return context
 
         # Build response based on include flags
@@ -330,7 +330,7 @@ async def handle_get_resume_context(project_id: str, user_id: Optional[str] = No
                     }
                     for t in next_todos
                 ]
-            cache_service.set(cache_key, resume_context, ttl=60)  # 1 min TTL
+            cache_service.set(cache_key, resume_context, ttl=CacheTTL.SHORT)
             return resume_context
 
         # Otherwise, generate basic resume context
@@ -398,7 +398,7 @@ async def handle_get_resume_context(project_id: str, user_id: Optional[str] = No
             "cursor_instructions": project.cursor_instructions or "",
         }
 
-        cache_service.set(cache_key, resume, ttl=60)  # 1 min TTL
+        cache_service.set(cache_key, resume, ttl=CacheTTL.SHORT)
         return resume
     finally:
         db.close()
@@ -579,7 +579,7 @@ async def handle_get_active_todos(
             "count": len(todos),
         }
 
-        cache_service.set(cache_key, result, ttl=120)  # 2 min TTL
+        cache_service.set(cache_key, result, ttl=CacheTTL.MEDIUM)
         return result
     finally:
         db.close()

@@ -18,19 +18,35 @@ class DocumentService:
         title: str,
         content: str,
         element_id: Optional[UUID] = None,
+        feature_id: Optional[UUID] = None,
         tags: Optional[List[str]] = None,
         current_user_id: Optional[UUID] = None,
     ) -> Document:
-        """Create a new document."""
+        """Create a new document.
+        
+        If feature_id is provided, the document will be automatically linked to that feature.
+        If element_id is also provided, it will be linked as well.
+        """
         # Set current user ID for audit trail
         token = None
         if current_user_id:
             token = set_current_user_id(current_user_id)
         
         try:
+            # If feature_id is provided, verify it belongs to the project
+            if feature_id:
+                from src.database.models import Feature
+                feature = db.query(Feature).filter(
+                    Feature.id == feature_id,
+                    Feature.project_id == project_id
+                ).first()
+                if not feature:
+                    raise ValueError("Feature not found or does not belong to project")
+            
             document = Document(
                 project_id=project_id,
                 element_id=element_id,
+                feature_id=feature_id,
                 type=type,
                 title=title,
                 content=content,
@@ -56,6 +72,7 @@ class DocumentService:
         project_id: UUID,
         type: Optional[str] = None,
         element_id: Optional[UUID] = None,
+        feature_id: Optional[UUID] = None,
         search: Optional[str] = None,
         skip: int = 0,
         limit: int = 100,
@@ -68,6 +85,9 @@ class DocumentService:
 
         if element_id:
             query = query.filter(Document.element_id == element_id)
+
+        if feature_id:
+            query = query.filter(Document.feature_id == feature_id)
 
         if search:
             search_pattern = f"%{search}%"

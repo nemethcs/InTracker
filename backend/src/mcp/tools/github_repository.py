@@ -56,8 +56,13 @@ def get_connect_github_repo_tool() -> MCPTool:
 
 async def handle_connect_github_repo(project_id: str, owner: str, repo: str) -> dict:
     """Handle connect GitHub repo tool call."""
+    from src.mcp.middleware.auth import get_current_user_id
+    
     db = SessionLocal()
     try:
+        # Get current user ID from MCP API key
+        user_id = get_current_user_id()
+        
         # Use ProjectService to get project
         project = ProjectService.get_project_by_id(db, UUID(project_id))
         if not project:
@@ -140,11 +145,10 @@ async def handle_get_repo_info(project_id: str) -> dict:
             return error_dict or {"error": "Cannot access project"}
 
         # Parse repo owner and name
-        repo_parts = project.github_repo_url.replace("https://github.com/", "").split("/")
-        if len(repo_parts) != 2:
+        from src.services.github_service import GitHubService
+        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+        if not owner or not repo:
             return {"error": "Invalid GitHub repository URL format"}
-
-        owner, repo = repo_parts
 
         # Use GitHubService to get repo info
         github_service = get_github_service()

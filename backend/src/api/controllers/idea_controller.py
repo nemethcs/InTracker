@@ -106,7 +106,7 @@ async def list_ideas(
         limit=page_size,
     )
 
-    return IdeaListResponse(ideas=ideas, total=total)
+    return IdeaListResponse(ideas=ideas, total=total, page=page, page_size=page_size)
 
 
 @router.get("/{idea_id}", response_model=IdeaResponse)

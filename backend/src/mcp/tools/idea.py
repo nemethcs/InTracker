@@ -4,7 +4,7 @@ from uuid import UUID
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
 from src.database.base import SessionLocal
-from src.mcp.services.cache import cache_service
+from src.mcp.services.cache import cache_service, CacheTTL
 from src.services.idea_service import IdeaService
 from src.services.project_service import ProjectService
 from src.services.signalr_hub import broadcast_idea_update, broadcast_project_update
@@ -170,7 +170,7 @@ async def handle_list_ideas(status: Optional[str] = None, user_id: Optional[str]
             "count": len(ideas),
         }
 
-        cache_service.set(cache_key, result, ttl=120)  # 2 min TTL
+        cache_service.set(cache_key, result, ttl=CacheTTL.MEDIUM)
         return result
     finally:
         db.close()
@@ -230,7 +230,7 @@ async def handle_get_idea(idea_id: str) -> dict:
                     "status": project.status,
                 }
 
-        cache_service.set(cache_key, result, ttl=300)  # 5 min TTL
+        cache_service.set(cache_key, result, ttl=CacheTTL.LONG)
         return result
     finally:
         db.close()

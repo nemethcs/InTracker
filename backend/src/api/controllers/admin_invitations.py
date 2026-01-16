@@ -162,18 +162,19 @@ This is an automated message from InTracker. Please do not reply to this email.
 async def list_invitations(
     type: Optional[str] = Query(None, description="Filter by type (admin, team)"),
     used: Optional[bool] = Query(None, description="Filter by used status"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Number of items per page"),
     current_user: dict = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ):
-    """List all invitations. Requires admin role."""
+    """List all invitations with pagination. Requires admin role."""
+    skip = (page - 1) * page_size
     invitations, total = InvitationService.get_all_invitations(
         db=db,
         type=type,
         used=used,
         skip=skip,
-        limit=limit,
+        limit=page_size,
     )
 
     return {
@@ -191,8 +192,8 @@ async def list_invitations(
             for invitation in invitations
         ],
         "total": total,
-        "skip": skip,
-        "limit": limit,
+        "page": page,
+        "page_size": page_size,
     }
 
 

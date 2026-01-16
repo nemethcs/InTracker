@@ -53,24 +53,40 @@ def create_core_workflow_section() -> RulesSection:
 
 4. **Branch Check (MANDATORY for feature work!):**
    - **🚨 CRITICAL: ALWAYS check branch before starting work on a feature!**
-   - Check current branch: `git branch --show-current`
+   - **CRITICAL: You work BOTH locally (git commands) AND via MCP (InTracker tracking)!**
+   - Check current branch (LOCAL): `git branch --show-current`
    - If working on a feature:
-     - Get feature: `mcp_get_feature(featureId)`
-     - Get feature branches: `mcp_get_feature_branches(featureId)`
-     - If feature branch exists: `git checkout feature/{feature-name}` then `git pull origin feature/{feature-name}`
-     - If NO feature branch: `mcp_create_branch_for_feature(featureId)` then `git checkout feature/{feature-name}`
-   - If NOT working on a feature: Use `develop` branch
+     - Get feature (MCP): `mcp_get_feature(featureId)`
+     - Get feature branches (MCP): `mcp_get_feature_branches(featureId)`
+     - If feature branch exists:
+       - Switch to it (LOCAL): `git checkout feature/{feature-name}`
+       - Pull latest (LOCAL): `git pull origin feature/{feature-name}`
+     - If NO feature branch:
+       - Create it LOCALLY: `git checkout -b feature/{feature-name} develop`
+       - Push to GitHub (LOCAL): `git push -u origin feature/{feature-name}`
+       - Link to feature (MCP): `mcp_link_branch_to_feature(featureId, "feature/{feature-name}")`
+   - If NOT working on a feature: Use `develop` branch (LOCAL): `git checkout develop`
    - **NEVER start working on a feature without checking the branch first!**
 
 5. **Work on Next Todo:**
    - Get next todos from resume context
    - **🚨 VERIFY BRANCH FIRST!** (see step 4 above)
-   - Update status: `mcp_update_todo_status(todoId, "in_progress")`
-   - Implement changes
+   - Update status (MCP): `mcp_update_todo_status(todoId, "in_progress")`
+   - Implement changes (LOCAL - edit files)
    - Check for errors: `read_lints` tool
-   - Fix syntax/import errors
+   - Fix syntax/import errors (LOCAL - edit files)
    - Restart affected service if needed
-   - Test functionality
+   - Test functionality (LOCAL - run tests)
+
+**If user requests new work on a feature:**
+   - Create todo (MCP): `mcp_create_todo(elementId, title, description, featureId?, priority?)`
+   - Update todo status (MCP): `mcp_update_todo_status(todoId, "in_progress")`
+   - Implement changes (LOCAL - edit files)
+   - Test changes (LOCAL - run tests)
+   - Commit (LOCAL): `git commit -m "feat(scope): description [feature:featureId]"`
+   - Push (LOCAL): `git push origin feature/{feature-name}`
+   - Update todo status (MCP): `mcp_update_todo_status(todoId, "tested")` (only if tested!)
+   - After merge: `mcp_update_todo_status(todoId, "done")` (only after tested AND merged!)
 
 6. **Update Todo Status:**
    - After implementation: `mcp_update_todo_status(todoId, "tested")` (only if tested!)
@@ -79,35 +95,37 @@ def create_core_workflow_section() -> RulesSection:
 7. **Git Workflow (MANDATORY - Follow this order!):**
    - **🚨 Before starting work - BRANCH CHECK (MANDATORY!):**
      - **ALWAYS check branch before starting work on a feature!**
-     - Check current branch: `git branch --show-current`
+     - **CRITICAL: You work BOTH locally (git commands) AND via MCP (InTracker tracking)!**
+     - Check current branch (LOCAL): `git branch --show-current`
      - If working on a feature:
-       - Get feature: `mcp_get_feature(featureId)`
-       - Get feature branches: `mcp_get_feature_branches(featureId)`
+       - Get feature (MCP): `mcp_get_feature(featureId)`
+       - Get feature branches (MCP): `mcp_get_feature_branches(featureId)`
        - If feature branch exists:
-         - Switch to it: `git checkout feature/{feature-name}`
-         - Pull latest: `git pull origin feature/{feature-name}`
+         - Switch to it (LOCAL): `git checkout feature/{feature-name}`
+         - Pull latest (LOCAL): `git pull origin feature/{feature-name}`
        - If NO feature branch exists:
-         - Create it: `mcp_create_branch_for_feature(featureId)`
-         - Switch to it: `git checkout feature/{feature-name}`
-         - Pull latest: `git pull origin feature/{feature-name}`
+         - Create it LOCALLY: `git checkout -b feature/{feature-name} develop`
+         - Push to GitHub (LOCAL): `git push -u origin feature/{feature-name}`
+         - Link to feature (MCP): `mcp_link_branch_to_feature(featureId, "feature/{feature-name}")`
      - If NOT working on a feature:
-       - Use develop branch: `git checkout develop`
-       - Pull latest: `git pull origin develop`
+       - Use develop branch (LOCAL): `git checkout develop`
+       - Pull latest (LOCAL): `git pull origin develop`
      - **NEVER start working on a feature without checking the branch first!**
    
    - **During work:**
-     - Make code changes
-     - Test your changes
+     - Make code changes (LOCAL - edit files)
+     - Test your changes (LOCAL - run tests)
      - Check for errors: `read_lints` tool
-     - Fix any issues
+     - Fix any issues (LOCAL - edit files)
+     - Update todo status (MCP): `mcp_update_todo_status(todoId, "in_progress")`
    
    - **Before committing:**
-     - Check git status: `git status`
-     - Review changes: `git diff`
-     - Stage all changes: `git add -A`
-     - Verify staged changes: `git status`
+     - Check git status (LOCAL): `git status`
+     - Review changes (LOCAL): `git diff`
+     - Stage all changes (LOCAL): `git add -A`
+     - Verify staged changes (LOCAL): `git status`
    
-   - **Commit (MANDATORY format):**
+   - **Commit (MANDATORY format - LOCAL):**
      - Format: `{type}({scope}): {description} [feature:{featureId}]`
      - Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
      - Scope: Feature slug or module name
@@ -118,17 +136,17 @@ def create_core_workflow_section() -> RulesSection:
        - [x] Todo item 1
        - [x] Todo item 2
        ```
-     - Example: `git commit -m "feat(real-time): Implement SignalR updates [feature:a0441bbc-078b-447c-8c73-c3dd96de8789]"`
+     - Example (LOCAL): `git commit -m "feat(real-time): Implement SignalR updates [feature:a0441bbc-078b-447c-8c73-c3dd96de8789]"`
    
    - **After committing:**
-     - Push to remote: `git push origin {branch-name}`
-     - Update todo status to `tested`: `mcp_update_todo_status(todoId, "tested")` (only if tested!)
-     - Link todo to PR if PR exists: `mcp_link_todo_to_pr(todoId, prNumber)`
+     - Push to remote (LOCAL): `git push origin {branch-name}`
+     - Update todo status to `tested` (MCP): `mcp_update_todo_status(todoId, "tested")` (only if tested!)
+     - Link todo to PR if PR exists (MCP): `mcp_link_todo_to_pr(todoId, prNumber)`
    
    - **After merge to dev:**
-     - Update todo status to `done`: `mcp_update_todo_status(todoId, "done")` (only after tested AND merged!)
-     - Switch back to dev: `git checkout develop`
-     - Pull latest: `git pull origin develop`
+     - Update todo status to `done` (MCP): `mcp_update_todo_status(todoId, "done")` (only after tested AND merged!)
+     - Switch back to dev (LOCAL): `git checkout develop`
+     - Pull latest (LOCAL): `git pull origin develop`
    
    **CRITICAL Git Rules:**
    - **🚨 ALWAYS check branch before starting work on a feature!**

@@ -226,6 +226,7 @@ async def update_project(
         github_repo_url=project_data.github_repo_url,
         github_repo_id=project_data.github_repo_id,
         team_id=project_data.team_id,
+        resume_context=project_data.resume_context,
     )
 
     if not project:

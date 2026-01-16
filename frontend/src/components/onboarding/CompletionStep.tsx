@@ -59,8 +59,8 @@ export function CompletionStep({ onComplete, onBack }: CompletionStepProps) {
     <div className="space-y-6">
       <div className="text-center space-y-4">
         <div className="flex justify-center">
-          <div className="rounded-full bg-green-100 dark:bg-green-900 p-4">
-            <CheckCircle2 className="h-12 w-12 text-green-600 dark:text-green-400" />
+          <div className="rounded-full bg-primary/20 dark:bg-primary/30 p-4">
+            <CheckCircle2 className="h-12 w-12 text-primary dark:text-primary-foreground" />
           </div>
         </div>
         <h2 className="text-3xl font-bold">Setup Complete! 🎉</h2>

@@ -4,7 +4,7 @@ from uuid import UUID
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
 from src.database.base import SessionLocal
-from src.mcp.services.cache import cache_service
+from src.mcp.services.cache import cache_service, CacheTTL
 from src.services.signalr_hub import broadcast_feature_update
 from src.services.feature_service import FeatureService
 from src.services.todo_service import TodoService
@@ -140,7 +140,7 @@ async def handle_get_feature(feature_id: str) -> dict:
             ],
         }
 
-        cache_service.set(cache_key, result, ttl=120)  # 2 min TTL
+        cache_service.set(cache_key, result, ttl=CacheTTL.MEDIUM)
         return result
     finally:
         db.close()
@@ -205,7 +205,7 @@ async def handle_list_features(
             "count": len(features),
         }
 
-        cache_service.set(cache_key, result, ttl=120)  # 2 min TTL
+        cache_service.set(cache_key, result, ttl=CacheTTL.MEDIUM)
         return result
     finally:
         db.close()
@@ -331,7 +331,7 @@ async def handle_get_feature_todos(feature_id: str) -> dict:
             "count": len(todos),
         }
 
-        cache_service.set(cache_key, result, ttl=120)  # 2 min TTL
+        cache_service.set(cache_key, result, ttl=CacheTTL.MEDIUM)
         return result
     finally:
         db.close()
@@ -379,7 +379,7 @@ async def handle_get_feature_elements(feature_id: str) -> dict:
             "count": len(elements),
         }
 
-        cache_service.set(cache_key, result, ttl=300)  # 5 min TTL
+        cache_service.set(cache_key, result, ttl=CacheTTL.LONG)
         return result
     finally:
         db.close()
@@ -441,5 +441,62 @@ async def handle_link_element_to_feature(feature_id: str, element_id: str) -> di
             )
 
         return {"success": True, "message": "Element linked to feature"}
+    finally:
+        db.close()
+
+
+def get_delete_feature_tool() -> MCPTool:
+    """Get delete feature tool definition."""
+    return MCPTool(
+        name="mcp_delete_feature",
+        description="Delete a feature. This will also delete all todos linked to the feature.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "featureId": {"type": "string", "description": "Feature UUID to delete"},
+            },
+            "required": ["featureId"],
+        },
+    )
+
+
+async def handle_delete_feature(feature_id: str) -> dict:
+    """Handle delete feature tool call."""
+    db = SessionLocal()
+    try:
+        # Get feature before deletion for broadcast and cache invalidation
+        feature = FeatureService.get_feature_by_id(db, UUID(feature_id))
+        if not feature:
+            return {"error": "Feature not found"}
+        
+        project_id = feature.project_id
+        
+        # Delete feature using FeatureService
+        success = FeatureService.delete_feature(db=db, feature_id=UUID(feature_id))
+        if not success:
+            return {"error": "Failed to delete feature"}
+
+        # Invalidate cache
+        cache_service.clear_pattern(f"project:{project_id}:*")
+        cache_service.delete(f"feature:{feature_id}")
+
+        # Broadcast SignalR update (fire and forget)
+        import asyncio
+        asyncio.create_task(
+            broadcast_feature_update(
+                str(project_id),
+                str(feature_id),
+                0,  # progress is 0 for deleted features
+                "deleted"  # status indicates deletion
+            )
+        )
+
+        return {
+            "success": True,
+            "deleted_feature_id": str(feature_id),
+            "message": "Feature deleted successfully",
+        }
+    except ValueError as e:
+        return {"error": str(e)}
     finally:
         db.close()

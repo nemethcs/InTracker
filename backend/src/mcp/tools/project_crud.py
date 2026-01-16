@@ -7,7 +7,7 @@ import json as json_lib
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
 from src.database.base import SessionLocal
-from src.mcp.services.cache import cache_service
+from src.mcp.services.cache import cache_service, CacheTTL
 from src.services.project_service import ProjectService
 from src.services.signalr_hub import broadcast_project_update
 from sqlalchemy import func
@@ -129,6 +129,10 @@ def get_list_projects_tool() -> MCPTool:
                     "enum": ["active", "paused", "blocked", "completed", "archived"],
                     "description": "Filter by status",
                 },
+                "userId": {
+                    "type": "string",
+                    "description": "Optional: User UUID to filter projects by user access (team membership). If not provided, automatically extracted from MCP API key.",
+                },
             },
         },
     )
@@ -191,7 +195,7 @@ async def handle_list_projects(status: Optional[str] = None, user_id: Optional[s
             "count": len(projects),
         }
 
-        cache_service.set(cache_key, result, ttl=120)  # 2 min TTL
+        cache_service.set(cache_key, result, ttl=CacheTTL.MEDIUM)
         return result
     finally:
         db.close()
@@ -277,7 +281,7 @@ async def handle_update_project(
         project = ProjectService.update_project(
             db=db,
             project_id=UUID(project_id),
-            user_id=user_id,
+            current_user_id=user_id,
             name=name,
             description=description,
             status=status,

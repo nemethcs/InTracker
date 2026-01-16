@@ -3,8 +3,9 @@ from typing import Optional, List
 from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from src.database.models import Project, User, TeamMember
+from src.database.models import Project, User, TeamMember, ProjectElement
 from src.database.base import set_current_user_id, reset_current_user_id
+from src.services.cache_service import CacheService, CacheTTL
 
 
 class ProjectService:
@@ -43,8 +44,25 @@ class ProjectService:
                 github_repo_id=github_repo_id,
             )
             db.add(project)
+            db.flush()  # Flush to get project.id
+            
+            # Automatically create a "default" element for the project
+            # This element will be used by todos when no specific element is provided
+            default_element = ProjectElement(
+                project_id=project.id,
+                type="module",
+                title="Default",
+                description="Default element for todos without specific element assignment",
+                status="done",  # Default element is always "done" (not tracked)
+                parent_id=None,
+            )
+            db.add(default_element)
             db.commit()
             db.refresh(project)
+            
+            # Invalidate user projects cache for all users (new project added)
+            CacheService.clear_cache_by_pattern("user_projects:*")
+            
             return project
         finally:
             if token:
@@ -52,7 +70,11 @@ class ProjectService:
 
     @staticmethod
     def get_project_by_id(db: Session, project_id: UUID) -> Optional[Project]:
-        """Get project by ID."""
+        """Get project by ID.
+        
+        Note: Direct entity queries are fast, so we don't cache individual entities.
+        Instead, we cache list queries (get_user_projects) which are more expensive.
+        """
         return db.query(Project).filter(Project.id == project_id).first()
 
     @staticmethod
@@ -68,7 +90,26 @@ class ProjectService:
         
         If user is admin, returns all projects.
         Otherwise, returns projects from teams where user is a member.
+        
+        Results are cached to improve performance for frequently accessed project lists.
         """
+        # Build cache key from parameters
+        cache_key = f"user_projects:{user_id}:status:{status or 'all'}:team:{team_id or 'all'}:skip:{skip}:limit:{limit}"
+        
+        # Try cache first
+        cached = CacheService.get_cache(cache_key)
+        if cached:
+            # Reconstruct Project objects from cached IDs
+            project_ids = cached.get("project_ids", [])
+            if project_ids:
+                projects = db.query(Project).filter(Project.id.in_([UUID(pid) for pid in project_ids])).all()
+                # Maintain order from cache
+                project_dict = {str(p.id): p for p in projects}
+                projects = [project_dict[pid] for pid in project_ids if pid in project_dict]
+                total = cached.get("total", len(projects))
+                return projects, total
+        
+        # Cache miss - query database
         user = db.query(User).filter(User.id == user_id).first()
         
         if user and user.role == "admin":
@@ -91,6 +132,15 @@ class ProjectService:
 
         total = query.count()
         projects = query.order_by(Project.created_at.desc()).offset(skip).limit(limit).all()
+        
+        # Cache result (store only IDs to avoid serialization issues)
+        if projects:
+            project_ids = [str(p.id) for p in projects]
+            CacheService.set_cache(
+                cache_key,
+                {"project_ids": project_ids, "total": total},
+                ttl=CacheTTL.MEDIUM
+            )
 
         return projects, total
 
@@ -107,6 +157,7 @@ class ProjectService:
         github_repo_url: Optional[str] = None,
         github_repo_id: Optional[str] = None,
         team_id: Optional[UUID] = None,
+        resume_context: Optional[dict] = None,
         current_user_id: Optional[UUID] = None,
     ) -> Optional[Project]:
         """Update project."""
@@ -138,9 +189,25 @@ class ProjectService:
                 project.github_repo_id = github_repo_id
             if team_id is not None:
                 project.team_id = team_id
+            if resume_context is not None:
+                # Merge with existing resume_context to preserve other fields
+                existing_context = project.resume_context or {}
+                # Deep merge: update nested objects
+                merged_context = {**existing_context}
+                for key, value in resume_context.items():
+                    if isinstance(value, dict) and key in merged_context and isinstance(merged_context[key], dict):
+                        merged_context[key] = {**merged_context[key], **value}
+                    else:
+                        merged_context[key] = value
+                project.resume_context = merged_context
 
             db.commit()
             db.refresh(project)
+            
+            # Invalidate cache
+            CacheService.invalidate_project_cache(str(project_id))
+            CacheService.clear_cache_by_pattern("user_projects:*")
+            
             return project
         finally:
             if token:
@@ -153,6 +220,9 @@ class ProjectService:
         if not project:
             return False
 
+        # Invalidate cache before deletion
+        CacheService.invalidate_project_cache(str(project_id))
+        
         db.delete(project)
         db.commit()
         return True
@@ -204,6 +274,54 @@ class ProjectService:
                 return required_role == "viewer"
         
         return True
+
+    @staticmethod
+    def get_or_create_default_element(
+        db: Session,
+        project_id: UUID,
+        current_user_id: Optional[UUID] = None,
+    ) -> ProjectElement:
+        """Get or create the default element for a project.
+        
+        The default element is used by todos when no specific element is provided.
+        This ensures that todos always have an element, simplifying the workflow.
+        """
+        # Try to find existing default element
+        default_element = (
+            db.query(ProjectElement)
+            .filter(
+                ProjectElement.project_id == project_id,
+                ProjectElement.type == "module",
+                ProjectElement.title == "Default",
+            )
+            .first()
+        )
+        
+        if default_element:
+            return default_element
+        
+        # Create default element if it doesn't exist
+        # Set current user ID for audit trail
+        token = None
+        if current_user_id:
+            token = set_current_user_id(current_user_id)
+        
+        try:
+            default_element = ProjectElement(
+                project_id=project_id,
+                type="module",
+                title="Default",
+                description="Default element for todos without specific element assignment",
+                status="done",  # Default element is always "done" (not tracked)
+                parent_id=None,
+            )
+            db.add(default_element)
+            db.commit()
+            db.refresh(default_element)
+            return default_element
+        finally:
+            if token:
+                reset_current_user_id(token)
 
 
 # Global instance

@@ -21,10 +21,15 @@ def get_document_resources(project_id: Optional[str] = None) -> list[Resource]:
                 limit=1000,  # Large limit for resources
             )
         else:
-            # List all documents - need to query directly as DocumentService doesn't have list_all method
+            # List all documents from active projects only - need to query directly as DocumentService doesn't have list_all method
             # This is acceptable for resources as it's a simple read operation
-            from src.database.models import Document
-            documents = db.query(Document).all()
+            from src.database.models import Document, Project
+            documents = (
+                db.query(Document)
+                .join(Project, Document.project_id == Project.id)
+                .filter(Project.status != "archived")
+                .all()
+            )
         
         return [
             Resource(

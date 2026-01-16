@@ -1,82 +1,56 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { useShallow } from 'zustand/react/shallow'
 import { useFeatures } from '@/hooks/useFeatures'
 import { useTodos } from '@/hooks/useTodos'
 import { useFeatureStore } from '@/stores/featureStore'
 import { useTodoStore } from '@/stores/todoStore'
+import type { TodoUpdateData } from '@/types/signalr'
+import type { TodoCreate, TodoUpdate } from '@/services/todoService'
+import type { FeatureUpdate } from '@/services/featureService'
+import type { DocumentCreate, DocumentUpdate } from '@/services/documentService'
 import { signalrService } from '@/services/signalrService'
-import { elementService, type ElementTree } from '@/services/elementService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { LoadingState } from '@/components/ui/LoadingState'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { TodoCard } from '@/components/todos/TodoCard'
+import { LoadingState } from '@/components/ui/LoadingState'
 import { TodoEditor } from '@/components/todos/TodoEditor'
 import { FeatureEditor } from '@/components/features/FeatureEditor'
-import { ArrowLeft, Plus, CheckCircle2, Circle, AlertCircle, Clock, User, Edit } from 'lucide-react'
-import { iconSize } from '@/components/ui/Icon'
-import { format } from 'date-fns'
-import { PageHeader } from '@/components/layout/PageHeader'
+import { DocumentEditor } from '@/components/documents/DocumentEditor'
+import { documentService, type Document } from '@/services/documentService'
+import { ArrowLeft } from 'lucide-react'
+import { FeatureHeader } from '@/components/features/FeatureHeader'
+import { FeatureProgressOverview } from '@/components/features/FeatureProgressOverview'
+import { FeatureTodosSection } from '@/components/features/FeatureTodosSection'
+import { FeatureDocumentsSection } from '@/components/features/FeatureDocumentsSection'
 import type { Todo } from '@/services/todoService'
 import type { Feature } from '@/services/featureService'
-import { toast } from '@/hooks/useToast'
-
-const statusIcons = {
-  new: Circle,
-  in_progress: Clock,
-  done: CheckCircle2,
-  tested: CheckCircle2,
-  merged: CheckCircle2,
-}
-
-const statusColors = {
-  new: 'text-muted-foreground',
-  in_progress: 'text-primary',
-  done: 'text-success',
-  tested: 'text-warning',
-  merged: 'text-accent',
-}
 
 export function FeatureDetail() {
   const { projectId, featureId } = useParams<{ projectId: string; featureId: string }>()
   const { features, isLoading: featuresLoading, refetch: refetchFeatures } = useFeatures(projectId)
   const { todos, isLoading: todosLoading, refetch: refetchTodos } = useTodos(featureId)
-  const { createTodo, updateTodo, deleteTodo, updateTodoStatus } = useTodoStore()
-  const { updateFeature } = useFeatureStore()
+  const { createTodo, updateTodo, deleteTodo, updateTodoStatus } = useTodoStore(
+    useShallow((state) => ({
+      createTodo: state.createTodo,
+      updateTodo: state.updateTodo,
+      deleteTodo: state.deleteTodo,
+      updateTodoStatus: state.updateTodoStatus,
+    }))
+  )
+  const { updateFeature } = useFeatureStore(
+    useShallow((state) => ({
+      updateFeature: state.updateFeature,
+    }))
+  )
   const [todoEditorOpen, setTodoEditorOpen] = useState(false)
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null)
   const [featureEditorOpen, setFeatureEditorOpen] = useState(false)
-  const [elementTree, setElementTree] = useState<ElementTree | null>(null)
-  const [isLoadingElements, setIsLoadingElements] = useState(false)
+  const [documents, setDocuments] = useState<Document[]>([])
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false)
+  const [documentEditorOpen, setDocumentEditorOpen] = useState(false)
+  const [editingDocument, setEditingDocument] = useState<Document | null>(null)
 
   const feature = features.find(f => f.id === featureId)
-  
-  // Get element ID for new todos - use first element from project tree or feature's linked elements
-  const elementId = useMemo(() => {
-    if (!elementTree || !elementTree.elements || elementTree.elements.length === 0) {
-      return undefined
-    }
-    
-    // Helper function to find first element in tree (recursive)
-    const findFirstElement = (elements: any[]): string | undefined => {
-      for (const el of elements) {
-        // Prefer component or module type elements
-        if (el.type === 'component' || el.type === 'module') {
-          return el.id
-        }
-        // Check children recursively
-        if (el.children && el.children.length > 0) {
-          const childId = findFirstElement(el.children)
-          if (childId) return childId
-        }
-      }
-      // Fallback to first element
-      return elements[0]?.id
-    }
-    
-    return findFirstElement(elementTree.elements)
-  }, [elementTree])
 
   // Sort todos by position (if available), then by created_at
   // IMPORTANT: This must be before any early returns to maintain hook order
@@ -102,23 +76,6 @@ export function FeatureDetail() {
     in_progress: sortedTodos.filter(t => t.status === 'in_progress'),
     done: sortedTodos.filter(t => t.status === 'done'),
   }
-
-  // Load element tree for project
-  useEffect(() => {
-    if (!projectId) return
-
-    setIsLoadingElements(true)
-    elementService.getProjectTree(projectId)
-      .then((tree) => {
-        setElementTree(tree)
-        setIsLoadingElements(false)
-      })
-      .catch((error) => {
-        console.error('Failed to load element tree:', error)
-        setElementTree(null)
-        setIsLoadingElements(false)
-      })
-  }, [projectId])
 
   // Subscribe to SignalR real-time updates
   useEffect(() => {
@@ -150,7 +107,7 @@ export function FeatureDetail() {
     signalrService.on('reconnected', handleConnected)
 
     // Handle todo updates
-    const handleTodoUpdate = (data: { todoId: string; projectId: string; userId: string; changes: any }) => {
+    const handleTodoUpdate = (data: TodoUpdateData) => {
       if (data.projectId === projectId) {
         // Refresh todos list to get updated data
         refetchTodos()
@@ -189,6 +146,23 @@ export function FeatureDetail() {
     }
   }, [projectId, featureId, refetchTodos])
 
+  // Load documents for this feature
+  useEffect(() => {
+    if (!projectId || !featureId) return
+
+    setIsLoadingDocuments(true)
+    documentService.listDocuments(projectId, undefined, undefined, featureId)
+      .then((docs) => {
+        setDocuments(docs)
+        setIsLoadingDocuments(false)
+      })
+      .catch((error) => {
+        console.error('Failed to load documents:', error)
+        setDocuments([])
+        setIsLoadingDocuments(false)
+      })
+  }, [projectId, featureId])
+
   if (featuresLoading) {
     return (
       <div className="space-y-6">
@@ -220,184 +194,51 @@ export function FeatureDetail() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title={
-          <div className="flex items-center gap-2 sm:gap-4">
-            <Link to={`/projects/${projectId}`}>
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className={iconSize('sm')} />
-              </Button>
-            </Link>
-            <span className="truncate">{feature.name}</span>
-          </div>
-        }
-        description={feature.description}
-        actions={
-          <div className="flex items-center gap-2">
-            <Badge 
-              variant={
-                feature.status === 'done' ? 'success' :
-                feature.status === 'tested' ? 'warning' :
-                feature.status === 'in_progress' ? 'info' :
-                feature.status === 'merged' ? 'accent' : 'muted'
-              }
-              className="text-base sm:text-lg px-2 sm:px-3 py-1"
-            >
-              {feature.status}
-            </Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setFeatureEditorOpen(true)}
-              className="w-full sm:w-auto"
-            >
-              <Edit className={`mr-2 ${iconSize('sm')}`} />
-              Edit
-            </Button>
-          </div>
-        }
+      <FeatureHeader
+        projectId={projectId!}
+        feature={feature}
+        onEdit={() => setFeatureEditorOpen(true)}
       />
 
-      {/* Progress Overview */}
-      <Card className="border-l-4 border-l-primary">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Progress Overview</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="space-y-3">
-            <div>
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="text-muted-foreground">Overall Progress</span>
-                <span className="font-semibold text-base">{feature.progress_percentage}%</span>
-              </div>
-              <div className="w-full bg-secondary rounded-full h-2">
-                <div
-                  className="bg-primary h-2 rounded-full transition-all"
-                  style={{ width: `${feature.progress_percentage}%` }}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-5 gap-2">
-              <div className="text-center">
-                <div className="text-lg font-bold">{feature.total_todos}</div>
-                <div className="text-xs text-muted-foreground">Total</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-muted-foreground">{todosByStatus.new.length}</div>
-                <div className="text-xs text-muted-foreground">New</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-primary">{todosByStatus.in_progress.length}</div>
-                <div className="text-xs text-muted-foreground">In Progress</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-success">{todosByStatus.done.length}</div>
-                <div className="text-xs text-muted-foreground">Done</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-success">{feature.completed_todos}</div>
-                <div className="text-xs text-muted-foreground">Completed</div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <FeatureProgressOverview
+        feature={feature}
+        todosByStatus={todosByStatus}
+      />
 
-      {/* Todos Section */}
-      <div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-          <h2 className="text-xl sm:text-2xl font-bold">Todos</h2>
-          <Button 
-            onClick={() => {
-              setEditingTodo(null)
-              setTodoEditorOpen(true)
-            }}
-            disabled={todosLoading}
-            className="w-full sm:w-auto"
-          >
-            <Plus className={`mr-2 ${iconSize('sm')}`} />
-            New Todo
-          </Button>
-        </div>
+      <FeatureTodosSection
+        todos={todos}
+        sortedTodos={sortedTodos}
+        todosByStatus={todosByStatus}
+        isLoading={todosLoading}
+        onCreateTodo={() => {
+          setEditingTodo(null)
+          setTodoEditorOpen(true)
+        }}
+        onEditTodo={(todo) => {
+          setEditingTodo(todo)
+          setTodoEditorOpen(true)
+        }}
+        onDeleteTodo={async (todo) => {
+          await deleteTodo(todo.id)
+        }}
+        onStatusChange={async (todo, newStatus) => {
+          await updateTodoStatus(todo.id, newStatus, todo.version)
+        }}
+        onRefetch={refetchTodos}
+      />
 
-        {todosLoading ? (
-          <LoadingState variant="combined" size="md" skeletonCount={3} />
-        ) : todos.length === 0 ? (
-          <EmptyState
-            icon={<CheckSquare className="h-12 w-12 text-muted-foreground" />}
-            title="No todos yet"
-            description="Create your first todo to get started"
-            action={{
-              label: 'Create Todo',
-              onClick: () => {
-                setEditingTodo(null)
-                setTodoEditorOpen(true)
-              }
-            }}
-            variant="compact"
-          />
-        ) : (
-          <div className="space-y-4">
-            {/* Todo Status Columns */}
-            {(['new', 'in_progress', 'done'] as const).map((status) => {
-              const statusTodos = todosByStatus[status]
-              if (statusTodos.length === 0) return null
-
-              const StatusIcon = statusIcons[status]
-              const statusColor = statusColors[status]
-
-              return (
-                <div key={status}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <StatusIcon className={`${iconSize('md')} ${statusColor}`} />
-                    <h3 className="font-semibold capitalize">{status.replace('_', ' ')}</h3>
-                    <Badge variant="outline" className="ml-2">{statusTodos.length}</Badge>
-                  </div>
-                  <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-                    {statusTodos.map((todo, todoIndex) => {
-                      // Calculate todo number: find position in sorted todos
-                      const todoNumber = sortedTodos.findIndex(t => t.id === todo.id) + 1
-                      
-                      return (
-                        <TodoCard
-                          key={todo.id}
-                          todo={todo}
-                          number={todoNumber}
-                          onEdit={(todo) => {
-                            setEditingTodo(todo)
-                            setTodoEditorOpen(true)
-                          }}
-                          onDelete={async (todo) => {
-                            if (confirm('Are you sure you want to delete this todo?')) {
-                              await deleteTodo(todo.id)
-                              refetchTodos()
-                            }
-                          }}
-                          onStatusChange={async (todo, newStatus) => {
-                            try {
-                              await updateTodoStatus(todo.id, newStatus, todo.version)
-                              refetchTodos()
-                            } catch (error: any) {
-                              if (error.isConflict) {
-                                // Show conflict warning
-                                toast.warning('Conflict detected', error.message + '\n\nPlease refresh the page to get the latest version.')
-                                // Refresh todos to get latest data
-                                refetchTodos()
-                              } else {
-                                toast.error('Failed to update todo', error.message || 'An error occurred')
-                              }
-                            }
-                          }}
-                        />
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
+      <FeatureDocumentsSection
+        documents={documents}
+        isLoading={isLoadingDocuments}
+        onCreateDocument={() => {
+          setEditingDocument(null)
+          setDocumentEditorOpen(true)
+        }}
+        onEditDocument={(document) => {
+          setEditingDocument(document)
+          setDocumentEditorOpen(true)
+        }}
+      />
 
       {/* Todo Editor Dialog */}
       <TodoEditor
@@ -410,13 +251,13 @@ export function FeatureDetail() {
         }}
         todo={editingTodo}
         featureId={featureId}
-        elementId={elementId || undefined}
+        projectId={projectId}
         onSave={async (data) => {
           try {
             if (editingTodo) {
-              await updateTodo(editingTodo.id, data as any)
+              await updateTodo(editingTodo.id, data as TodoUpdate)
             } else {
-              await createTodo(data as any)
+              await createTodo(data as TodoCreate)
             }
             refetchTodos()
           } catch (error) {
@@ -425,6 +266,41 @@ export function FeatureDetail() {
           }
         }}
       />
+
+      {/* Document Editor Dialog */}
+      {projectId && featureId && (
+        <DocumentEditor
+          open={documentEditorOpen}
+          onOpenChange={(open) => {
+            setDocumentEditorOpen(open)
+            if (!open) {
+              setEditingDocument(null)
+            }
+          }}
+          document={editingDocument}
+          projectId={projectId}
+          onSave={async (data) => {
+            try {
+              if (editingDocument) {
+                await documentService.updateDocument(editingDocument.id, data as DocumentUpdate)
+              } else {
+                // Create new document with feature_id
+                await documentService.createDocument({
+                  ...data,
+                  project_id: projectId,
+                  feature_id: featureId,
+                } as DocumentCreate)
+              }
+              // Reload documents
+              const docs = await documentService.listDocuments(projectId, undefined, undefined, featureId)
+              setDocuments(docs)
+            } catch (error) {
+              console.error('Failed to save document:', error)
+              throw error
+            }
+          }}
+        />
+      )}
 
       {/* Feature Editor Dialog */}
       {projectId && (
@@ -437,7 +313,7 @@ export function FeatureDetail() {
           projectId={projectId}
           onSave={async (data) => {
             try {
-              await updateFeature(featureId, data as any)
+              await updateFeature(featureId, data as FeatureUpdate)
               // Refetch features to update the current feature
               refetchFeatures()
             } catch (error) {

@@ -33,6 +33,8 @@ class McpApiKeyCreateResponse(BaseModel):
 
 
 class McpApiKeyListResponse(BaseModel):
-    """Schema for MCP API key list response."""
+    """Schema for MCP API key list response with pagination."""
     keys: list[McpApiKeyResponse]
     total: int
+    page: Optional[int] = Field(None, description="Current page number (1-indexed)")
+    page_size: Optional[int] = Field(None, description="Number of items per page")

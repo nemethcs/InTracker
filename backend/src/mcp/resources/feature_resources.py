@@ -19,10 +19,10 @@ def get_feature_resources(project_id: Optional[str] = None) -> list[Resource]:
                 status=None,
             )
         else:
-            # List all features - need to query directly as FeatureService doesn't have list_all method
+            # List all active features (exclude merged/archived) - need to query directly as FeatureService doesn't have list_all method
             # This is acceptable for resources as it's a simple read operation
             from src.database.models import Feature
-            features = db.query(Feature).all()
+            features = db.query(Feature).filter(Feature.status != "merged").all()
         
         return [
             Resource(

@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useIdeas } from '@/hooks/useIdeas'
+import { useShallow } from 'zustand/react/shallow'
 import { useIdeaStore } from '@/stores/ideaStore'
 import { useProjectStore } from '@/stores/projectStore'
+import type { IdeaUpdateData } from '@/types/signalr'
+import type { IdeaCreate, IdeaUpdate } from '@/services/ideaService'
 import { adminService, type Team } from '@/services/adminService'
 import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { LoadingState } from '@/components/ui/LoadingState'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { VirtualizedGrid } from '@/components/ui/VirtualizedGrid'
 import { IdeaCard } from '@/components/ideas/IdeaCard'
 import { IdeaEditor } from '@/components/ideas/IdeaEditor'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -27,8 +31,19 @@ export function Ideas() {
   const [teams, setTeams] = useState<Team[]>([])
   const [isLoadingTeams, setIsLoadingTeams] = useState(false)
   const { ideas, isLoading, error, refetch } = useIdeas(statusFilter, selectedTeamId)
-  const { createIdea, updateIdea, deleteIdea, convertIdeaToProject } = useIdeaStore()
-  const { createProject } = useProjectStore()
+  const { createIdea, updateIdea, deleteIdea, convertIdeaToProject } = useIdeaStore(
+    useShallow((state) => ({
+      createIdea: state.createIdea,
+      updateIdea: state.updateIdea,
+      deleteIdea: state.deleteIdea,
+      convertIdeaToProject: state.convertIdeaToProject,
+    }))
+  )
+  const { createProject } = useProjectStore(
+    useShallow((state) => ({
+      createProject: state.createProject,
+    }))
+  )
   const [ideaEditorOpen, setIdeaEditorOpen] = useState(false)
   const [editingIdea, setEditingIdea] = useState<Idea | null>(null)
   const [convertDialogOpen, setConvertDialogOpen] = useState(false)
@@ -46,7 +61,7 @@ export function Ideas() {
   useEffect(() => {
     const { fetchIdeaSilently } = useIdeaStore.getState()
     
-    const handleIdeaUpdate = (data: { ideaId: string; teamId: string; changes: any }) => {
+    const handleIdeaUpdate = (data: IdeaUpdateData) => {
       const { ideas } = useIdeaStore.getState()
       
       // Handle different update actions efficiently without triggering loading states
@@ -106,7 +121,7 @@ export function Ideas() {
     }
   }
 
-  const handleSaveIdea = async (data: any) => {
+  const handleSaveIdea = async (data: IdeaCreate | IdeaUpdate) => {
     if (editingIdea) {
       await updateIdea(editingIdea.id, data)
     } else {
@@ -248,6 +263,41 @@ export function Ideas() {
             },
           }}
         />
+      ) : ideasList.length > 20 ? (
+        <div className="h-[600px]">
+          <VirtualizedGrid
+            items={ideasList}
+            columns={(width) => {
+              if (width >= 1024) return 3
+              if (width >= 768) return 2
+              return 1
+            }}
+            gap={16}
+            itemHeight={220}
+            renderItem={(idea) => (
+              <div className="relative group">
+                <IdeaCard
+                  idea={idea}
+                  teams={teams}
+                  onConvert={() => handleConvertClick(idea)}
+                />
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setEditingIdea(idea)
+                      setIdeaEditorOpen(true)
+                    }}
+                  >
+                    Edit
+                  </Button>
+                </div>
+              </div>
+            )}
+            containerClassName="h-full"
+          />
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {ideasList.map((idea) => (

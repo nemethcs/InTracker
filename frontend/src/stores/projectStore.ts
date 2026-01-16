@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { projectService, type Project, type ProjectCreate, type ProjectUpdate } from '@/services/projectService'
 import { signalrService } from '@/services/signalrService'
+import type { ProjectUpdateData } from '@/types/signalr'
 
 interface ProjectState {
   projects: Project[]
@@ -17,7 +18,7 @@ interface ProjectState {
 
 export const useProjectStore = create<ProjectState>((set, get) => {
   // Subscribe to SignalR project updates
-  signalrService.on('projectUpdated', (data: { projectId: string; changes: any }) => {
+  signalrService.on('projectUpdated', (data: ProjectUpdateData) => {
     const { projects, currentProject } = get()
     
     // Handle different update actions

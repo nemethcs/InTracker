@@ -3,6 +3,7 @@ import { FolderKanban, Settings, Sparkles, Shield, UsersRound, Users, X, BookOpe
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
+import { VersionInfo } from '@/components/layout/VersionInfo'
 
 const navigation = [
   { name: 'Projects', href: '/projects', icon: FolderKanban },
@@ -42,7 +43,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       {/* Mobile sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 border-r bg-background transform transition-transform duration-300 ease-in-out lg:hidden",
+          "fixed inset-y-0 left-0 z-50 w-64 border-r bg-background transform transition-transform duration-300 ease-in-out lg:hidden flex flex-col",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -57,7 +58,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <X className="h-5 w-5" />
           </Button>
         </div>
-        <nav className="space-y-1 p-4">
+        <nav className="space-y-1 p-4 flex-1 overflow-y-auto">
           {allNavigation.map((item) => {
             const Icon = item.icon
             const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + '/')
@@ -69,22 +70,25 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-smooth",
                   "hover:bg-accent hover:text-accent-foreground",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                   isActive
                     ? "bg-accent text-accent-foreground"
                     : "text-muted-foreground"
                 )}
+                aria-current={isActive ? 'page' : undefined}
               >
-                <Icon className="h-5 w-5" />
+                <Icon className="h-5 w-5" aria-hidden="true" />
                 {item.name}
               </Link>
             )
           })}
         </nav>
+        <VersionInfo />
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:block w-64 border-r bg-background shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto">
-        <nav className="space-y-1 p-4">
+      <aside className="hidden lg:flex lg:flex-col w-64 border-r bg-background shrink-0 sticky top-14 h-[calc(100vh-3.5rem)]">
+        <nav className="space-y-1 p-4 flex-1 overflow-y-auto">
           {allNavigation.map((item) => {
             const Icon = item.icon
             const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + '/')
@@ -95,17 +99,20 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-smooth",
                   "hover:bg-accent hover:text-accent-foreground",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                   isActive
                     ? "bg-accent text-accent-foreground"
                     : "text-muted-foreground"
                 )}
+                aria-current={isActive ? 'page' : undefined}
               >
-                <Icon className="h-5 w-5" />
+                <Icon className="h-5 w-5" aria-hidden="true" />
                 {item.name}
               </Link>
             )
           })}
         </nav>
+        <VersionInfo />
       </aside>
     </>
   )

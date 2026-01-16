@@ -1,5 +1,5 @@
 """Team schemas."""
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel, Field, field_serializer
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
@@ -52,6 +52,14 @@ class TeamMemberResponse(BaseModel):
         return str(value) if isinstance(value, UUID) else value
 
 
+class TeamMemberListResponse(BaseModel):
+    """Team member list response schema with pagination."""
+    members: List[TeamMemberResponse]
+    total: int
+    page: int = Field(..., description="Current page number (1-indexed)")
+    page_size: int = Field(..., description="Number of items per page")
+
+
 class TeamResponse(BaseModel):
     """Team response schema."""
     id: str
@@ -84,9 +92,11 @@ class TeamLanguageRequest(BaseModel):
 
 
 class TeamListResponse(BaseModel):
-    """Team list response schema."""
+    """Team list response schema with pagination."""
     teams: List[TeamResponse]
     total: int
+    page: Optional[int] = Field(None, description="Current page number (1-indexed)")
+    page_size: Optional[int] = Field(None, description="Number of items per page")
 
 
 class TeamInvitationResponse(BaseModel):
