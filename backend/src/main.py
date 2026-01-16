@@ -104,6 +104,10 @@ else:
 from src.api.middleware.security_headers import SecurityHeadersMiddleware
 app.add_middleware(SecurityHeadersMiddleware)
 
+# Performance monitoring middleware (add early to measure all requests)
+from src.api.middleware.performance import PerformanceMiddleware
+app.add_middleware(PerformanceMiddleware)
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
