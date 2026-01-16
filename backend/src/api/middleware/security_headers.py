@@ -51,6 +51,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
         
         # Remove server header (if present)
-        response.headers.pop("Server", None)
+        if "Server" in response.headers:
+            del response.headers["Server"]
         
         return response
