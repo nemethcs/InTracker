@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -39,7 +40,7 @@ interface TodoCardProps {
   number?: number | string
 }
 
-export function TodoCard({ todo, onEdit, onDelete, onStatusChange, number }: TodoCardProps) {
+export const TodoCard = memo(function TodoCard({ todo, onEdit, onDelete, onStatusChange, number }: TodoCardProps) {
   const StatusIcon = statusIcons[todo.status] || Circle
   const statusColor = statusColors[todo.status] || 'text-muted-foreground'
 
@@ -100,4 +101,4 @@ export function TodoCard({ todo, onEdit, onDelete, onStatusChange, number }: Tod
       </CardContent>
     </Card>
   )
-}
+})

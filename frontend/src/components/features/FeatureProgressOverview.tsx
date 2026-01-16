@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Feature } from '@/services/featureService'
 import type { Todo } from '@/services/todoService'
@@ -11,7 +12,7 @@ interface FeatureProgressOverviewProps {
   }
 }
 
-export function FeatureProgressOverview({ feature, todosByStatus }: FeatureProgressOverviewProps) {
+export const FeatureProgressOverview = memo(function FeatureProgressOverview({ feature, todosByStatus }: FeatureProgressOverviewProps) {
   return (
     <Card className="border-l-4 border-l-primary">
       <CardHeader className="pb-2">
@@ -57,4 +58,4 @@ export function FeatureProgressOverview({ feature, todosByStatus }: FeatureProgr
       </CardContent>
     </Card>
   )
-}
+})

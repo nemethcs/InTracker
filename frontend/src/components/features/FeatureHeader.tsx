@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,7 +13,7 @@ interface FeatureHeaderProps {
   onEdit: () => void
 }
 
-export function FeatureHeader({ projectId, feature, onEdit }: FeatureHeaderProps) {
+export const FeatureHeader = memo(function FeatureHeader({ projectId, feature, onEdit }: FeatureHeaderProps) {
   return (
     <PageHeader
       title={
@@ -52,4 +53,4 @@ export function FeatureHeader({ projectId, feature, onEdit }: FeatureHeaderProps
       }
     />
   )
-}
+})

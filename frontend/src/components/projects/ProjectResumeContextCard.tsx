@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Clock, CheckSquare, ChevronRight, AlertCircle, FolderKanban } from 'lucide-react'
 import type { Project } from '@/services/projectService'
@@ -8,7 +9,7 @@ interface ProjectResumeContextCardProps {
   allTodos: Todo[]
 }
 
-export function ProjectResumeContextCard({ resumeContext, allTodos }: ProjectResumeContextCardProps) {
+export const ProjectResumeContextCard = memo(function ProjectResumeContextCard({ resumeContext, allTodos }: ProjectResumeContextCardProps) {
   if (!resumeContext) {
     return null
   }
@@ -186,4 +187,4 @@ export function ProjectResumeContextCard({ resumeContext, allTodos }: ProjectRes
       </CardContent>
     </Card>
   )
-}
+})

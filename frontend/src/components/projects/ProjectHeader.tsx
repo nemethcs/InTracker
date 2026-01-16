@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -13,7 +14,7 @@ interface ProjectHeaderProps {
   onEdit: () => void
 }
 
-export function ProjectHeader({ project, teams, onEdit }: ProjectHeaderProps) {
+export const ProjectHeader = memo(function ProjectHeader({ project, teams, onEdit }: ProjectHeaderProps) {
   return (
     <PageHeader
       title={
@@ -64,4 +65,4 @@ export function ProjectHeader({ project, teams, onEdit }: ProjectHeaderProps) {
       }
     />
   )
-}
+})

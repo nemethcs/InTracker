@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { CheckSquare, Clock, ChevronRight } from 'lucide-react'
@@ -10,7 +11,7 @@ interface ProjectContextCardProps {
   lastWorkedFeature: Feature | null
 }
 
-export function ProjectContextCard({ lastCompletedTodos, lastWorkedFeature }: ProjectContextCardProps) {
+export const ProjectContextCard = memo(function ProjectContextCard({ lastCompletedTodos, lastWorkedFeature }: ProjectContextCardProps) {
   if (lastCompletedTodos.length === 0 && !lastWorkedFeature) {
     return null
   }
@@ -78,4 +79,4 @@ export function ProjectContextCard({ lastCompletedTodos, lastWorkedFeature }: Pr
       </CardContent>
     </Card>
   )
-}
+})

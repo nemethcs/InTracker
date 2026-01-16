@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { UsersRound } from 'lucide-react'
 import type { Team } from '@/services/adminService'
@@ -8,7 +9,7 @@ interface TeamCardProps {
   onClick: () => void
 }
 
-export function TeamCard({ team, isSelected, onClick }: TeamCardProps) {
+export const TeamCard = memo(function TeamCard({ team, isSelected, onClick }: TeamCardProps) {
   return (
     <Card
       className={`cursor-pointer transition-colors ${
@@ -29,4 +30,4 @@ export function TeamCard({ team, isSelected, onClick }: TeamCardProps) {
       </CardContent>
     </Card>
   )
-}
+})

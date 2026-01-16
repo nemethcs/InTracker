@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -12,7 +13,7 @@ interface TeamInfoProps {
   onSetLanguage: (language: string) => void
 }
 
-export function TeamInfo({ team, isTeamLeader, onEdit, onSetLanguage }: TeamInfoProps) {
+export const TeamInfo = memo(function TeamInfo({ team, isTeamLeader, onEdit, onSetLanguage }: TeamInfoProps) {
   return (
     <Card>
       <CardHeader>
@@ -75,4 +76,4 @@ export function TeamInfo({ team, isTeamLeader, onEdit, onSetLanguage }: TeamInfo
       </CardContent>
     </Card>
   )
-}
+})

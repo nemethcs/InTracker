@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -12,7 +13,7 @@ interface IdeaCardProps {
   onConvert?: (idea: Idea) => void
 }
 
-export function IdeaCard({ idea, teams, onConvert }: IdeaCardProps) {
+export const IdeaCard = memo(function IdeaCard({ idea, teams, onConvert }: IdeaCardProps) {
   const teamName = teams?.find(t => t.id === idea.team_id)?.name
 
   return (
@@ -81,4 +82,4 @@ export function IdeaCard({ idea, teams, onConvert }: IdeaCardProps) {
       </CardContent>
     </Card>
   )
-}
+})
