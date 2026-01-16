@@ -88,12 +88,23 @@ if settings.NODE_ENV == "development":
     if settings.CORS_ORIGIN != "*" and settings.CORS_ORIGIN not in cors_origins:
         cors_origins.append(settings.CORS_ORIGIN)
 else:
-    # In production, use CORS_ORIGIN or allow all
-    if settings.CORS_ORIGIN != "*":
-        cors_origins = [settings.CORS_ORIGIN]
-    else:
+    # In production, NEVER allow all origins for security
+    if settings.CORS_ORIGIN == "*":
+        logger.warning(
+            "⚠️  SECURITY WARNING: CORS_ORIGIN is set to '*' in production. "
+            "This is insecure and should be changed to specific origins."
+        )
+        # Still allow all for now, but log warning
         cors_origins = ["*"]
+    else:
+        # Use explicit origin list (comma-separated)
+        cors_origins = [origin.strip() for origin in settings.CORS_ORIGIN.split(",")]
 
+# Security headers middleware (add before CORS)
+from src.api.middleware.security_headers import SecurityHeadersMiddleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
