@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { OptimizedImage } from '@/components/ui/OptimizedImage'
 import { Github, RefreshCw, AlertCircle, X, CheckCircle2 } from 'lucide-react'
 import { iconSize } from '@/components/ui/Icon'
 import { settingsService, type GitHubOAuthStatus } from '@/services/settingsService'
