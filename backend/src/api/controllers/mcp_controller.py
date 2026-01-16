@@ -104,11 +104,22 @@ class MCPSSEASGIApp:
             async with cm as streams:
                 read_stream, write_stream = streams
                 print("✅ MCP SSE streams established, starting server...", flush=True)
-                await mcp_server.run(
-                    read_stream,
-                    write_stream,
-                    mcp_server.create_initialization_options(),
-                )
+                print("📋 Creating initialization options...", flush=True)
+                init_options = mcp_server.create_initialization_options()
+                print(f"📋 Init options created: {init_options}", flush=True)
+                print("🚀 Starting mcp_server.run()...", flush=True)
+                try:
+                    await mcp_server.run(
+                        read_stream,
+                        write_stream,
+                        init_options,
+                    )
+                    print("✅ mcp_server.run() completed", flush=True)
+                except Exception as run_error:
+                    print(f"❌ Error in mcp_server.run(): {run_error}", flush=True)
+                    import traceback
+                    traceback.print_exc()
+                    raise
         except Exception as e:
             # If MCP server fails, don't let global exception handler catch it
             # as it may have already sent a response

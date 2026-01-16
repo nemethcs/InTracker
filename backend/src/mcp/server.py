@@ -55,7 +55,9 @@ server = Server("intracker-mcp-server")
 @server.list_tools()
 async def list_tools() -> list[Tool]:
     """List all available tools."""
-    return [
+    print("📋 list_tools() called", flush=True)
+    try:
+        tools = [
         # Project tools
         get_project_context_tool(),
         get_resume_context_tool(),
@@ -123,7 +125,14 @@ async def list_tools() -> list[Tool]:
         # Team tools
         team.get_list_teams_tool(),
         team.get_get_team_tool(),
-    ]
+        ]
+        print(f"✅ list_tools() returning {len(tools)} tools", flush=True)
+        return tools
+    except Exception as e:
+        print(f"❌ Error in list_tools(): {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 @server.call_tool()
