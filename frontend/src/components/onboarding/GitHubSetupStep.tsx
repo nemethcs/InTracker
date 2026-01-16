@@ -174,9 +174,10 @@ export function GitHubSetupStep({ onNext, onBack }: GitHubSetupStepProps) {
             {githubStatus?.github_username && (
               <div className="flex items-center gap-3">
                 {githubStatus.avatar_url && (
-                  <img
+                  <OptimizedImage
                     src={githubStatus.avatar_url}
                     alt={githubStatus.github_username}
+                    lazy={true}
                     className="h-10 w-10 rounded-full"
                   />
                 )}

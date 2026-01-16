@@ -222,9 +222,10 @@ export function GitHubSettings() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   {githubStatus.avatar_url && (
-                    <img
+                    <OptimizedImage
                       src={githubStatus.avatar_url}
                       alt={githubStatus.github_username}
+                      lazy={true}
                       className="h-8 w-8 rounded-full"
                     />
                   )}
