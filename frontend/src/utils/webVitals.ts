@@ -88,7 +88,8 @@ class WebVitalsReporter {
       this.reportMetric(metric)
     })
 
-    onFID((metric) => {
+    // INP (Interaction to Next Paint) replaces FID in Web Vitals v5
+    onINP((metric) => {
       this.reportMetric(metric)
     })
 
