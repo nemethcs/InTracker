@@ -57,10 +57,38 @@ async def lifespan(app: FastAPI):
         # Don't fail startup if migrations fail - might be a temporary issue
         # The app will still start, but database operations might fail
     
+    # Startup: Start SignalR connection cleanup task
+    cleanup_task = None
+    try:
+        from src.services.signalr.connection_manager import connection_manager
+        import asyncio
+        
+        async def cleanup_dead_connections():
+            """Periodically clean up dead SignalR connections."""
+            while True:
+                try:
+                    await asyncio.sleep(60)  # Run every 60 seconds
+                    await connection_manager.cleanup_dead_connections(timeout_seconds=120.0)
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    logger.error(f"Error in SignalR cleanup task: {e}", exc_info=True)
+        
+        cleanup_task = asyncio.create_task(cleanup_dead_connections())
+        logger.info("SignalR connection cleanup task started")
+    except Exception as e:
+        logger.warning(f"Failed to start SignalR cleanup task: {e}")
+    
     yield
     
-    # Shutdown: cleanup if needed
-    pass
+    # Shutdown: Cancel cleanup task
+    if cleanup_task:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("SignalR connection cleanup task stopped")
 
 
 # Create FastAPI app with lifespan and optimized JSON serialization
