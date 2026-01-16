@@ -14,11 +14,42 @@ from .github_repository import get_github_service
 from src.mcp.utils.project_access import validate_project_access
 
 
+def get_get_branch_info_tool() -> MCPTool:
+    """Get branch info tool definition - consolidated tool for all branch operations.
+    
+    This tool consolidates multiple branch-related tools:
+    - Get branches for a project or feature
+    - Get branch status (ahead/behind, conflicts)
+    - Get commits for branches
+    
+    Usage:
+    - projectId only: Get all branches for project
+    - projectId + featureId: Get branches for feature with status and commits
+    - projectId + branchName: Get detailed info for specific branch
+    - projectId + featureId + branchName: Get detailed info for feature's branch
+    """
+    return MCPTool(
+        name="mcp_get_branch_info",
+        description="Get comprehensive branch information for a project, feature, or specific branch. Consolidates branch listing, status checking, and commit retrieval into a single tool.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "projectId": {"type": "string", "description": "Project UUID"},
+                "featureId": {"type": "string", "description": "Optional feature UUID to filter branches"},
+                "branchName": {"type": "string", "description": "Optional specific branch name for detailed info"},
+                "includeStatus": {"type": "boolean", "description": "Include branch status (ahead/behind, conflicts) - default: true"},
+                "includeCommits": {"type": "boolean", "description": "Include commits for branches - default: false"},
+            },
+            "required": ["projectId"],
+        },
+    )
+
+
 def get_get_branches_tool() -> MCPTool:
-    """Get branches tool definition."""
+    """Get branches tool definition (deprecated - use mcp_get_branch_info instead)."""
     return MCPTool(
         name="mcp_get_branches",
-        description="Get branches for a project or feature",
+        description="Get branches for a project or feature (DEPRECATED: Use mcp_get_branch_info instead)",
         inputSchema={
             "type": "object",
             "properties": {
@@ -28,6 +59,151 @@ def get_get_branches_tool() -> MCPTool:
             "required": ["projectId"],
         },
     )
+
+
+async def handle_get_branch_info(
+    project_id: str,
+    feature_id: Optional[str] = None,
+    branch_name: Optional[str] = None,
+    include_status: bool = True,
+    include_commits: bool = False,
+) -> dict:
+    """Handle get branch info tool call - consolidated branch information."""
+    db = SessionLocal()
+    try:
+        # Validate project access using user's GitHub OAuth token
+        has_access, error_dict = validate_project_access(db, project_id)
+        if not has_access:
+            return error_dict or {"error": "Cannot access project"}
+        
+        # Use ProjectService to get project
+        project = ProjectService.get_project_by_id(db, UUID(project_id))
+        if not project or not project.github_repo_url:
+            return {"error": "Project does not have a connected GitHub repository"}
+
+        # Parse repo owner and name
+        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+        if not owner or not repo:
+            return {"error": "Invalid GitHub repository URL format"}
+
+        # Get GitHub client
+        github_service = get_github_service()
+        if not github_service or not github_service.client:
+            return {"error": "GitHub token not configured"}
+        client = github_service.client
+
+        # Build query
+        query = db.query(GitHubBranch).filter(GitHubBranch.project_id == UUID(project_id))
+        if feature_id:
+            query = query.filter(GitHubBranch.feature_id == UUID(feature_id))
+        if branch_name:
+            query = query.filter(GitHubBranch.branch_name == branch_name)
+
+        branches = query.order_by(GitHubBranch.created_at.desc()).all()
+
+        # If specific branch requested, get detailed info
+        if branch_name and len(branches) == 1:
+            branch = branches[0]
+            result = {
+                "project_id": project_id,
+                "branch": {
+                    "id": str(branch.id),
+                    "name": branch.branch_name,
+                    "base_branch": branch.base_branch,
+                    "status": branch.status,
+                    "feature_id": str(branch.feature_id) if branch.feature_id else None,
+                },
+            }
+
+            # Include status if requested
+            if include_status:
+                try:
+                    repository = client.get_repo(f"{owner}/{repo}")
+                    comparison = repository.compare(branch.base_branch, branch.branch_name)
+                    result["branch"]["ahead_count"] = comparison.ahead_by
+                    result["branch"]["behind_count"] = comparison.behind_by
+                    result["branch"]["has_conflicts"] = comparison.mergeable is False
+                    
+                    # Update branch record
+                    branch.ahead_count = comparison.ahead_by
+                    branch.behind_count = comparison.behind_by
+                    branch.has_conflicts = comparison.mergeable is False
+                    db.commit()
+                except GithubException as e:
+                    result["branch"]["status_error"] = str(e)
+
+            # Include commits if requested
+            if include_commits:
+                try:
+                    repository = client.get_repo(f"{owner}/{repo}")
+                    commits = repository.get_commits(sha=branch.branch_name)
+                    result["branch"]["commits"] = [
+                        {
+                            "sha": commit.sha,
+                            "message": commit.commit.message,
+                            "author": commit.commit.author.name if commit.commit.author else None,
+                            "date": commit.commit.author.date.isoformat() if commit.commit.author and commit.commit.author.date else None,
+                        }
+                        for commit in commits[:50]  # Limit to 50 commits
+                    ]
+                    result["branch"]["commit_count"] = len(list(commits))
+                except GithubException as e:
+                    result["branch"]["commits_error"] = str(e)
+
+            return result
+
+        # Multiple branches or list view
+        branches_data = []
+        for branch in branches:
+            branch_data = {
+                "id": str(branch.id),
+                "name": branch.branch_name,
+                "base_branch": branch.base_branch,
+                "status": branch.status,
+                "feature_id": str(branch.feature_id) if branch.feature_id else None,
+            }
+
+            # Include status if requested
+            if include_status:
+                branch_data["ahead_count"] = branch.ahead_count
+                branch_data["behind_count"] = branch.behind_count
+                branch_data["has_conflicts"] = branch.has_conflicts
+
+            branches_data.append(branch_data)
+
+        result = {
+            "project_id": project_id,
+            "feature_id": feature_id,
+            "branches": branches_data,
+            "count": len(branches_data),
+        }
+
+        # Include commits for all branches if requested
+        if include_commits and branches:
+            try:
+                repository = client.get_repo(f"{owner}/{repo}")
+                all_commits = []
+                for branch in branches:
+                    try:
+                        commits = repository.get_commits(sha=branch.branch_name)
+                        for commit in commits[:20]:  # Limit to 20 commits per branch
+                            all_commits.append({
+                                "sha": commit.sha,
+                                "message": commit.commit.message,
+                                "author": commit.commit.author.name if commit.commit.author else None,
+                                "date": commit.commit.author.date.isoformat() if commit.commit.author and commit.commit.author.date else None,
+                                "branch": branch.branch_name,
+                            })
+                    except GithubException:
+                        continue
+                result["commits"] = all_commits[:100]  # Limit total to 100
+                result["commit_count"] = len(all_commits)
+            except GithubException as e:
+                result["commits_error"] = str(e)
+
+        return result
+    finally:
+        db.close()
 
 
 async def handle_get_branches(project_id: str, feature_id: Optional[str] = None) -> dict:

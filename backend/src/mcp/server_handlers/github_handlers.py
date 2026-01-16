@@ -7,7 +7,17 @@ from src.mcp.tools import github
 async def handle_github_tool(name: str, arguments: dict) -> list[TextContent] | None:
     """Handle GitHub tool calls."""
     try:
-        if name == "mcp_get_branches":
+        if name == "mcp_get_branch_info":
+            result = await github.handle_get_branch_info(
+                arguments["projectId"],
+                arguments.get("featureId"),
+                arguments.get("branchName"),
+                arguments.get("includeStatus", True),
+                arguments.get("includeCommits", False),
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+
+        elif name == "mcp_get_branches":
             result = await github.handle_get_branches(
                 arguments["projectId"],
                 arguments.get("featureId"),

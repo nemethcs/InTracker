@@ -56,7 +56,8 @@ class ToolRouter:
         # GitHub tools
         ("mcp_connect_github", handle_github_tool),
         ("mcp_get_repo", handle_github_tool),
-        ("mcp_get_branches", handle_github_tool),
+        ("mcp_get_branch_info", handle_github_tool),  # New consolidated tool
+        ("mcp_get_branches", handle_github_tool),  # Deprecated but kept for compatibility
         ("mcp_link_element_to_issue", handle_github_tool),
         ("mcp_get_github_issue", handle_github_tool),
         ("mcp_create_github_issue", handle_github_tool),

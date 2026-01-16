@@ -67,7 +67,8 @@ async def list_tools() -> list[Tool]:
         # GitHub tools
         github.get_connect_github_repo_tool(),
         github.get_get_repo_info_tool(),
-        github.get_get_branches_tool(),
+        github.get_get_branch_info_tool(),  # New consolidated tool
+        github.get_get_branches_tool(),  # Deprecated but kept for backward compatibility
         github.get_link_element_to_issue_tool(),
         github.get_get_github_issue_tool(),
         github.get_create_github_issue_tool(),

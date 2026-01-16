@@ -39,17 +39,19 @@ from .github_prs import (
 
 # Re-export from github_branches
 from .github_branches import (
-    get_get_branches_tool,
+    get_get_branch_info_tool,  # New consolidated tool
+    handle_get_branch_info,
+    get_get_branches_tool,  # Deprecated but kept for backward compatibility
     handle_get_branches,
     get_create_branch_for_feature_tool,
     handle_create_branch_for_feature,
     get_link_branch_to_feature_tool,
     handle_link_branch_to_feature,
-    get_get_feature_branches_tool,
+    get_get_feature_branches_tool,  # Deprecated but kept for backward compatibility
     handle_get_feature_branches,
-    get_get_branch_status_tool,
+    get_get_branch_status_tool,  # Deprecated but kept for backward compatibility
     handle_get_branch_status,
-    get_get_commits_for_feature_tool,
+    get_get_commits_for_feature_tool,  # Deprecated but kept for backward compatibility
     handle_get_commits_for_feature,
 )
 
