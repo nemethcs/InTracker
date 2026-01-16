@@ -55,7 +55,7 @@ server = Server("intracker-mcp-server")
 @server.list_tools()
 async def list_tools() -> list[Tool]:
     """List all available tools."""
-    print("📋 list_tools() called", flush=True)
+    print("📋 list_tools() called - loading tools...", flush=True)
     try:
         tools = [
         # Project tools
@@ -138,6 +138,7 @@ async def list_tools() -> list[Tool]:
 @server.call_tool()
 async def call_tool(name: str, arguments: dict):
     """Handle tool calls."""
+    print(f"🔧 call_tool() called: {name}", flush=True)
     # Try each handler category
     handlers = [
         handle_project_tool,
@@ -164,6 +165,7 @@ async def call_tool(name: str, arguments: dict):
 @server.list_resources()
 async def list_resources() -> list[Resource]:
     """List all available resources."""
+    print("📚 list_resources() called", flush=True)
     resources = []
     
     # Get project resources (already imported at module level)
