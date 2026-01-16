@@ -25,6 +25,7 @@ from src.api.controllers import (
     team_controller,
     mcp_key_controller,
     audit_controller,
+    task_queue_controller,
 )
 
 # Setup logging
@@ -81,7 +82,33 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Failed to start SignalR cleanup task: {e}")
     
+    # Startup: Start background task worker
+    worker_task = None
+    try:
+        from src.services.task_worker import TaskWorker, task_worker
+        from src.services.task_queue import task_queue
+        import asyncio
+        
+        # Create and start worker
+        global task_worker
+        task_worker = TaskWorker(task_queue)
+        worker_task = asyncio.create_task(task_worker.run(poll_interval=1.0))
+        logger.info("Background task worker started")
+    except Exception as e:
+        logger.warning(f"Failed to start background task worker: {e}")
+    
     yield
+    
+    # Shutdown: Stop task worker
+    if worker_task:
+        if task_worker:
+            task_worker.stop()
+        worker_task.cancel()
+        try:
+            await worker_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("Background task worker stopped")
     
     # Shutdown: Cancel cleanup task
     if cleanup_task:
@@ -191,6 +218,10 @@ app = FastAPI(
             "name": "audit",
             "description": "Audit trail endpoints for tracking changes to entities.",
         },
+        {
+            "name": "tasks",
+            "description": "Task queue endpoints for monitoring and managing background tasks.",
+        },
     ],
 )
 
@@ -253,6 +284,7 @@ app.include_router(admin_controller.router)
 app.include_router(team_controller.router)
 app.include_router(mcp_key_controller.router)
 app.include_router(audit_controller.router)
+app.include_router(task_queue_controller.router)
 
 
 @app.get("/health")
