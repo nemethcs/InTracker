@@ -6,6 +6,9 @@ import { useFeatures } from '@/hooks/useFeatures'
 import { useFeatureStore } from '@/stores/featureStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useTodoStore } from '@/stores/todoStore'
+import type { TodoUpdateData, ProjectUpdateData } from '@/types/signalr'
+import type { FeatureCreate, FeatureUpdate } from '@/services/featureService'
+import type { ProjectUpdate } from '@/services/projectService'
 import { adminService, type Team } from '@/services/adminService'
 import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -245,7 +248,7 @@ export function ProjectDetail() {
     // Subscribe to SignalR real-time updates
     // Note: We don't need to manually refresh - the stores auto-update via SignalR subscriptions
     // The components will re-render automatically when the store state changes
-    const handleTodoUpdate = (data: { todoId: string; projectId: string; userId: string; changes: any }) => {
+    const handleTodoUpdate = (data: TodoUpdateData) => {
       // Store already handles this via SignalR subscription in todoStore
       // Only fetch if the todo is not in the current list (e.g., new todo created)
       // The store's SignalR handler will fetch it automatically if needed
@@ -263,7 +266,7 @@ export function ProjectDetail() {
       }
     }
 
-    const handleProjectUpdate = (data: { projectId: string; changes: any }) => {
+    const handleProjectUpdate = (data: ProjectUpdateData) => {
       if (data.projectId === id) {
         // Project updated - store will handle this automatically via SignalR subscription
         // But we should refetch to ensure we have the latest data
@@ -402,9 +405,9 @@ export function ProjectDetail() {
           onSave={async (data) => {
             try {
               if (editingFeature) {
-                await updateFeature(editingFeature.id, data as any)
+                await updateFeature(editingFeature.id, data as FeatureUpdate)
               } else {
-                await createFeature(data as any)
+                await createFeature(data as FeatureCreate)
               }
               refetchFeatures()
             } catch (error) {
@@ -425,7 +428,7 @@ export function ProjectDetail() {
           project={currentProject}
           onSave={async (data) => {
             try {
-              await updateProject(id, data as any)
+              await updateProject(id, data as ProjectUpdate)
               await fetchProject(id)
             } catch (error) {
               console.error('Failed to update project:', error)

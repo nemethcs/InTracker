@@ -53,25 +53,28 @@ export function Register() {
       // Use window.location.href for a full page reload to ensure all state is properly initialized
       // This is necessary because the ProtectedRoute and useAuth hook might not have updated yet
       window.location.href = '/onboarding'
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Handle different error formats
       let errorMessage = 'Registration failed'
       if (err instanceof Error) {
         errorMessage = err.message
-      } else if (err?.response?.data?.detail) {
-        // FastAPI validation error format
-        if (typeof err.response.data.detail === 'string') {
-          errorMessage = err.response.data.detail
-        } else if (Array.isArray(err.response.data.detail)) {
-          // Pydantic validation errors
-          errorMessage = err.response.data.detail.map((e: any) => {
-            if (typeof e === 'string') return e
-            return `${e.loc?.join('.')}: ${e.msg || e.message || 'Invalid value'}`
-          }).join(', ')
-        } else if (typeof err.response.data.detail === 'object') {
-          errorMessage = JSON.stringify(err.response.data.detail)
+      } else if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as { response?: { data?: { detail?: string | Array<{ loc?: (string | number)[]; msg?: string; message?: string }> | Record<string, unknown> } } }
+        if (axiosError.response?.data?.detail) {
+          // FastAPI validation error format
+          if (typeof axiosError.response.data.detail === 'string') {
+            errorMessage = axiosError.response.data.detail
+          } else if (Array.isArray(axiosError.response.data.detail)) {
+            // Pydantic validation errors
+            errorMessage = axiosError.response.data.detail.map((e) => {
+              if (typeof e === 'string') return e
+              return `${e.loc?.join('.')}: ${e.msg || e.message || 'Invalid value'}`
+            }).join(', ')
+          } else if (typeof axiosError.response.data.detail === 'object') {
+            errorMessage = JSON.stringify(axiosError.response.data.detail)
+          }
         }
-      } else if (err?.message) {
+      } else if (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string') {
         errorMessage = err.message
       }
       setError(errorMessage)

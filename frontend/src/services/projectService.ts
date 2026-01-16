@@ -1,4 +1,5 @@
 import api from './api'
+import type { ProjectResumeContext } from '@/types/resumeContext'
 
 export interface Project {
   id: string
@@ -11,13 +12,7 @@ export interface Project {
   created_at: string
   updated_at: string
   last_session_at?: string
-  resume_context?: {
-    last?: string
-    now?: string
-    next?: string
-    blockers?: string[]
-    constraints?: string[]
-  }
+  resume_context?: ProjectResumeContext
   cursor_instructions?: string
   github_repo_url?: string
   github_repo_id?: string

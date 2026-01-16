@@ -5,6 +5,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useProjectStore } from '@/stores/projectStore'
 import { adminService, type Team } from '@/services/adminService'
 import { signalrService } from '@/services/signalrService'
+import type { ProjectUpdateData } from '@/types/signalr'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { QueryState } from '@/components/ui/QueryState'
@@ -39,7 +40,7 @@ export function Dashboard() {
 
   // Subscribe to SignalR real-time updates for projects
   useEffect(() => {
-    const handleProjectUpdate = (data: { projectId: string; changes: any }) => {
+    const handleProjectUpdate = (data: ProjectUpdateData) => {
       // Refetch projects when any project is updated
       refetch()
     }

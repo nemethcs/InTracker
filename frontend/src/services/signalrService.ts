@@ -1,19 +1,36 @@
 import { HubConnection, HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
+import type {
+  TodoUpdateData,
+  FeatureUpdateData,
+  ProjectUpdateData,
+  IdeaUpdateData,
+  UserActivityData,
+  UserJoinedData,
+  UserLeftData,
+  JoinedProjectData,
+  LeftProjectData,
+  SessionStartedData,
+  SessionEndedData,
+  ConnectedData,
+  ReconnectedData,
+  McpVerifiedData,
+} from '@/types/signalr'
 
 export interface SignalREvents {
-  todoUpdated: (data: { todoId: string; projectId: string; userId: string; changes: any }) => void
-  featureUpdated: (data: { featureId: string; projectId: string; progress: number; status?: string }) => void
-  userActivity: (data: { userId: string; projectId: string; action: string; featureId?: string }) => void
-  projectUpdated: (data: { projectId: string; changes: any }) => void
-  ideaUpdated: (data: { ideaId: string; teamId: string; changes: any }) => void
-  userJoined: (data: { userId: string; projectId: string }) => void
-  userLeft: (data: { userId: string; projectId: string }) => void
-  joinedProject: (data: { projectId: string }) => void
-  leftProject: (data: { projectId: string }) => void
-  sessionStarted: (data: { userId: string; projectId: string }) => void
-  sessionEnded: (data: { userId: string; projectId: string }) => void
-  connected: (data: { connectionId: string | null }) => void
-  reconnected: (data: { connectionId: string | null }) => void
+  todoUpdated: (data: TodoUpdateData) => void
+  featureUpdated: (data: FeatureUpdateData) => void
+  userActivity: (data: UserActivityData) => void
+  projectUpdated: (data: ProjectUpdateData) => void
+  ideaUpdated: (data: IdeaUpdateData) => void
+  userJoined: (data: UserJoinedData) => void
+  userLeft: (data: UserLeftData) => void
+  joinedProject: (data: JoinedProjectData) => void
+  leftProject: (data: LeftProjectData) => void
+  sessionStarted: (data: SessionStartedData) => void
+  sessionEnded: (data: SessionEndedData) => void
+  connected: (data: ConnectedData) => void
+  reconnected: (data: ReconnectedData) => void
+  mcpVerified: (data: McpVerifiedData) => void
 }
 
 class SignalRService {
@@ -315,7 +332,7 @@ class SignalRService {
   /**
    * Emit event to all registered handlers
    */
-  private emit(eventName: string, data: any): void {
+  private emit<T extends keyof SignalREvents>(eventName: T, data: Parameters<SignalREvents[T]>[0]): void {
     const handlers = this.eventHandlers.get(eventName)
     if (handlers) {
       handlers.forEach((handler) => {

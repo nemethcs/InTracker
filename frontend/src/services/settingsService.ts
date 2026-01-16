@@ -57,7 +57,7 @@ export const settingsService = {
       const user = userResponse.data
 
       // Try to get accessible projects (endpoint might not exist yet)
-      let accessibleProjects: any[] = []
+      let accessibleProjects: Array<{ id: string; name: string; full_name: string; owner: string }> = []
       try {
         const projectsResponse = await api.get('/github/projects/access')
         accessibleProjects = projectsResponse.data || []

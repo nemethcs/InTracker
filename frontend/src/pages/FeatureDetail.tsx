@@ -5,6 +5,10 @@ import { useFeatures } from '@/hooks/useFeatures'
 import { useTodos } from '@/hooks/useTodos'
 import { useFeatureStore } from '@/stores/featureStore'
 import { useTodoStore } from '@/stores/todoStore'
+import type { TodoUpdateData } from '@/types/signalr'
+import type { TodoCreate, TodoUpdate } from '@/services/todoService'
+import type { FeatureUpdate } from '@/services/featureService'
+import type { DocumentCreate, DocumentUpdate } from '@/services/documentService'
 import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -103,7 +107,7 @@ export function FeatureDetail() {
     signalrService.on('reconnected', handleConnected)
 
     // Handle todo updates
-    const handleTodoUpdate = (data: { todoId: string; projectId: string; userId: string; changes: any }) => {
+    const handleTodoUpdate = (data: TodoUpdateData) => {
       if (data.projectId === projectId) {
         // Refresh todos list to get updated data
         refetchTodos()
@@ -251,9 +255,9 @@ export function FeatureDetail() {
         onSave={async (data) => {
           try {
             if (editingTodo) {
-              await updateTodo(editingTodo.id, data as any)
+              await updateTodo(editingTodo.id, data as TodoUpdate)
             } else {
-              await createTodo(data as any)
+              await createTodo(data as TodoCreate)
             }
             refetchTodos()
           } catch (error) {
@@ -278,14 +282,14 @@ export function FeatureDetail() {
           onSave={async (data) => {
             try {
               if (editingDocument) {
-                await documentService.updateDocument(editingDocument.id, data as any)
+                await documentService.updateDocument(editingDocument.id, data as DocumentUpdate)
               } else {
                 // Create new document with feature_id
                 await documentService.createDocument({
-                  ...data as any,
+                  ...data,
                   project_id: projectId,
                   feature_id: featureId,
-                })
+                } as DocumentCreate)
               }
               // Reload documents
               const docs = await documentService.listDocuments(projectId, undefined, undefined, featureId)
@@ -309,7 +313,7 @@ export function FeatureDetail() {
           projectId={projectId}
           onSave={async (data) => {
             try {
-              await updateFeature(featureId, data as any)
+              await updateFeature(featureId, data as FeatureUpdate)
               // Refetch features to update the current feature
               refetchFeatures()
             } catch (error) {

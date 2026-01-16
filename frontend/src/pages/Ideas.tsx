@@ -3,6 +3,8 @@ import { useIdeas } from '@/hooks/useIdeas'
 import { useShallow } from 'zustand/react/shallow'
 import { useIdeaStore } from '@/stores/ideaStore'
 import { useProjectStore } from '@/stores/projectStore'
+import type { IdeaUpdateData } from '@/types/signalr'
+import type { IdeaCreate, IdeaUpdate } from '@/services/ideaService'
 import { adminService, type Team } from '@/services/adminService'
 import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -58,7 +60,7 @@ export function Ideas() {
   useEffect(() => {
     const { fetchIdeaSilently } = useIdeaStore.getState()
     
-    const handleIdeaUpdate = (data: { ideaId: string; teamId: string; changes: any }) => {
+    const handleIdeaUpdate = (data: IdeaUpdateData) => {
       const { ideas } = useIdeaStore.getState()
       
       // Handle different update actions efficiently without triggering loading states
@@ -118,7 +120,7 @@ export function Ideas() {
     }
   }
 
-  const handleSaveIdea = async (data: any) => {
+  const handleSaveIdea = async (data: IdeaCreate | IdeaUpdate) => {
     if (editingIdea) {
       await updateIdea(editingIdea.id, data)
     } else {

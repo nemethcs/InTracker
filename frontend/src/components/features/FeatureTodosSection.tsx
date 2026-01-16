@@ -55,12 +55,13 @@ export function FeatureTodosSection({
     try {
       await onStatusChange(todo, newStatus)
       onRefetch()
-    } catch (error: any) {
-      if (error.isConflict) {
-        toast.warning('Conflict detected', error.message + '\n\nPlease refresh the page to get the latest version.')
+    } catch (error: unknown) {
+      if (isConflictError(error)) {
+        const errorMessage = getErrorMessage(error)
+        toast.warning('Conflict detected', errorMessage + '\n\nPlease refresh the page to get the latest version.')
         onRefetch()
       } else {
-        toast.error('Failed to update todo', error.message || 'An error occurred')
+        toast.error('Failed to update todo', getErrorMessage(error))
       }
     }
   }

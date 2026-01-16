@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Clock, CheckSquare, ChevronRight, AlertCircle, FolderKanban } from 'lucide-react'
 import type { Project } from '@/services/projectService'
 import type { Todo } from '@/services/todoService'
+import type { ProjectResumeContext, ResumeContextLast, ResumeContextNow, ResumeContextTodo } from '@/types/resumeContext'
 
 interface ProjectResumeContextCardProps {
   resumeContext: Project['resume_context']
@@ -68,7 +69,7 @@ export const ProjectResumeContextCard = memo(function ProjectResumeContextCard({
   // If resume_context has complex structure (objects)
   const last = resumeContext.last
   const now = resumeContext.now
-  const next = (resumeContext as any).next_blockers || resumeContext.next
+  const next = 'next_blockers' in resumeContext ? resumeContext.next_blockers : resumeContext.next
 
   return (
     <Card className="border-l-4 border-l-secondary">
@@ -89,9 +90,9 @@ export const ProjectResumeContextCard = memo(function ProjectResumeContextCard({
               </h4>
               {typeof last === 'string' ? (
                 <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{last}</p>
-              ) : (last as any).session_summary ? (
+              ) : typeof last === 'object' && last !== null && 'session_summary' in last ? (
                 <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                  {(last as any).session_summary}
+                  {(last as ResumeContextLast).session_summary}
                 </p>
               ) : (
                 <p className="text-sm text-muted-foreground italic">No session summary available</p>
@@ -110,12 +111,12 @@ export const ProjectResumeContextCard = memo(function ProjectResumeContextCard({
                 <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{now}</p>
               ) : (
                 <div className="space-y-2">
-                  {(now as any).next_todos && (now as any).next_todos.length > 0 && (
+                  {typeof now === 'object' && now !== null && 'next_todos' in now && Array.isArray((now as ResumeContextNow).next_todos) && (now as ResumeContextNow).next_todos.length > 0 && (
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-1">Next Todos:</p>
                       <ul className="list-disc list-inside space-y-0.5 text-sm text-foreground">
-                        {(now as any).next_todos
-                          .filter((todo: any) => {
+                        {(now as ResumeContextNow).next_todos
+                          .filter((todo: ResumeContextTodo) => {
                             if (todo.id) {
                               const actualTodo = allTodos.find(t => t.id === todo.id)
                               return !actualTodo || actualTodo.status !== 'done'
@@ -123,7 +124,7 @@ export const ProjectResumeContextCard = memo(function ProjectResumeContextCard({
                             return true
                           })
                           .slice(0, 3)
-                          .map((todo: any) => (
+                          .map((todo: ResumeContextTodo) => (
                             <li key={todo.id || todo.title} className="text-xs">
                               {todo.title}
                             </li>
@@ -131,11 +132,11 @@ export const ProjectResumeContextCard = memo(function ProjectResumeContextCard({
                       </ul>
                     </div>
                   )}
-                  {(now as any).immediate_goals && (now as any).immediate_goals.length > 0 && (
+                  {typeof now === 'object' && now !== null && 'immediate_goals' in now && Array.isArray((now as ResumeContextNow).immediate_goals) && (now as ResumeContextNow).immediate_goals.length > 0 && (
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-1">Immediate Goals:</p>
                       <ul className="list-disc list-inside space-y-0.5 text-sm text-foreground">
-                        {(now as any).immediate_goals.map((goal: string, idx: number) => (
+                        {(now as ResumeContextNow).immediate_goals.map((goal: string, idx: number) => (
                           <li key={idx} className="text-xs">{goal}</li>
                         ))}
                       </ul>
@@ -147,15 +148,15 @@ export const ProjectResumeContextCard = memo(function ProjectResumeContextCard({
           )}
 
           {/* Blockers */}
-          {(resumeContext as any).blockers && (
+          {resumeContext.blockers && (
             <div>
               <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
                 <AlertCircle className="h-3 w-3" />
                 Blockers
               </h4>
-              {Array.isArray((resumeContext as any).blockers) && (resumeContext as any).blockers.length > 0 ? (
+              {Array.isArray(resumeContext.blockers) && resumeContext.blockers.length > 0 ? (
                 <ul className="list-disc list-inside space-y-0.5 text-sm text-foreground">
-                  {(resumeContext as any).blockers.map((blocker: string, idx: number) => (
+                  {resumeContext.blockers.map((blocker: string, idx: number) => (
                     <li key={idx} className="text-xs">{blocker}</li>
                   ))}
                 </ul>
@@ -166,15 +167,15 @@ export const ProjectResumeContextCard = memo(function ProjectResumeContextCard({
           )}
 
           {/* Constraints */}
-          {(resumeContext as any).constraints && (
+          {resumeContext.constraints && (
             <div>
               <h4 className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
                 <FolderKanban className="h-3 w-3" />
                 Constraints
               </h4>
-              {Array.isArray((resumeContext as any).constraints) && (resumeContext as any).constraints.length > 0 ? (
+              {Array.isArray(resumeContext.constraints) && resumeContext.constraints.length > 0 ? (
                 <ul className="list-disc list-inside space-y-0.5 text-sm text-foreground">
-                  {(resumeContext as any).constraints.map((constraint: string, idx: number) => (
+                  {resumeContext.constraints.map((constraint: string, idx: number) => (
                     <li key={idx} className="text-xs">{constraint}</li>
                   ))}
                 </ul>

@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import { ideaService, type Idea, type IdeaCreate, type IdeaUpdate, type IdeaConvertRequest } from '@/services/ideaService'
+import { signalrService } from '@/services/signalrService'
+import type { IdeaUpdateData } from '@/types/signalr'
 
 interface IdeaState {
   ideas: Idea[]

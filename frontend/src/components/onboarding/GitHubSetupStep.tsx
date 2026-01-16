@@ -96,9 +96,9 @@ export function GitHubSetupStep({ onNext, onBack }: GitHubSetupStepProps) {
       setGitHubError(null)
       const status = await settingsService.getGitHubStatus()
       setGitHubStatus(status)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load GitHub status:', error)
-      setGitHubError(error.response?.data?.detail || error.message || 'Failed to load GitHub status')
+      setGitHubError(getErrorMessage(error) || 'Failed to load GitHub status')
     } finally {
       setIsLoadingGitHub(false)
     }
@@ -111,13 +111,13 @@ export function GitHubSetupStep({ onNext, onBack }: GitHubSetupStepProps) {
       // Use /onboarding as redirect_path for onboarding flow
       const { authorization_url } = await settingsService.getGitHubOAuthUrl('/onboarding')
       window.location.href = authorization_url
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to get GitHub OAuth URL:', error)
-      setGitHubError(
-        error.message?.includes('not configured')
-          ? 'GitHub OAuth is not configured on the server. Please contact your administrator.'
-          : error.message || 'Failed to connect GitHub'
-      )
+      const errorMessage = getErrorMessage(error)
+      const finalMessage = errorMessage.includes('not configured')
+        ? 'GitHub OAuth is not configured on the server. Please contact your administrator.'
+        : errorMessage || 'Failed to connect GitHub'
+      setGitHubError(finalMessage)
       setIsConnectingGitHub(false)
     }
   }

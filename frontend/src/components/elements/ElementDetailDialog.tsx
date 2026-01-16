@@ -8,6 +8,16 @@ import { elementService, type Element } from '@/services/elementService'
 import { todoService, type Todo } from '@/services/todoService'
 import { Link } from 'react-router-dom'
 
+interface ElementDependency {
+  id: string
+  dependency_type: string
+  depends_on_element_id: string
+}
+
+interface ElementDetails extends Element {
+  dependencies?: ElementDependency[]
+}
+
 interface ElementDetailDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -16,7 +26,7 @@ interface ElementDetailDialogProps {
 }
 
 export function ElementDetailDialog({ open, onOpenChange, element, projectId }: ElementDetailDialogProps) {
-  const [elementDetails, setElementDetails] = useState<any>(null)
+  const [elementDetails, setElementDetails] = useState<ElementDetails | null>(null)
   const [todos, setTodos] = useState<Todo[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
@@ -166,7 +176,7 @@ export function ElementDetailDialog({ open, onOpenChange, element, projectId }: 
               <div>
                 <h3 className="text-sm font-semibold mb-2">Dependencies</h3>
                 <div className="space-y-1">
-                  {elementDetails.dependencies.map((dep: any) => (
+                  {elementDetails.dependencies.map((dep: ElementDependency) => (
                     <div key={dep.id} className="text-sm text-muted-foreground">
                       {dep.dependency_type}: {dep.depends_on_element_id}
                     </div>

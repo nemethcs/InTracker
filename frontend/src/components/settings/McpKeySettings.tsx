@@ -46,8 +46,8 @@ export function McpKeySettings() {
       setIsLoadingKey(true)
       const key = await mcpKeyService.getCurrentKey()
       setMcpKey(key)
-    } catch (error: any) {
-      if (error.response?.status === 404) {
+    } catch (error: unknown) {
+      if (isNotFoundError(error)) {
         // No key exists yet, that's okay
         setMcpKey(null)
       } else {

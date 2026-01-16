@@ -64,7 +64,7 @@ export const ideaService = {
     await api.delete(`/ideas/${id}`)
   },
 
-  async convertIdeaToProject(id: string, data: IdeaConvertRequest): Promise<any> {
+  async convertIdeaToProject(id: string, data: IdeaConvertRequest): Promise<{ id: string; name: string }> {
     const response = await api.post(`/ideas/${id}/convert`, data)
     return response.data
   },
