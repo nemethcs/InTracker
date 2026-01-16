@@ -47,21 +47,21 @@ class FeatureService:
             if element_ids:
                 # OPTIMIZATION: Bulk query all elements at once to avoid N+1 queries
                 valid_elements = (
-                    db.query(ProjectElement)
-                    .filter(
+                        db.query(ProjectElement)
+                        .filter(
                         ProjectElement.id.in_(element_ids),
-                        ProjectElement.project_id == project_id,
-                    )
+                            ProjectElement.project_id == project_id,
+                        )
                     .all()
-                )
+                    )
                 
                 # Create feature-element links for all valid elements
                 for element in valid_elements:
-                    feature_element = FeatureElement(
-                        feature_id=feature.id,
+                        feature_element = FeatureElement(
+                            feature_id=feature.id,
                         element_id=element.id,
-                    )
-                    db.add(feature_element)
+                        )
+                        db.add(feature_element)
 
             db.commit()
             db.refresh(feature)

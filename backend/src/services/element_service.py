@@ -145,8 +145,8 @@ class ElementService:
             db.query(FeatureElement.element_id, Feature.name)
             .join(Feature, FeatureElement.feature_id == Feature.id)
             .filter(FeatureElement.element_id.in_(element_ids))
-            .all()
-        )
+                .all()
+            )
         
         # Create a dict for quick lookup: element_id -> [feature_names]
         linked_features_dict = {}
