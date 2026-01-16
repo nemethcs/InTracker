@@ -1,11 +1,8 @@
 """FastAPI application entry point."""
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi import HTTPException
-from starlette.middleware.gzip import GZipMiddleware
 from src.config import settings
-from src.api.middleware.validation import ValidationMiddleware
 from contextlib import asynccontextmanager
 import os
 import logging
@@ -26,16 +23,10 @@ from src.api.controllers import (
     team_controller,
     mcp_key_controller,
     audit_controller,
-    health_controller,
 )
 
-# Setup logging based on environment
-log_level = logging.DEBUG if settings.NODE_ENV == "development" else logging.INFO
-logging.basicConfig(
-    level=log_level,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+# Setup logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -56,6 +47,7 @@ async def lifespan(app: FastAPI):
             
             command.upgrade(alembic_cfg, "head")
             logger.info("Database migrations completed successfully")
+            print("✅ Database migrations completed successfully", flush=True)  # Also print for visibility
         else:
             logger.warning("DATABASE_URL not set, skipping migrations")
     except Exception as e:
@@ -99,16 +91,6 @@ else:
     else:
         cors_origins = ["*"]
 
-# Validation middleware (should be first to catch invalid requests early)
-app.add_middleware(ValidationMiddleware)
-
-# Compression middleware (should be added before CORS)
-app.add_middleware(
-    GZipMiddleware,
-    minimum_size=1000,  # Only compress responses larger than 1KB
-)
-
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
@@ -118,8 +100,6 @@ app.add_middleware(
 )
 
 # Include routers
-# Health check should be first for easy monitoring
-app.include_router(health_controller.router)
 app.include_router(auth_controller.router)
 app.include_router(project_controller.router)
 app.include_router(feature_controller.router)
@@ -136,8 +116,17 @@ app.include_router(team_controller.router)
 app.include_router(mcp_key_controller.router)
 app.include_router(audit_controller.router)
 
-# Setup MCP server with fastapi-mcp (must be after router inclusion)
-mcp_controller.setup_mcp(app)
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    from datetime import datetime
+    return {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "0.1.0",
+        "auto_reload": "disabled"  # Added: Backend auto-reload is now disabled for stability
+    }
 
 
 @app.get("/api")
@@ -229,30 +218,9 @@ async def api_info():
     }
 
 
-# Import error handlers
-from src.api.middleware.error_handler import (
-    handle_http_exception,
-    handle_validation_error,
-    handle_generic_exception,
-)
-from fastapi.exceptions import RequestValidationError
-
-
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    """Handle HTTPException with standardized error format."""
-    return handle_http_exception(request, exc)
-
-
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Handle Pydantic validation errors with standardized format."""
-    return handle_validation_error(request, exc)
-
-
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """Global exception handler for all unhandled exceptions.
+async def global_exception_handler(request, exc):
+    """Global exception handler. Skips HTTPException as FastAPI handles those.
     
     NOTE: For ASGI apps (like MCP transport) that handle their own responses,
     we need to be careful not to send duplicate responses.
@@ -260,7 +228,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     from fastapi import HTTPException
     import logging
     
-    # Don't handle HTTPException - already handled by http_exception_handler
+    # Don't handle HTTPException - FastAPI already handles those
     if isinstance(exc, HTTPException):
         raise exc
     
@@ -272,8 +240,17 @@ async def global_exception_handler(request: Request, exc: Exception):
         # Return None to indicate we handled it (but didn't send a response)
         return None
     
-    # Handle all other exceptions with standardized format
-    return handle_generic_exception(request, exc)
+    # Handle all other exceptions
+    # Always log the error for debugging
+    logging.error(f"Unhandled exception: {exc}", exc_info=True)
+    
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal server error",
+            "message": str(exc) if settings.NODE_ENV == "development" else "An error occurred",
+        },
+    )
 
 
 if __name__ == "__main__":

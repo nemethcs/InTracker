@@ -1,12 +1,16 @@
-"""MCP Server FastAPI integration using fastapi-mcp library."""
+"""MCP Server HTTP/SSE transport controller for FastAPI."""
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Header
 from fastapi.responses import JSONResponse
-from fastapi_mcp import FastApiMCP
+from starlette.types import Receive, Send, Scope
+from mcp.server.sse import SseServerTransport
 from src.config import settings
 from src.mcp.server import server as mcp_server
 
 router = APIRouter(prefix="/mcp", tags=["mcp"])
+
+# Create SSE transport
+sse_transport = SseServerTransport("/mcp/messages/")
 
 
 def verify_api_key(api_key: Optional[str]) -> Optional[str]:
@@ -53,35 +57,138 @@ async def mcp_health_check():
     return JSONResponse(content={"status": "ok", "service": "intracker-mcp-server"})
 
 
-# Initialize FastApiMCP - this will be called from main.py
-def setup_mcp(app):
-    """Setup MCP server with FastAPI app using fastapi-mcp library.
-    
-    This must be called AFTER including the router in the main app.
-    """
-    # Custom auth middleware for API key verification
-    async def auth_middleware(headers: dict):
-        """Custom auth middleware for MCP requests."""
-        api_key = headers.get("x-api-key")
+class MCPSSEASGIApp:
+    """ASGI app wrapper for MCP SSE endpoint."""
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http" or scope["method"] != "GET":
+            from starlette.responses import Response
+            response = Response(status_code=405)
+            await response(scope, receive, send)
+            return
+        
+        # Verify API key and get user_id
+        api_key = None
+        headers = scope.get("headers", [])
+        for key, value in headers:
+            if key.lower() == b"x-api-key":
+                api_key = value.decode()
+                break
+        
         try:
             user_id = verify_api_key(api_key)
-            
-            # Set user_id in MCP context if available
+            # Set the user_id in MCP middleware for this connection
             if user_id:
                 from src.mcp.middleware.auth import set_mcp_api_key
-                set_mcp_api_key(api_key)
-            
-            return True
-        except HTTPException:
-            return False
+                set_mcp_api_key(api_key)  # This will extract and set user_id
+        except HTTPException as e:
+            # Return error response and stop processing
+            # Don't re-raise to avoid global exception handler duplicate response
+            response = JSONResponse(
+                content={"detail": e.detail},
+                status_code=e.status_code
+            )
+            await response(scope, receive, send)
+            return
+        
+        # Based on MCP SDK source code inspection:
+        # connect_sse returns an async context manager
+        # When entered, it returns (read_stream, write_stream)
+        # We need to run the MCP server with these streams
+        try:
+            cm = sse_transport.connect_sse(scope, receive, send)
+            async with cm as streams:
+                read_stream, write_stream = streams
+                await mcp_server.run(
+                    read_stream,
+                    write_stream,
+                    mcp_server.create_initialization_options(),
+                )
+        except Exception as e:
+            # If MCP server fails, don't let global exception handler catch it
+            # as it may have already sent a response
+            import logging
+            logging.error(f"MCP SSE connection error: {e}", exc_info=True)
+            # Don't re-raise - response may have already been sent
+
+
+class MCPMessagesASGIApp:
+    """ASGI app wrapper for MCP messages endpoint."""
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http" or scope["method"] != "POST":
+            from starlette.responses import Response
+            response = Response(status_code=405)
+            await response(scope, receive, send)
+            return
+        
+        # Verify API key and get user_id
+        api_key = None
+        headers = scope.get("headers", [])
+        for key, value in headers:
+            if key.lower() == b"x-api-key":
+                api_key = value.decode()
+                break
+        
+        try:
+            user_id = verify_api_key(api_key)
+            # Set the user_id in MCP middleware for this connection
+            if user_id:
+                from src.mcp.middleware.auth import set_mcp_api_key
+                set_mcp_api_key(api_key)  # This will extract and set user_id
+        except HTTPException as e:
+            # Return error response and stop processing
+            # Don't re-raise to avoid global exception handler duplicate response
+            response = JSONResponse(
+                content={"detail": e.detail},
+                status_code=e.status_code
+            )
+            await response(scope, receive, send)
+            return
+        
+        # Use the SSE transport's handle_post_message ASGI app
+        # This will send its own response (202 Accepted), so we don't need to handle it
+        try:
+            await sse_transport.handle_post_message(scope, receive, send)
+        except Exception as e:
+            # If handle_post_message fails, don't let global exception handler catch it
+            # as it may have already sent a response
+            import logging
+            logging.error(f"MCP handle_post_message error: {e}", exc_info=True)
+            # Don't re-raise - response may have already been sent
+
+
+@router.get("/sse")
+async def mcp_sse_endpoint(request: Request):
+    """
+    MCP Server SSE (Server-Sent Events) endpoint for Cursor integration.
+    Supports both local development and Azure deployment.
     
-    # Create FastApiMCP instance and mount it
-    mcp = FastApiMCP(
-        server=mcp_server,
-        path="/mcp",
-    )
+    NOTE: This endpoint uses a custom ASGI app that handles its own responses.
+    We don't return anything to avoid FastAPI trying to send a response.
+    """
+    app = MCPSSEASGIApp()
+    try:
+        await app(request.scope, request.receive, request._send)
+    except Exception as e:
+        # Log but don't raise - ASGI app may have already sent response
+        import logging
+        logging.error(f"MCP SSE endpoint error: {e}", exc_info=True)
+    # Don't return anything - ASGI app already handled the response
+
+
+@router.post("/messages/{path:path}")
+async def mcp_messages_endpoint(path: str, request: Request):
+    """
+    MCP Server messages endpoint for POST requests.
+    Used by Cursor to send messages to the MCP server.
     
-    # Mount MCP to the FastAPI app
-    mcp.mount(app)
-    
-    print("✅ MCP server mounted at /mcp with fastapi-mcp", flush=True)
+    NOTE: This endpoint uses a custom ASGI app that handles its own responses.
+    We don't return anything to avoid FastAPI trying to send a response.
+    """
+    app = MCPMessagesASGIApp()
+    try:
+        await app(request.scope, request.receive, request._send)
+    except Exception as e:
+        # Log but don't raise - ASGI app may have already sent response
+        import logging
+        logging.error(f"MCP messages endpoint error: {e}", exc_info=True)
+    # Don't return anything - ASGI app already handled the response
