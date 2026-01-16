@@ -173,7 +173,9 @@ class MCPMessagesASGIApp:
         # Use the SSE transport's handle_post_message ASGI app
         # This will send its own response (202 Accepted), so we don't need to handle it
         try:
+            print("📨 Calling sse_transport.handle_post_message()...", flush=True)
             await sse_transport.handle_post_message(scope, receive, send)
+            print("✅ sse_transport.handle_post_message() completed", flush=True)
         except Exception as e:
             # If handle_post_message fails, don't let global exception handler catch it
             # as it may have already sent a response
