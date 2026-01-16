@@ -26,6 +26,7 @@ from src.api.controllers import (
     mcp_key_controller,
     audit_controller,
     task_queue_controller,
+    api_info_controller,
 )
 
 # Setup logging
@@ -268,7 +269,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
+# Include API info endpoints (no version prefix)
+app.include_router(api_info_controller.router)
+
+# Include versioned API routes
+from src.api.routes.v1 import v1_router
+app.include_router(v1_router)
+
+# Include legacy routes (without version prefix) for backward compatibility
+# These will be deprecated in a future version
+# TODO: Remove legacy routes after migration period
 app.include_router(auth_controller.router)
 app.include_router(project_controller.router)
 app.include_router(feature_controller.router)
