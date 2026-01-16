@@ -1,9 +1,26 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { Toaster } from '@/components/ui/toast'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
+
+// Create a QueryClient instance with default options
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes - data is fresh for 5 minutes
+      gcTime: 1000 * 60 * 10, // 10 minutes - cache is kept for 10 minutes (formerly cacheTime)
+      retry: 2, // Retry failed requests 2 times
+      refetchOnWindowFocus: false, // Don't refetch on window focus
+      refetchOnReconnect: true, // Refetch when network reconnects
+    },
+    mutations: {
+      retry: 1, // Retry failed mutations once
+    },
+  },
+})
 import { Dashboard } from '@/pages/Dashboard'
 import { ProjectDetail } from '@/pages/ProjectDetail'
 import { FeatureDetail } from '@/pages/FeatureDetail'
@@ -60,10 +77,11 @@ function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <BrowserRouter>
-      <ErrorBoundary>
-        <Toaster />
-        <Routes>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <ErrorBoundary>
+          <Toaster />
+          <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
@@ -200,6 +218,7 @@ function App() {
         </Routes>
       </ErrorBoundary>
     </BrowserRouter>
+    </QueryClientProvider>
   )
 }
 
