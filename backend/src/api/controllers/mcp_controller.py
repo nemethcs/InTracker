@@ -115,18 +115,6 @@ class MCPSSEASGIApp:
             await response(scope, receive, send)
             return
         
-        # Pre-load tools and resources before running server (optimization)
-        # This ensures tools/resources are cached before first request
-        try:
-            from src.mcp.server import _load_tools, _load_resources
-            logger.info("Pre-loading MCP tools and resources...")
-            _load_tools()
-            _load_resources()
-            logger.info("MCP tools and resources pre-loaded successfully")
-        except Exception as e:
-            logger.warning(f"Failed to pre-load MCP tools/resources: {e}", exc_info=True)
-            # Continue anyway - tools will load on first list_tools() call
-        
         # Based on MCP SDK source code inspection:
         # connect_sse returns an async context manager
         # When entered, it returns (read_stream, write_stream)
