@@ -16,18 +16,7 @@ from src.mcp.tools import (
     onboarding,
     team,
 )
-from src.mcp.server_handlers import (
-    handle_project_tool,
-    handle_feature_tool,
-    handle_todo_tool,
-    handle_session_tool,
-    handle_document_tool,
-    handle_github_tool,
-    handle_idea_tool,
-    handle_import_tool,
-    handle_onboarding_tool,
-    handle_team_tool,
-)
+from src.mcp.server_handlers.tool_router import tool_router
 # Pre-import resources to ensure they're available at initialization
 from src.mcp.resources import project_resources, feature_resources, document_resources
 
@@ -112,28 +101,8 @@ async def list_tools() -> list[Tool]:
 
 @server.call_tool()
 async def call_tool(name: str, arguments: dict):
-    """Handle tool calls."""
-    # Try each handler category
-    handlers = [
-        handle_project_tool,
-        handle_feature_tool,
-        handle_todo_tool,
-        handle_session_tool,
-        handle_document_tool,
-        handle_github_tool,
-        handle_idea_tool,
-        handle_import_tool,
-        handle_onboarding_tool,
-        handle_team_tool,
-    ]
-    
-    for handler in handlers:
-        result = await handler(name, arguments)
-        if result is not None:
-            return result
-    
-    # Unknown tool
-    return [TextContent(type="text", text=f"Unknown tool: {name}")]
+    """Handle tool calls using centralized router."""
+    return await tool_router.route_tool(name, arguments)
 
 
 @server.list_resources()
