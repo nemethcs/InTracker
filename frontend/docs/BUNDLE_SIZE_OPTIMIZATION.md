@@ -51,7 +51,7 @@ npm run build
 
 ## Further Optimization Opportunities
 
-### 1. Route-Based Code Splitting (Next: React.lazy())
+### 1. Route-Based Code Splitting ✅ (DONE)
 
 Implement `React.lazy()` for route components to enable lazy loading:
 
@@ -61,7 +61,10 @@ const ProjectDetail = lazy(() => import('@/pages/ProjectDetail'))
 // etc.
 ```
 
-**Expected Impact**: Reduce initial bundle by ~200-300 kB (gzip: ~60-90 kB)
+**Actual Impact**: Reduced initial bundle from 432.75 kB to 261.65 kB (gzip: 118.66 kB → 79.88 kB)
+- **Savings**: ~171 kB (gzip: ~39 kB)
+- Route components are now loaded on-demand
+- Each route has its own chunk (Dashboard: 6.73 kB, ProjectDetail: 24.38 kB, etc.)
 
 ### 2. Component-Level Code Splitting
 
@@ -113,7 +116,15 @@ const CursorGuide = lazy(() => import('@/pages/CursorGuide'))
 ## Next Steps
 
 1. ✅ Implement manual chunks (DONE)
-2. ⏳ Implement React.lazy() for routes
+2. ✅ Implement React.lazy() for routes (DONE)
 3. ⏳ Lazy load heavy components
 4. ⏳ Optimize icon imports
 5. ⏳ Review and optimize date-fns usage
+
+## Current Bundle Status (After React.lazy())
+
+- **Initial Bundle (index)**: 261.65 kB (gzip: 79.88 kB) ✅
+- **Vendor Chunks**: ~345 kB (gzip: ~102 kB)
+- **Route Chunks**: Loaded on-demand (6-31 kB each)
+- **Total**: ~607 kB (gzip: ~182 kB) when all routes are loaded
+- **Initial Load**: ~261 kB (gzip: ~80 kB) - only core app + vendor chunks

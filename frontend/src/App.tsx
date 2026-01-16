@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
@@ -21,20 +22,23 @@ const queryClient = new QueryClient({
     },
   },
 })
-import { Dashboard } from '@/pages/Dashboard'
-import { ProjectDetail } from '@/pages/ProjectDetail'
-import { FeatureDetail } from '@/pages/FeatureDetail'
-import { Todos } from '@/pages/Todos'
-import { Documents } from '@/pages/Documents'
-import { Settings } from '@/pages/Settings'
-import { Ideas } from '@/pages/Ideas'
+
+// Eagerly loaded components (needed for initial render)
 import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
-// AdminLogin and AdminDashboard removed - admin functions integrated into Teams and Settings
-import { Teams } from '@/pages/Teams'
-import { Onboarding } from '@/pages/Onboarding'
-import { Users } from '@/pages/Users'
-import { CursorGuide } from '@/pages/CursorGuide'
+
+// Lazy loaded route components
+const Dashboard = lazy(() => import('@/pages/Dashboard'))
+const ProjectDetail = lazy(() => import('@/pages/ProjectDetail'))
+const FeatureDetail = lazy(() => import('@/pages/FeatureDetail'))
+const Todos = lazy(() => import('@/pages/Todos'))
+const Documents = lazy(() => import('@/pages/Documents'))
+const Settings = lazy(() => import('@/pages/Settings'))
+const Ideas = lazy(() => import('@/pages/Ideas'))
+const Teams = lazy(() => import('@/pages/Teams'))
+const Onboarding = lazy(() => import('@/pages/Onboarding'))
+const Users = lazy(() => import('@/pages/Users'))
+const CursorGuide = lazy(() => import('@/pages/CursorGuide'))
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user } = useAuth()
@@ -75,13 +79,23 @@ function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+// Loading fallback component for lazy loaded routes
+function RouteLoadingFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <LoadingSpinner size="lg" />
+    </div>
+  )
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ErrorBoundary>
           <Toaster />
-          <Routes>
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
@@ -215,9 +229,10 @@ function App() {
             </MainLayout>
           </ProtectedRoute>
         } />
-        </Routes>
-      </ErrorBoundary>
-    </BrowserRouter>
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
+      </BrowserRouter>
     </QueryClientProvider>
   )
 }
