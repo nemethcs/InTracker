@@ -1,6 +1,6 @@
 """GitHub integration controller."""
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from src.database.base import get_db
 from src.api.middleware.auth import get_current_user
@@ -96,14 +96,12 @@ async def get_github_repo(
         )
 
     # Parse repo owner and name
-    repo_parts = project.github_repo_url.replace("https://github.com/", "").split("/")
-    if len(repo_parts) != 2:
+    owner, repo = github_service.parse_github_url(project.github_repo_url)
+    if not owner or not repo:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid GitHub repository URL format",
         )
-
-    owner, repo = repo_parts
 
     repo_info = github_service.get_repo_info(owner=owner, repo=repo)
     if not repo_info:
@@ -142,10 +140,12 @@ async def get_projects_access(
 @router.get("/projects/{project_id}/branches")
 async def list_project_branches(
     project_id: UUID,
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Number of items per page"),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List branches for a project."""
+    """List branches for a project with pagination."""
     # Check project access
     if not project_service.check_user_access(
         db=db,
@@ -157,7 +157,13 @@ async def list_project_branches(
             detail="You don't have access to this project",
         )
 
-    branches = branch_service.get_branches_by_project(db=db, project_id=project_id)
+    skip = (page - 1) * page_size
+    branches, total = branch_service.get_branches_by_project(
+        db=db,
+        project_id=project_id,
+        skip=skip,
+        limit=page_size,
+    )
 
     return {
         "branches": [
@@ -170,6 +176,9 @@ async def list_project_branches(
             }
             for branch in branches
         ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
         "count": len(branches),
     }
 
@@ -260,9 +269,8 @@ async def get_branch(
     project = project_service.get_project_by_id(db=db, project_id=branch.project_id)
     branch_info = None
     if project and project.github_repo_url:
-        repo_parts = project.github_repo_url.replace("https://github.com/", "").split("/")
-        if len(repo_parts) == 2:
-            owner, repo = repo_parts
+        owner, repo = github_service.parse_github_url(project.github_repo_url)
+        if owner and repo:
             branch_info = github_service.get_branch(
                 owner=owner,
                 repo=repo,
@@ -325,7 +333,7 @@ async def get_feature_branches(
 async def github_webhook(
     payload: dict,
     db: Session = Depends(get_db),
-):
+) -> dict[str, str]:
     """Handle GitHub webhook events."""
     # This is a simplified webhook handler
     # In production, you'd want to:
@@ -334,7 +342,9 @@ async def github_webhook(
     # 3. Update database accordingly
 
     event_type = payload.get("action") or payload.get("ref")
-    print(f"📥 GitHub webhook received: {event_type}")
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"GitHub webhook received: {event_type}")
 
     # TODO: Implement webhook handling logic
     # - PR events: Update todo.github_pr_number

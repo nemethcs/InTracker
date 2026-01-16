@@ -270,12 +270,12 @@ async def update_user_role_by_email(
 async def list_users(
     role: Optional[str] = Query(None, description="Filter by role"),
     search: Optional[str] = Query(None, description="Search by email or name"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Number of items per page"),
     current_user: dict = Depends(get_current_admin_user),
     db: Session = Depends(get_db),
 ):
-    """List all users. Requires admin role."""
+    """List all users with pagination. Requires admin role."""
     query = db.query(User)
 
     # Filter by role
@@ -297,7 +297,8 @@ async def list_users(
         query = query.filter(search_filter)
 
     total = query.count()
-    users = query.order_by(User.created_at.desc()).offset(skip).limit(limit).all()
+    skip = (page - 1) * page_size
+    users = query.order_by(User.created_at.desc()).offset(skip).limit(page_size).all()
 
     return {
         "users": [
@@ -315,8 +316,8 @@ async def list_users(
             for user in users
         ],
         "total": total,
-        "skip": skip,
-        "limit": limit,
+        "page": page,
+        "page_size": page_size,
     }
 
 

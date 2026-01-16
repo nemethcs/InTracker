@@ -14,6 +14,9 @@ from . import (
     admin_controller,
     team_controller,
     mcp_key_controller,
+    audit_controller,
+    task_queue_controller,
+    api_info_controller,
 )
 
 __all__ = [
@@ -31,4 +34,7 @@ __all__ = [
     "admin_controller",
     "team_controller",
     "mcp_key_controller",
+    "audit_controller",
+    "task_queue_controller",
+    "api_info_controller",
 ]

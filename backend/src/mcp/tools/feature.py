@@ -4,7 +4,7 @@ from uuid import UUID
 from mcp.types import Tool as MCPTool
 from sqlalchemy.orm import Session
 from src.database.base import SessionLocal
-from src.mcp.services.cache import cache_service
+from src.mcp.services.cache import cache_service, CacheTTL
 from src.services.signalr_hub import broadcast_feature_update
 from src.services.feature_service import FeatureService
 from src.services.todo_service import TodoService
@@ -140,7 +140,7 @@ async def handle_get_feature(feature_id: str) -> dict:
             ],
         }
 
-        cache_service.set(cache_key, result, ttl=120)  # 2 min TTL
+        cache_service.set(cache_key, result, ttl=CacheTTL.MEDIUM)
         return result
     finally:
         db.close()
@@ -205,7 +205,7 @@ async def handle_list_features(
             "count": len(features),
         }
 
-        cache_service.set(cache_key, result, ttl=120)  # 2 min TTL
+        cache_service.set(cache_key, result, ttl=CacheTTL.MEDIUM)
         return result
     finally:
         db.close()
@@ -331,7 +331,7 @@ async def handle_get_feature_todos(feature_id: str) -> dict:
             "count": len(todos),
         }
 
-        cache_service.set(cache_key, result, ttl=120)  # 2 min TTL
+        cache_service.set(cache_key, result, ttl=CacheTTL.MEDIUM)
         return result
     finally:
         db.close()
@@ -379,7 +379,7 @@ async def handle_get_feature_elements(feature_id: str) -> dict:
             "count": len(elements),
         }
 
-        cache_service.set(cache_key, result, ttl=300)  # 5 min TTL
+        cache_service.set(cache_key, result, ttl=CacheTTL.LONG)
         return result
     finally:
         db.close()

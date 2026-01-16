@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from src.database.models import Project, User, TeamMember, ProjectElement
 from src.database.base import set_current_user_id, reset_current_user_id
+from src.services.cache_service import CacheService, CacheTTL
 
 
 class ProjectService:
@@ -58,6 +59,10 @@ class ProjectService:
             db.add(default_element)
             db.commit()
             db.refresh(project)
+            
+            # Invalidate user projects cache for all users (new project added)
+            CacheService.clear_cache_by_pattern("user_projects:*")
+            
             return project
         finally:
             if token:
@@ -65,7 +70,11 @@ class ProjectService:
 
     @staticmethod
     def get_project_by_id(db: Session, project_id: UUID) -> Optional[Project]:
-        """Get project by ID."""
+        """Get project by ID.
+        
+        Note: Direct entity queries are fast, so we don't cache individual entities.
+        Instead, we cache list queries (get_user_projects) which are more expensive.
+        """
         return db.query(Project).filter(Project.id == project_id).first()
 
     @staticmethod
@@ -81,7 +90,26 @@ class ProjectService:
         
         If user is admin, returns all projects.
         Otherwise, returns projects from teams where user is a member.
+        
+        Results are cached to improve performance for frequently accessed project lists.
         """
+        # Build cache key from parameters
+        cache_key = f"user_projects:{user_id}:status:{status or 'all'}:team:{team_id or 'all'}:skip:{skip}:limit:{limit}"
+        
+        # Try cache first
+        cached = CacheService.get_cache(cache_key)
+        if cached:
+            # Reconstruct Project objects from cached IDs
+            project_ids = cached.get("project_ids", [])
+            if project_ids:
+                projects = db.query(Project).filter(Project.id.in_([UUID(pid) for pid in project_ids])).all()
+                # Maintain order from cache
+                project_dict = {str(p.id): p for p in projects}
+                projects = [project_dict[pid] for pid in project_ids if pid in project_dict]
+                total = cached.get("total", len(projects))
+                return projects, total
+        
+        # Cache miss - query database
         user = db.query(User).filter(User.id == user_id).first()
         
         if user and user.role == "admin":
@@ -104,6 +132,15 @@ class ProjectService:
 
         total = query.count()
         projects = query.order_by(Project.created_at.desc()).offset(skip).limit(limit).all()
+        
+        # Cache result (store only IDs to avoid serialization issues)
+        if projects:
+            project_ids = [str(p.id) for p in projects]
+            CacheService.set_cache(
+                cache_key,
+                {"project_ids": project_ids, "total": total},
+                ttl=CacheTTL.MEDIUM
+            )
 
         return projects, total
 
@@ -166,6 +203,11 @@ class ProjectService:
 
             db.commit()
             db.refresh(project)
+            
+            # Invalidate cache
+            CacheService.invalidate_project_cache(str(project_id))
+            CacheService.clear_cache_by_pattern("user_projects:*")
+            
             return project
         finally:
             if token:
@@ -178,6 +220,9 @@ class ProjectService:
         if not project:
             return False
 
+        # Invalidate cache before deletion
+        CacheService.invalidate_project_cache(str(project_id))
+        
         db.delete(project)
         db.commit()
         return True

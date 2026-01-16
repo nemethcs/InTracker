@@ -1,6 +1,9 @@
 """Message handler for SignalR WebSocket messages."""
+import logging
 from uuid import UUID
 from .connection_manager import connection_manager
+
+logger = logging.getLogger(__name__)
 
 
 async def handle_message(connection_id: str, user_id: UUID, data: dict):
@@ -18,7 +21,7 @@ async def handle_message(connection_id: str, user_id: UUID, data: dict):
         
         # Log other message types for debugging
         if message_type != 6:
-            print(f"Received message from connection {connection_id}: {data}")
+            logger.debug(f"Received message from connection {connection_id}: {data}")
         
         # Check for SignalR invoke method (type: 1 with invocation)
         if message_type == 1 and "target" in data:
@@ -32,7 +35,7 @@ async def handle_message(connection_id: str, user_id: UUID, data: dict):
                     project_id = arguments[0].get("projectId")
                 if project_id:
                     await connection_manager.join_project(connection_id, str(project_id))
-                    print(f"Connection {connection_id} joined project {project_id}")
+                    logger.info(f"Connection {connection_id} joined project {project_id}")
                     # Send confirmation with SignalR format
                     confirmation = {
                         "type": 1,  # SignalR invocation
@@ -50,7 +53,7 @@ async def handle_message(connection_id: str, user_id: UUID, data: dict):
                     project_id = arguments[0].get("projectId")
                 if project_id:
                     await connection_manager.leave_project(connection_id, str(project_id))
-                    print(f"Connection {connection_id} left project {project_id}")
+                    logger.info(f"Connection {connection_id} left project {project_id}")
                     # Send confirmation with SignalR format
                     confirmation = {
                         "type": 1,  # SignalR invocation

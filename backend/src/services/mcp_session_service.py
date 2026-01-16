@@ -88,10 +88,10 @@ class MCPSessionService:
             serialized = json.dumps(session_data)
             client.setex(key, SESSION_TTL, serialized)
             
-            logger.info(f"✅ MCP session created/updated: {connection_id[:8]}... (TTL: {SESSION_TTL}s)")
+                logger.info(f"MCP session created/updated: {connection_id[:8]}... (TTL: {SESSION_TTL}s)")
             return True
         except Exception as e:
-            logger.error(f"❌ Failed to create MCP session: {e}")
+            logger.error(f"Failed to create MCP session: {e}")
             return False
     
     @staticmethod
@@ -114,13 +114,13 @@ class MCPSessionService:
             
             if value:
                 session_data = json.loads(value)
-                logger.debug(f"📋 MCP session found: {connection_id[:8]}...")
+                logger.debug(f"MCP session found: {connection_id[:8]}...")
                 return session_data
             
-            logger.debug(f"🔍 MCP session not found: {connection_id[:8]}...")
+            logger.debug(f"MCP session not found: {connection_id[:8]}...")
             return None
         except Exception as e:
-            logger.error(f"❌ Failed to get MCP session: {e}")
+            logger.error(f"Failed to get MCP session: {e}")
             return None
     
     @staticmethod
@@ -150,13 +150,13 @@ class MCPSessionService:
                 serialized = json.dumps(session_data)
                 client.setex(key, SESSION_TTL, serialized)
                 
-                logger.debug(f"🔄 MCP session activity updated: {connection_id[:8]}...")
+                logger.debug(f"MCP session activity updated: {connection_id[:8]}...")
                 return True
             
-            logger.warning(f"⚠️  MCP session not found for activity update: {connection_id[:8]}...")
+            logger.warning(f"MCP session not found for activity update: {connection_id[:8]}...")
             return False
         except Exception as e:
-            logger.error(f"❌ Failed to update MCP session activity: {e}")
+            logger.error(f"Failed to update MCP session activity: {e}")
             return False
     
     @staticmethod
@@ -178,13 +178,13 @@ class MCPSessionService:
             deleted = client.delete(key)
             
             if deleted:
-                logger.info(f"🗑️  MCP session deleted: {connection_id[:8]}...")
+                logger.info(f"MCP session deleted: {connection_id[:8]}...")
             else:
-                logger.debug(f"🔍 MCP session not found for deletion: {connection_id[:8]}...")
+                logger.debug(f"MCP session not found for deletion: {connection_id[:8]}...")
             
             return bool(deleted)
         except Exception as e:
-            logger.error(f"❌ Failed to delete MCP session: {e}")
+            logger.error(f"Failed to delete MCP session: {e}")
             return False
     
     @staticmethod
@@ -224,11 +224,10 @@ class MCPSessionService:
             # Store just the connection_id as value
             client.setex(key, SESSION_TTL, connection_id)
             
-            logger.info(f"✅ Session ID mapping saved: {session_id[:8]}... → {connection_id[:8]}...")
-            print(f"✅ DEBUG: Session ID mapping saved: {session_id[:8]}... → {connection_id[:8]}...", flush=True)
+            logger.info(f"Session ID mapping saved: {session_id[:8]}... → {connection_id[:8]}...")
             return True
         except Exception as e:
-            logger.error(f"❌ Failed to save session_id mapping: {e}")
+            logger.error(f"Failed to save session_id mapping: {e}")
             return False
     
     @staticmethod
@@ -254,15 +253,13 @@ class MCPSessionService:
             
             if connection_id:
                 connection_id = connection_id.decode() if isinstance(connection_id, bytes) else connection_id
-                logger.info(f"📋 Found connection_id for session_id: {session_id[:8]}... → {connection_id[:8]}...")
-                print(f"📋 DEBUG: Found connection_id for session_id: {session_id[:8]}... → {connection_id[:8]}...", flush=True)
+                logger.info(f"Found connection_id for session_id: {session_id[:8]}... → {connection_id[:8]}...")
                 return connection_id
             
-            logger.debug(f"🔍 No connection_id found for session_id: {session_id[:8]}...")
-            print(f"🔍 DEBUG: No connection_id found for session_id: {session_id[:8]}...", flush=True)
+            logger.debug(f"No connection_id found for session_id: {session_id[:8]}...")
             return None
         except Exception as e:
-            logger.error(f"❌ Failed to get connection_id by session_id: {e}")
+            logger.error(f"Failed to get connection_id by session_id: {e}")
             return None
     
     @staticmethod
@@ -286,10 +283,10 @@ class MCPSessionService:
                 if value:
                     sessions.append(json.loads(value))
             
-            logger.debug(f"📊 Found {len(sessions)} active MCP sessions")
+            logger.debug(f"Found {len(sessions)} active MCP sessions")
             return sessions
         except Exception as e:
-            logger.error(f"❌ Failed to get all MCP sessions: {e}")
+            logger.error(f"Failed to get all MCP sessions: {e}")
             return []
     
     @staticmethod
@@ -302,7 +299,7 @@ class MCPSessionService:
         Returns:
             Number of sessions cleaned up (always 0 since Redis handles this)
         """
-        logger.debug("🧹 Session cleanup called (Redis TTL handles expiration automatically)")
+        logger.debug("Session cleanup called (Redis TTL handles expiration automatically)")
         return 0
 
 

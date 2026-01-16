@@ -4,9 +4,9 @@ import base64
 import hashlib
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Tuple
-import httpx
 from src.config import settings
 from src.services.encryption_service import encryption_service
+from src.utils.http_client import HTTPClient
 
 
 class GitHubOAuthService:
@@ -124,80 +124,86 @@ class GitHubOAuthService:
         callback_url = settings.FRONTEND_URL.rstrip("/")
         redirect_uri = f"{callback_url}/settings"  # Always use /settings for GitHub App compatibility
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                GitHubOAuthService.TOKEN_URL,
-                data={
-                    "client_id": settings.GITHUB_OAUTH_CLIENT_ID,
-                    "client_secret": settings.GITHUB_OAUTH_CLIENT_SECRET,
-                    "code": code,
-                    "redirect_uri": redirect_uri,
-                    "code_verifier": code_verifier,
-                },
-                headers={
-                    "Accept": "application/json",
-                },
-            )
-
-            if response.status_code != 200:
-                raise ValueError(f"Failed to exchange code for token: {response.text}")
-
-            token_data = response.json()
-
-            # Check for errors in response
-            if isinstance(token_data, dict) and "error" in token_data:
-                raise ValueError(f"OAuth error: {token_data.get('error_description', token_data.get('error'))}")
-
-            if not isinstance(token_data, dict):
-                raise ValueError(f"Unexpected token response type: {type(token_data)}")
-
-            access_token = token_data.get("access_token")
-            if not access_token:
-                raise ValueError("No access token in response")
-
-            # Get user information
-            user_response = await client.get(
-                GitHubOAuthService.USER_API_URL,
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "Accept": "application/vnd.github.v3+json",
-                },
-            )
-
-            if user_response.status_code != 200:
-                raise ValueError(f"Failed to get user information: {user_response.text}")
-
-            user_info = user_response.json()
-
-            # Calculate expiration times
-            # GitHub OAuth Apps can have non-expiring tokens or 8-hour tokens depending on settings
-            expires_in = token_data.get("expires_in")  # None if no expiration
-            if expires_in:
-                expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
-                print(f"✅ GitHub token expires in {expires_in} seconds ({expires_in/3600:.1f} hours)")
-            else:
-                # No expiration - GitHub tokens expire after 1 year of inactivity
-                expires_at = datetime.utcnow() + timedelta(days=365)
-                print(f"✅ GitHub token has no expiration, setting 1 year expiry")
-
-            # GitHub OAuth Apps don't provide refresh tokens by default (future-proof)
-            refresh_token = token_data.get("refresh_token")
-            refresh_expires_at = None
-            if refresh_token:
-                refresh_expires_at = datetime.utcnow() + timedelta(days=180)
-                print(f"✅ GitHub refresh token received, expires in 180 days")
-
-            return {
-                "access_token": access_token,
-                "refresh_token": refresh_token,
-                "expires_in": expires_in,
-                "expires_at": expires_at,
-                "refresh_expires_at": refresh_expires_at,
-                "scope": token_data.get("scope", ""),
-                "token_type": token_data.get("token_type", "bearer"),
-                "user_info": user_info,
+        # Use HTTP client with timeout and retry logic
+        http_client = HTTPClient(
+            timeout=30.0,
+            connect_timeout=10.0,
+            max_retries=2,  # GitHub OAuth should be fast, fewer retries
+        )
+        
+        response = await http_client.post(
+            GitHubOAuthService.TOKEN_URL,
+            data={
+                "client_id": settings.GITHUB_OAUTH_CLIENT_ID,
+                "client_secret": settings.GITHUB_OAUTH_CLIENT_SECRET,
+                "code": code,
                 "redirect_uri": redirect_uri,
-            }
+                "code_verifier": code_verifier,
+            },
+            headers={
+                "Accept": "application/json",
+            },
+        )
+
+        if response.status_code != 200:
+            raise ValueError(f"Failed to exchange code for token: {response.text}")
+
+        token_data = response.json()
+
+        # Check for errors in response
+        if isinstance(token_data, dict) and "error" in token_data:
+            raise ValueError(f"OAuth error: {token_data.get('error_description', token_data.get('error'))}")
+
+        if not isinstance(token_data, dict):
+            raise ValueError(f"Unexpected token response type: {type(token_data)}")
+
+        access_token = token_data.get("access_token")
+        if not access_token:
+            raise ValueError("No access token in response")
+
+        # Get user information
+        user_response = await http_client.get(
+            GitHubOAuthService.USER_API_URL,
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/vnd.github.v3+json",
+            },
+        )
+
+        if user_response.status_code != 200:
+            raise ValueError(f"Failed to get user information: {user_response.text}")
+
+        user_info = user_response.json()
+
+        # Calculate expiration times
+        # GitHub OAuth Apps can have non-expiring tokens or 8-hour tokens depending on settings
+        expires_in = token_data.get("expires_in")  # None if no expiration
+        if expires_in:
+            expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+            print(f"✅ GitHub token expires in {expires_in} seconds ({expires_in/3600:.1f} hours)")
+        else:
+            # No expiration - GitHub tokens expire after 1 year of inactivity
+            expires_at = datetime.utcnow() + timedelta(days=365)
+            print(f"✅ GitHub token has no expiration, setting 1 year expiry")
+
+        # GitHub OAuth Apps don't provide refresh tokens by default (future-proof)
+        refresh_token = token_data.get("refresh_token")
+        refresh_expires_at = None
+        if refresh_token:
+            refresh_expires_at = datetime.utcnow() + timedelta(days=180)
+            print(f"✅ GitHub refresh token received, expires in 180 days")
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "expires_in": expires_in,
+            "expires_at": expires_at,
+            "refresh_expires_at": refresh_expires_at,
+            "scope": token_data.get("scope", ""),
+            "token_type": token_data.get("token_type", "bearer"),
+            "user_info": user_info,
+            "redirect_uri": redirect_uri,
+        }
     
     @staticmethod
     async def refresh_access_token(refresh_token: str) -> Dict[str, any]:
@@ -215,44 +221,50 @@ class GitHubOAuthService:
         if not settings.GITHUB_OAUTH_CLIENT_ID or not settings.GITHUB_OAUTH_CLIENT_SECRET:
             raise ValueError("GitHub OAuth credentials are not configured")
         
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                GitHubOAuthService.TOKEN_URL,
-                data={
-                    "client_id": settings.GITHUB_OAUTH_CLIENT_ID,
-                    "client_secret": settings.GITHUB_OAUTH_CLIENT_SECRET,
-                    "refresh_token": refresh_token,
-                    "grant_type": "refresh_token",
-                },
-                headers={
-                    "Accept": "application/json",
-                },
-            )
-            
-            if response.status_code != 200:
-                error_detail = response.text
-                raise ValueError(f"Failed to refresh token: {error_detail}")
-            
-            token_data = response.json()
-            
-            if "error" in token_data:
-                raise ValueError(f"OAuth error: {token_data.get('error_description', token_data['error'])}")
-            
-            access_token = token_data.get("access_token")
-            if not access_token:
-                raise ValueError("No access token in response")
-            
-            expires_in = token_data.get("expires_in", 28800)
-            expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
-            
-            return {
-                "access_token": access_token,
-                "refresh_token": token_data.get("refresh_token", refresh_token),
-                "expires_in": expires_in,
-                "expires_at": expires_at,
-                "scope": token_data.get("scope", ""),
-                "token_type": token_data.get("token_type", "bearer"),
-            }
+        # Use HTTP client with timeout and retry logic
+        http_client = HTTPClient(
+            timeout=30.0,
+            connect_timeout=10.0,
+            max_retries=2,
+        )
+        
+        response = await http_client.post(
+            GitHubOAuthService.TOKEN_URL,
+            data={
+                "client_id": settings.GITHUB_OAUTH_CLIENT_ID,
+                "client_secret": settings.GITHUB_OAUTH_CLIENT_SECRET,
+                "refresh_token": refresh_token,
+                "grant_type": "refresh_token",
+            },
+            headers={
+                "Accept": "application/json",
+            },
+        )
+        
+        if response.status_code != 200:
+            error_detail = response.text
+            raise ValueError(f"Failed to refresh token: {error_detail}")
+        
+        token_data = response.json()
+        
+        if "error" in token_data:
+            raise ValueError(f"OAuth error: {token_data.get('error_description', token_data['error'])}")
+        
+        access_token = token_data.get("access_token")
+        if not access_token:
+            raise ValueError("No access token in response")
+        
+        expires_in = token_data.get("expires_in", 28800)
+        expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+        
+        return {
+            "access_token": access_token,
+            "refresh_token": token_data.get("refresh_token", refresh_token),
+            "expires_in": expires_in,
+            "expires_at": expires_at,
+            "scope": token_data.get("scope", ""),
+            "token_type": token_data.get("token_type", "bearer"),
+        }
     
     @staticmethod
     def encrypt_token(token: str) -> str:

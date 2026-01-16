@@ -49,9 +49,9 @@ async def handle_project_tool(name: str, arguments: dict) -> list[TextContent] |
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 
-        elif name == "mcp_get_project_structure":
-            result = await project.handle_get_project_structure(arguments["projectId"])
-            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+        # elif name == "mcp_get_project_structure":  # REMOVED: Redundant - already in get_project_context
+        #     result = await project.handle_get_project_structure(arguments["projectId"])
+        #     return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 
         elif name == "mcp_get_active_todos":
             result = await project.handle_get_active_todos(

@@ -41,9 +41,11 @@ class IdeaResponse(IdeaBase):
 
 
 class IdeaListResponse(BaseModel):
-    """Schema for idea list response."""
+    """Schema for idea list response with pagination."""
     ideas: List[IdeaResponse]
     total: int
+    page: int = Field(..., description="Current page number (1-indexed)")
+    page_size: int = Field(..., description="Number of items per page")
 
 
 class IdeaConvertRequest(BaseModel):

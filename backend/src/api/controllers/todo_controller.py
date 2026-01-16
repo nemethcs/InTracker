@@ -82,9 +82,10 @@ async def create_todo(
         
         return todo
     except ValueError as e:
-        raise HTTPException(
+        raise_http_exception(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            message=str(e),
+            error_code="VALIDATION_ERROR",
         )
 
 
@@ -114,9 +115,10 @@ async def list_todos(
             user_id=user_id,
             project_id=project_id,
         ):
-            raise HTTPException(
+            raise_http_exception(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have access to this project",
+                message="You don't have access to this project",
+                error_code="FORBIDDEN",
             )
         
         todos, total = todo_service.get_todos_by_project(

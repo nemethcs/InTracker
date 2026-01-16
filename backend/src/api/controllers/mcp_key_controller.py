@@ -1,7 +1,7 @@
 """MCP API Key controller."""
 from typing import List
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from src.database.base import get_db
 from src.api.middleware.auth import get_current_user
@@ -145,16 +145,21 @@ async def create_mcp_key(
 @router.get("", response_model=McpApiKeyListResponse)
 async def list_mcp_keys(
     include_inactive: bool = False,
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Number of items per page"),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List all MCP API keys for the current user."""
+    """List MCP API keys for the current user with pagination."""
     user_id = UUID(current_user["user_id"])
     
-    keys = mcp_key_service.get_keys_by_user(
+    skip = (page - 1) * page_size
+    keys, total = mcp_key_service.get_keys_by_user(
         db=db,
         user_id=user_id,
         include_inactive=include_inactive,
+        skip=skip,
+        limit=page_size,
     )
 
     return McpApiKeyListResponse(
@@ -171,7 +176,9 @@ async def list_mcp_keys(
             )
             for key in keys
         ],
-        total=len(keys),
+        total=total,
+        page=page,
+        page_size=page_size,
     )
 
 

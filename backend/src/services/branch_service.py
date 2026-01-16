@@ -65,14 +65,29 @@ class BranchService:
     def get_branches_by_project(
         db: Session,
         project_id: UUID,
-    ) -> List[GitHubBranch]:
-        """Get all branches for a project."""
-        return (
+        skip: int = 0,
+        limit: Optional[int] = None,
+    ) -> tuple[List[GitHubBranch], int]:
+        """Get branches for a project with pagination.
+        
+        Returns:
+            Tuple of (branches list, total count)
+        """
+        query = (
             db.query(GitHubBranch)
             .filter(GitHubBranch.project_id == project_id)
-            .order_by(GitHubBranch.created_at.desc())
-            .all()
         )
+        
+        total = query.count()
+        query = query.order_by(GitHubBranch.created_at.desc())
+        
+        if skip > 0:
+            query = query.offset(skip)
+        if limit is not None and limit > 0:
+            query = query.limit(limit)
+        
+        branches = query.all()
+        return branches, total
 
     @staticmethod
     def get_branches_by_feature(
@@ -106,11 +121,10 @@ class BranchService:
             raise ValueError("Project does not have a connected GitHub repository")
 
         # Parse repo owner and name
-        repo_parts = project.github_repo_url.replace("https://github.com/", "").split("/")
-        if len(repo_parts) != 2:
+        from src.services.github_service import GitHubService
+        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
+        if not owner or not repo:
             raise ValueError("Invalid GitHub repository URL format")
-
-        owner, repo = repo_parts
 
         # Get branches from GitHub
         branches = github_service.list_branches(owner=owner, repo=repo)

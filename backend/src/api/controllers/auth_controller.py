@@ -20,6 +20,7 @@ from src.api.schemas.auth import (
 from src.api.middleware.auth import get_current_user, get_optional_user
 from src.services.github_token_service import github_token_service
 from src.services.onboarding_service import update_setup_completed
+from src.utils.password_validator import PasswordValidator
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -27,6 +28,14 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 async def register(request: RegisterRequest, db: Session = Depends(get_db)):
     """Register new user with invitation code."""
+    # Validate password strength
+    is_valid, error_message = PasswordValidator.validate_password(request.password)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_message,
+        )
+    
     try:
         user = auth_service.register(
             db,

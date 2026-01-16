@@ -1,9 +1,20 @@
-"""Database base configuration."""
+"""Database base configuration with optimized connection pooling.
+
+This module provides:
+- Optimized connection pooling for production and development
+- Connection health checks (pool_pre_ping)
+- Automatic connection recycling
+- Environment-based pool sizing
+"""
 import os
 import contextvars
+import logging
 from sqlalchemy import create_engine, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import QueuePool
+
+logger = logging.getLogger(__name__)
 
 # Context variable to store current user ID for audit trail
 # This is set by services/controllers before database operations
@@ -34,7 +45,7 @@ def reset_current_user_id(token: contextvars.Token) -> None:
     current_user_id.reset(token)
 
 # Get database URL from environment or config
-def get_database_url():
+def get_database_url() -> str:
     """Get database URL from environment or config."""
     database_url = os.getenv("DATABASE_URL")
     if database_url:
@@ -46,12 +57,61 @@ def get_database_url():
         # Fallback for Alembic when config is not available
         return os.getenv("DATABASE_URL", "postgresql://intracker:intracker_dev@localhost:5433/intracker")
 
-# Create database engine
+
+def get_pool_config() -> dict:
+    """Get connection pool configuration based on environment.
+    
+    Returns:
+        Dictionary with pool configuration parameters
+    """
+    try:
+        from src.config import settings
+        is_production = settings.is_production()
+    except Exception:
+        is_production = os.getenv("NODE_ENV") == "production"
+    
+    if is_production:
+        # Production: larger pool for higher concurrency
+        return {
+            "pool_size": 20,  # Base pool size
+            "max_overflow": 10,  # Additional connections beyond pool_size
+            "pool_timeout": 30,  # Seconds to wait for connection from pool
+            "pool_recycle": 3600,  # Recycle connections after 1 hour (PostgreSQL default idle timeout is ~10 min)
+            "pool_pre_ping": True,  # Verify connections before using
+            "echo": False,  # Disable SQL logging in production
+        }
+    else:
+        # Development: smaller pool, more verbose
+        return {
+            "pool_size": 5,  # Smaller pool for development
+            "max_overflow": 10,  # Additional connections
+            "pool_timeout": 30,  # Seconds to wait for connection
+            "pool_recycle": 3600,  # Recycle connections after 1 hour
+            "pool_pre_ping": True,  # Verify connections before using
+            "echo": False,  # Can be set to True for SQL debugging
+        }
+
+
+# Create database engine with optimized pooling
+pool_config = get_pool_config()
+database_url = get_database_url()
+
 engine = create_engine(
-    get_database_url(),
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    database_url,
+    poolclass=QueuePool,  # Explicitly use QueuePool (default, but explicit is better)
+    **pool_config,
+    # PostgreSQL-specific connection arguments
+    connect_args={
+        "connect_timeout": 10,  # Connection timeout in seconds
+        "application_name": "intracker_backend",  # Identify connections in PostgreSQL
+        "options": "-c statement_timeout=30000",  # 30 second statement timeout (in milliseconds)
+    },
+)
+
+logger.info(
+    f"Database engine created with pool_size={pool_config['pool_size']}, "
+    f"max_overflow={pool_config['max_overflow']}, "
+    f"pool_recycle={pool_config['pool_recycle']}s"
 )
 
 # Create session factory
