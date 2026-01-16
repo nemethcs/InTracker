@@ -35,25 +35,27 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events."""
-    # Startup: Run database migrations
+    # Startup: Run database migrations (optimized - only if needed)
     try:
-        database_url = os.getenv("DATABASE_URL")
-        if database_url:
-            logger.info("Running database migrations...")
-            from alembic import command
-            from alembic.config import Config
-            
-            backend_dir = Path(__file__).resolve().parents[1]
-            alembic_cfg = Config(str(backend_dir / "alembic.ini"))
-            alembic_cfg.set_main_option("sqlalchemy.url", database_url)
-            
-            command.upgrade(alembic_cfg, "head")
-            logger.info("Database migrations completed successfully")
-            print("✅ Database migrations completed successfully", flush=True)  # Also print for visibility
+        from src.services.migration_service import migration_service
+        
+        # Check migration status
+        status = migration_service.get_migration_status()
+        logger.info(f"Migration status: current={status['current_revision']}, head={status['head_revision']}, needs_migration={status['needs_migration']}")
+        
+        if status['needs_migration']:
+            logger.info(f"Running {status['pending_count']} pending migration(s)...")
+            result = migration_service.run_migrations(check_first=True)
+            if result['success']:
+                logger.info("Database migrations completed successfully")
+                print("✅ Database migrations completed successfully", flush=True)
+            else:
+                logger.error(f"Migration failed: {result.get('error')}")
+                # Don't fail startup - app will still start but DB operations might fail
         else:
-            logger.warning("DATABASE_URL not set, skipping migrations")
+            logger.info("Database is up to date, no migration needed")
     except Exception as e:
-        logger.error(f"Failed to run database migrations: {e}")
+        logger.error(f"Failed to check/run database migrations: {e}", exc_info=True)
         # Don't fail startup if migrations fail - might be a temporary issue
         # The app will still start, but database operations might fail
     
