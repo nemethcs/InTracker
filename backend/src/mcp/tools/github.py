@@ -39,20 +39,12 @@ from .github_prs import (
 
 # Re-export from github_branches
 from .github_branches import (
-    get_get_branch_info_tool,  # New consolidated tool
+    get_get_branch_info_tool,  # Consolidated tool
     handle_get_branch_info,
-    get_get_branches_tool,  # Deprecated but kept for backward compatibility
-    handle_get_branches,
     get_create_branch_for_feature_tool,
     handle_create_branch_for_feature,
     get_link_branch_to_feature_tool,
     handle_link_branch_to_feature,
-    get_get_feature_branches_tool,  # Deprecated but kept for backward compatibility
-    handle_get_feature_branches,
-    get_get_branch_status_tool,  # Deprecated but kept for backward compatibility
-    handle_get_branch_status,
-    get_get_commits_for_feature_tool,  # Deprecated but kept for backward compatibility
-    handle_get_commits_for_feature,
 )
 
 # Re-export from github_commits
@@ -89,18 +81,12 @@ __all__ = [
     "get_create_github_pr_tool",
     "handle_create_github_pr",
     # Branch tools
-    "get_get_branches_tool",
-    "handle_get_branches",
+    "get_get_branch_info_tool",
+    "handle_get_branch_info",
     "get_create_branch_for_feature_tool",
     "handle_create_branch_for_feature",
     "get_link_branch_to_feature_tool",
     "handle_link_branch_to_feature",
-    "get_get_feature_branches_tool",
-    "handle_get_feature_branches",
-    "get_get_branch_status_tool",
-    "handle_get_branch_status",
-    "get_get_commits_for_feature_tool",
-    "handle_get_commits_for_feature",
     # Commit tools
     "get_parse_commit_message_tool",
     "handle_parse_commit_message",

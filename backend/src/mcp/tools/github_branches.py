@@ -45,22 +45,6 @@ def get_get_branch_info_tool() -> MCPTool:
     )
 
 
-def get_get_branches_tool() -> MCPTool:
-    """Get branches tool definition (deprecated - use mcp_get_branch_info instead)."""
-    return MCPTool(
-        name="mcp_get_branches",
-        description="Get branches for a project or feature (DEPRECATED: Use mcp_get_branch_info instead)",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "projectId": {"type": "string", "description": "Project UUID"},
-                "featureId": {"type": "string", "description": "Optional feature UUID"},
-            },
-            "required": ["projectId"],
-        },
-    )
-
-
 async def handle_get_branch_info(
     project_id: str,
     feature_id: Optional[str] = None,
@@ -202,38 +186,6 @@ async def handle_get_branch_info(
                 result["commits_error"] = str(e)
 
         return result
-    finally:
-        db.close()
-
-
-async def handle_get_branches(project_id: str, feature_id: Optional[str] = None) -> dict:
-    """Handle get branches tool call."""
-    db = SessionLocal()
-    try:
-        # Validate project access using user's GitHub OAuth token
-        has_access, error_dict = validate_project_access(db, project_id)
-        if not has_access:
-            return error_dict or {"error": "Cannot access project"}
-        
-        query = db.query(GitHubBranch).filter(GitHubBranch.project_id == UUID(project_id))
-        if feature_id:
-            query = query.filter(GitHubBranch.feature_id == UUID(feature_id))
-
-        branches = query.order_by(GitHubBranch.created_at.desc()).all()
-
-        return {
-            "project_id": project_id,
-            "branches": [
-                {
-                    "id": str(b.id),
-                    "name": b.branch_name,
-                    "status": b.status,
-                    "feature_id": str(b.feature_id) if b.feature_id else None,
-                }
-                for b in branches
-            ],
-            "count": len(branches),
-        }
     finally:
         db.close()
 
@@ -423,60 +375,9 @@ async def handle_link_branch_to_feature(feature_id: str, branch_name: str) -> di
         db.close()
 
 
-def get_get_feature_branches_tool() -> MCPTool:
-    """Get feature branches tool definition."""
-    return MCPTool(
-        name="mcp_get_feature_branches",
-        description="Get branches for a feature",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "featureId": {"type": "string", "description": "Feature UUID"},
-            },
-            "required": ["featureId"],
-        },
-    )
+# Removed: get_get_feature_branches_tool and handle_get_feature_branches - replaced by mcp_get_branch_info
 
-
-async def handle_get_feature_branches(feature_id: str) -> dict:
-    """Handle get feature branches tool call."""
-    db = SessionLocal()
-    try:
-        # Use FeatureService to get feature
-        feature = FeatureService.get_feature_by_id(db, UUID(feature_id))
-        if not feature:
-            return {"error": "Feature not found"}
-
-        # Validate project access using user's GitHub OAuth token
-        has_access, error_dict = validate_project_access(db, str(feature.project_id))
-        if not has_access:
-            return error_dict or {"error": "Cannot access project"}
-        
-        branches = db.query(GitHubBranch).filter(
-            GitHubBranch.feature_id == UUID(feature_id),
-        ).order_by(GitHubBranch.created_at.desc()).all()
-
-        return {
-            "feature_id": feature_id,
-            "branches": [
-                {
-                    "id": str(b.id),
-                    "name": b.branch_name,
-                    "base_branch": b.base_branch,
-                    "status": b.status,
-                    "ahead_count": b.ahead_count,
-                    "behind_count": b.behind_count,
-                    "has_conflicts": b.has_conflicts,
-                }
-                for b in branches
-            ],
-            "count": len(branches),
-        }
-    finally:
-        db.close()
-
-
-def get_get_branch_status_tool() -> MCPTool:
+# Removed: get_get_branch_status_tool and handle_get_branch_status - replaced by mcp_get_branch_info
     """Get branch status tool definition."""
     return MCPTool(
         name="mcp_get_branch_status",
@@ -492,73 +393,7 @@ def get_get_branch_status_tool() -> MCPTool:
     )
 
 
-async def handle_get_branch_status(project_id: str, branch_name: str) -> dict:
-    """Handle get branch status tool call."""
-    db = SessionLocal()
-    try:
-        # Validate project access using user's GitHub OAuth token
-        has_access, error_dict = validate_project_access(db, project_id)
-        if not has_access:
-            return error_dict or {"error": "Cannot access project"}
-        
-        # Use ProjectService to get project
-        project = ProjectService.get_project_by_id(db, UUID(project_id))
-        if not project or not project.github_repo_url:
-            return {"error": "Project does not have a connected GitHub repository"}
-
-        # Parse repo owner and name
-        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
-        if not owner or not repo:
-            return {"error": "Invalid GitHub repository URL format"}
-
-        # Get branch from database
-        github_branch = db.query(GitHubBranch).filter(
-            GitHubBranch.project_id == UUID(project_id),
-            GitHubBranch.branch_name == branch_name,
-        ).first()
-
-        # Get GitHub client (fix: use get_github_service().client)
-        github_service = get_github_service()
-        if not github_service or not github_service.client:
-            return {"error": "GitHub token not configured"}
-        client = github_service.client
-
-        try:
-            repository = client.get_repo(f"{owner}/{repo}")
-            
-            # Compare branches
-            base_branch = github_branch.base_branch if github_branch else "main"
-            comparison = repository.compare(base_branch, branch_name)
-            
-            ahead_count = comparison.ahead_by
-            behind_count = comparison.behind_by
-            has_conflicts = comparison.mergeable is False
-
-            # Update branch record if exists
-            if github_branch:
-                github_branch.ahead_count = ahead_count
-                github_branch.behind_count = behind_count
-                github_branch.has_conflicts = has_conflicts
-                db.commit()
-
-            return {
-                "project_id": project_id,
-                "branch": {
-                    "name": branch_name,
-                    "base_branch": base_branch,
-                    "ahead_count": ahead_count,
-                    "behind_count": behind_count,
-                    "has_conflicts": has_conflicts,
-                    "status": github_branch.status if github_branch else None,
-                },
-            }
-        except GithubException as e:
-            return {"error": f"Failed to get branch status: {e}"}
-    finally:
-        db.close()
-
-
-def get_get_commits_for_feature_tool() -> MCPTool:
+# Removed: get_get_commits_for_feature_tool and handle_get_commits_for_feature - replaced by mcp_get_branch_info
     """Get commits for feature tool definition.
     
     NOTE: In Cursor + InTracker workflow, commits are made locally using git commands.
@@ -582,75 +417,3 @@ def get_get_commits_for_feature_tool() -> MCPTool:
     )
 
 
-async def handle_get_commits_for_feature(feature_id: str) -> dict:
-    """Handle get commits for feature tool call."""
-    db = SessionLocal()
-    try:
-        # Use FeatureService to get feature
-        feature = FeatureService.get_feature_by_id(db, UUID(feature_id))
-        if not feature:
-            return {"error": "Feature not found"}
-
-        # Validate project access using user's GitHub OAuth token
-        has_access, error_dict = validate_project_access(db, str(feature.project_id))
-        if not has_access:
-            return error_dict or {"error": "Cannot access project"}
-        
-        # Use ProjectService to get project
-        project = ProjectService.get_project_by_id(db, feature.project_id)
-        if not project or not project.github_repo_url:
-            return {"error": "Project does not have a connected GitHub repository"}
-
-        # Get branches for feature
-        branches = db.query(GitHubBranch).filter(
-            GitHubBranch.feature_id == UUID(feature_id),
-        ).all()
-
-        if not branches:
-            return {
-                "feature_id": feature_id,
-                "commits": [],
-                "count": 0,
-            }
-
-        # Parse repo owner and name
-        owner, repo = GitHubService.parse_github_url(project.github_repo_url)
-        if not owner or not repo:
-            return {"error": "Invalid GitHub repository URL format"}
-
-        # Get GitHub client (fix: use get_github_service().client)
-        github_service = get_github_service()
-        if not github_service or not github_service.client:
-            return {"error": "GitHub token not configured"}
-        client = github_service.client
-
-        try:
-            repository = client.get_repo(f"{owner}/{repo}")
-            all_commits = []
-
-            # Get commits from all branches
-            for branch in branches:
-                try:
-                    commits = repository.get_commits(sha=branch.branch_name)
-                    for commit in commits[:50]:  # Limit to 50 commits per branch
-                        # Parse commit message for feature ID
-                        commit_data = {
-                            "sha": commit.sha,
-                            "message": commit.commit.message,
-                            "author": commit.commit.author.name if commit.commit.author else None,
-                            "date": commit.commit.author.date.isoformat() if commit.commit.author and commit.commit.author.date else None,
-                            "branch": branch.branch_name,
-                        }
-                        all_commits.append(commit_data)
-                except GithubException:
-                    continue
-
-            return {
-                "feature_id": feature_id,
-                "commits": all_commits[:100],  # Limit total to 100
-                "count": len(all_commits),
-            }
-        except GithubException as e:
-            return {"error": f"Failed to get commits: {e}"}
-    finally:
-        db.close()

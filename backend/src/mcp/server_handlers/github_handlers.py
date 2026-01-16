@@ -17,13 +17,6 @@ async def handle_github_tool(name: str, arguments: dict) -> list[TextContent] | 
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 
-        elif name == "mcp_get_branches":
-            result = await github.handle_get_branches(
-                arguments["projectId"],
-                arguments.get("featureId"),
-            )
-            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
-
         elif name == "mcp_connect_github_repo":
             result = await github.handle_connect_github_repo(
                 arguments["projectId"],
@@ -98,25 +91,6 @@ async def handle_github_tool(name: str, arguments: dict) -> list[TextContent] | 
             result = await github.handle_link_branch_to_feature(
                 arguments["featureId"],
                 arguments["branchName"],
-            )
-            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
-
-        elif name == "mcp_get_feature_branches":
-            result = await github.handle_get_feature_branches(
-                arguments["featureId"],
-            )
-            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
-
-        elif name == "mcp_get_branch_status":
-            result = await github.handle_get_branch_status(
-                arguments["projectId"],
-                arguments["branchName"],
-            )
-            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
-
-        elif name == "mcp_get_commits_for_feature":
-            result = await github.handle_get_commits_for_feature(
-                arguments["featureId"],
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 

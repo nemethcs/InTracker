@@ -67,8 +67,7 @@ async def list_tools() -> list[Tool]:
         # GitHub tools
         github.get_connect_github_repo_tool(),
         github.get_get_repo_info_tool(),
-        github.get_get_branch_info_tool(),  # New consolidated tool
-        github.get_get_branches_tool(),  # Deprecated but kept for backward compatibility
+        github.get_get_branch_info_tool(),  # Consolidated tool (replaces get_branches, get_feature_branches, get_branch_status, get_commits_for_feature)
         github.get_link_element_to_issue_tool(),
         github.get_get_github_issue_tool(),
         github.get_create_github_issue_tool(),
@@ -77,9 +76,6 @@ async def list_tools() -> list[Tool]:
         github.get_create_github_pr_tool(),
         github.get_create_branch_for_feature_tool(),
         github.get_link_branch_to_feature_tool(),
-        github.get_get_feature_branches_tool(),
-        github.get_get_branch_status_tool(),
-        github.get_get_commits_for_feature_tool(),
         github.get_parse_commit_message_tool(),
         # Idea tools
         idea.get_create_idea_tool(),

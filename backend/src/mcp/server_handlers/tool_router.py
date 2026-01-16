@@ -56,8 +56,7 @@ class ToolRouter:
         # GitHub tools
         ("mcp_connect_github", handle_github_tool),
         ("mcp_get_repo", handle_github_tool),
-        ("mcp_get_branch_info", handle_github_tool),  # New consolidated tool
-        ("mcp_get_branches", handle_github_tool),  # Deprecated but kept for compatibility
+        ("mcp_get_branch_info", handle_github_tool),  # Consolidated tool
         ("mcp_link_element_to_issue", handle_github_tool),
         ("mcp_get_github_issue", handle_github_tool),
         ("mcp_create_github_issue", handle_github_tool),
@@ -66,9 +65,6 @@ class ToolRouter:
         ("mcp_create_github_pr", handle_github_tool),
         ("mcp_create_branch", handle_github_tool),
         ("mcp_link_branch", handle_github_tool),
-        ("mcp_get_feature_branches", handle_github_tool),
-        ("mcp_get_branch_status", handle_github_tool),
-        ("mcp_get_commits", handle_github_tool),
         ("mcp_parse_commit", handle_github_tool),
         # Idea tools
         ("mcp_create_idea", handle_idea_tool),
