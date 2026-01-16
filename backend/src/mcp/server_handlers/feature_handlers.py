@@ -34,15 +34,13 @@ async def handle_feature_tool(name: str, arguments: dict) -> list[TextContent] |
             )
             return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 
-        # REMOVED: mcp_get_feature_todos - Redundant, already in mcp_get_feature
-        # elif name == "mcp_get_feature_todos":
-        #     result = await feature.handle_get_feature_todos(arguments["featureId"])
-        #     return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+        elif name == "mcp_get_feature_todos":
+            result = await feature.handle_get_feature_todos(arguments["featureId"])
+            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 
-        # REMOVED: mcp_get_feature_elements - Redundant, already in mcp_get_feature
-        # elif name == "mcp_get_feature_elements":
-        #     result = await feature.handle_get_feature_elements(arguments["featureId"])
-        #     return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
+        elif name == "mcp_get_feature_elements":
+            result = await feature.handle_get_feature_elements(arguments["featureId"])
+            return [TextContent(type="text", text=json.dumps(result, indent=2) if isinstance(result, dict) else str(result))]
 
         elif name == "mcp_link_element_to_feature":
             result = await feature.handle_link_element_to_feature(
