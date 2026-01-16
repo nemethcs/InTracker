@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import { useShallow } from 'zustand/react/shallow'
 import { useFeatures } from '@/hooks/useFeatures'
 import { useTodos } from '@/hooks/useTodos'
 import { useFeatureStore } from '@/stores/featureStore'
@@ -24,8 +25,19 @@ export function FeatureDetail() {
   const { projectId, featureId } = useParams<{ projectId: string; featureId: string }>()
   const { features, isLoading: featuresLoading, refetch: refetchFeatures } = useFeatures(projectId)
   const { todos, isLoading: todosLoading, refetch: refetchTodos } = useTodos(featureId)
-  const { createTodo, updateTodo, deleteTodo, updateTodoStatus } = useTodoStore()
-  const { updateFeature } = useFeatureStore()
+  const { createTodo, updateTodo, deleteTodo, updateTodoStatus } = useTodoStore(
+    useShallow((state) => ({
+      createTodo: state.createTodo,
+      updateTodo: state.updateTodo,
+      deleteTodo: state.deleteTodo,
+      updateTodoStatus: state.updateTodoStatus,
+    }))
+  )
+  const { updateFeature } = useFeatureStore(
+    useShallow((state) => ({
+      updateFeature: state.updateFeature,
+    }))
+  )
   const [todoEditorOpen, setTodoEditorOpen] = useState(false)
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null)
   const [featureEditorOpen, setFeatureEditorOpen] = useState(false)

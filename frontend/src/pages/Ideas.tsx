@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useIdeas } from '@/hooks/useIdeas'
+import { useShallow } from 'zustand/react/shallow'
 import { useIdeaStore } from '@/stores/ideaStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { adminService, type Team } from '@/services/adminService'
@@ -27,8 +28,19 @@ export function Ideas() {
   const [teams, setTeams] = useState<Team[]>([])
   const [isLoadingTeams, setIsLoadingTeams] = useState(false)
   const { ideas, isLoading, error, refetch } = useIdeas(statusFilter, selectedTeamId)
-  const { createIdea, updateIdea, deleteIdea, convertIdeaToProject } = useIdeaStore()
-  const { createProject } = useProjectStore()
+  const { createIdea, updateIdea, deleteIdea, convertIdeaToProject } = useIdeaStore(
+    useShallow((state) => ({
+      createIdea: state.createIdea,
+      updateIdea: state.updateIdea,
+      deleteIdea: state.deleteIdea,
+      convertIdeaToProject: state.convertIdeaToProject,
+    }))
+  )
+  const { createProject } = useProjectStore(
+    useShallow((state) => ({
+      createProject: state.createProject,
+    }))
+  )
   const [ideaEditorOpen, setIdeaEditorOpen] = useState(false)
   const [editingIdea, setEditingIdea] = useState<Idea | null>(null)
   const [convertDialogOpen, setConvertDialogOpen] = useState(false)

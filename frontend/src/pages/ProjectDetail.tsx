@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
+import { useShallow } from 'zustand/react/shallow'
 import { useProject } from '@/hooks/useProject'
 import { useFeatures } from '@/hooks/useFeatures'
 import { useFeatureStore } from '@/stores/featureStore'
@@ -25,9 +26,25 @@ export function ProjectDetail() {
   const { currentProject, isLoading: projectLoading, error: projectError } = useProject(id)
   const { features, isLoading: featuresLoading, refetch: refetchFeatures } = useFeatures(id)
   // Use todoStore directly - it supports projectId and auto-updates via SignalR
-  const { todos: allTodos, isLoading: isLoadingTodos, fetchTodos } = useTodoStore()
-  const { createFeature, updateFeature } = useFeatureStore()
-  const { updateProject, fetchProject } = useProjectStore()
+  const { todos: allTodos, isLoading: isLoadingTodos, fetchTodos } = useTodoStore(
+    useShallow((state) => ({
+      todos: state.todos,
+      isLoading: state.isLoading,
+      fetchTodos: state.fetchTodos,
+    }))
+  )
+  const { createFeature, updateFeature } = useFeatureStore(
+    useShallow((state) => ({
+      createFeature: state.createFeature,
+      updateFeature: state.updateFeature,
+    }))
+  )
+  const { updateProject, fetchProject } = useProjectStore(
+    useShallow((state) => ({
+      updateProject: state.updateProject,
+      fetchProject: state.fetchProject,
+    }))
+  )
   const [featureEditorOpen, setFeatureEditorOpen] = useState(false)
   const [editingFeature, setEditingFeature] = useState<Feature | null>(null)
   const [projectEditorOpen, setProjectEditorOpen] = useState(false)

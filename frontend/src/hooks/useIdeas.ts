@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useIdeaStore } from '@/stores/ideaStore'
 
 export function useIdeas(status?: string, teamId?: string) {
@@ -7,7 +8,14 @@ export function useIdeas(status?: string, teamId?: string) {
     isLoading,
     error,
     fetchIdeas,
-  } = useIdeaStore()
+  } = useIdeaStore(
+    useShallow((state) => ({
+      ideas: state.ideas,
+      isLoading: state.isLoading,
+      error: state.error,
+      fetchIdeas: state.fetchIdeas,
+    }))
+  )
 
   const lastStatus = useRef<string | undefined>(undefined)
   const lastTeamId = useRef<string | undefined>(undefined)

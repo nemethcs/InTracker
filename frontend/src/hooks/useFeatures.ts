@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useFeatureStore } from '@/stores/featureStore'
 
 export function useFeatures(projectId?: string, sort: string = 'updated_at_desc') {
@@ -7,7 +8,14 @@ export function useFeatures(projectId?: string, sort: string = 'updated_at_desc'
     isLoading,
     error,
     fetchFeatures,
-  } = useFeatureStore()
+  } = useFeatureStore(
+    useShallow((state) => ({
+      features: state.features,
+      isLoading: state.isLoading,
+      error: state.error,
+      fetchFeatures: state.fetchFeatures,
+    }))
+  )
 
   const lastProjectId = useRef<string | undefined>(undefined)
   const lastSort = useRef<string | undefined>(undefined)

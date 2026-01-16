@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow'
 import { useAuthStore } from '@/stores/authStore'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
@@ -10,7 +11,12 @@ import { GitHubSettings } from '@/components/settings/GitHubSettings'
 
 export function Settings() {
   const { user: authUser } = useAuth()
-  const { user, logout } = useAuthStore()
+  const { user, logout } = useAuthStore(
+    useShallow((state) => ({
+      user: state.user,
+      logout: state.logout,
+    }))
+  )
   const navigate = useNavigate()
   const isAdmin = authUser?.role === 'admin'
 

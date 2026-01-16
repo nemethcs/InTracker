@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useProject } from '@/hooks/useProject'
+import { useShallow } from 'zustand/react/shallow'
 import { useProjectStore } from '@/stores/projectStore'
 import { adminService, type Team } from '@/services/adminService'
 import { signalrService } from '@/services/signalrService'
@@ -23,7 +24,11 @@ export function Dashboard() {
   const { projects, isLoading, error, refetch } = useProject(undefined, selectedTeamId, statusFilter)
   // Fetch all projects for statistics (without filters)
   const { projects: allProjects } = useProject(undefined, undefined, 'all')
-  const { createProject } = useProjectStore()
+  const { createProject } = useProjectStore(
+    useShallow((state) => ({
+      createProject: state.createProject,
+    }))
+  )
   const location = useLocation()
   const navigate = useNavigate()
   const [projectEditorOpen, setProjectEditorOpen] = useState(false)
