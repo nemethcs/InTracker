@@ -16,22 +16,6 @@ from src.mcp.tools import (
     onboarding,
     team,
 )
-from src.mcp.tools.project_context import (
-    get_project_context_tool,
-    get_resume_context_tool,
-    get_project_structure_tool,
-    get_active_todos_tool,
-)
-from src.mcp.tools.project_crud import (
-    get_create_project_tool,
-    get_list_projects_tool,
-    get_update_project_tool,
-    get_identify_project_by_path_tool,
-)
-from src.mcp.tools.project_workflow import (
-    get_load_cursor_rules_tool,
-    get_enforce_workflow_tool,
-)
 from src.mcp.server_handlers import (
     handle_project_tool,
     handle_feature_tool,
@@ -59,16 +43,16 @@ async def list_tools() -> list[Tool]:
     try:
         tools = [
         # Project tools
-        get_project_context_tool(),
-        get_resume_context_tool(),
-        get_project_structure_tool(),
-        get_active_todos_tool(),
-        get_create_project_tool(),
-        get_list_projects_tool(),
-        get_update_project_tool(),
-        get_identify_project_by_path_tool(),
-        get_load_cursor_rules_tool(),
-        get_enforce_workflow_tool(),
+        project.get_project_context_tool(),
+        project.get_resume_context_tool(),
+        project.get_project_structure_tool(),
+        project.get_active_todos_tool(),
+        project.get_create_project_tool(),
+        project.get_list_projects_tool(),
+        project.get_update_project_tool(),
+        project.get_identify_project_by_path_tool(),
+        project.get_load_cursor_rules_tool(),
+        project.get_enforce_workflow_tool(),
         # Feature tools
         feature.get_create_feature_tool(),
         feature.get_get_feature_tool(),
