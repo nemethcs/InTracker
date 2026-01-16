@@ -44,16 +44,15 @@ export function VersionInfo() {
   return (
     <div className="mt-auto border-t pt-4 px-4 pb-4 space-y-3">
       {/* Settings Link */}
-      <Button
-        variant="ghost"
-        className="w-full justify-start text-muted-foreground hover:text-foreground"
-        asChild
-      >
-        <Link to="/settings">
+      <Link to="/settings">
+        <Button
+          variant="ghost"
+          className="w-full justify-start text-muted-foreground hover:text-foreground"
+        >
           <Settings className="h-4 w-4 mr-2" />
           Settings
-        </Link>
-      </Button>
+        </Button>
+      </Link>
 
       {/* Version Info */}
       <div className="space-y-2">
