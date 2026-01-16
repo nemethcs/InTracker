@@ -6,38 +6,18 @@ import { useFeatureStore } from '@/stores/featureStore'
 import { useTodoStore } from '@/stores/todoStore'
 import { signalrService } from '@/services/signalrService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { LoadingState } from '@/components/ui/LoadingState'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { TodoCard } from '@/components/todos/TodoCard'
 import { TodoEditor } from '@/components/todos/TodoEditor'
 import { FeatureEditor } from '@/components/features/FeatureEditor'
 import { DocumentEditor } from '@/components/documents/DocumentEditor'
 import { documentService, type Document } from '@/services/documentService'
-import { ArrowLeft, Plus, CheckCircle2, Circle, AlertCircle, Clock, User, Edit, FileText, CheckSquare } from 'lucide-react'
-import { iconSize } from '@/components/ui/Icon'
-import { format } from 'date-fns'
-import { PageHeader } from '@/components/layout/PageHeader'
+import { ArrowLeft } from 'lucide-react'
+import { FeatureHeader } from '@/components/features/FeatureHeader'
+import { FeatureProgressOverview } from '@/components/features/FeatureProgressOverview'
+import { FeatureTodosSection } from '@/components/features/FeatureTodosSection'
+import { FeatureDocumentsSection } from '@/components/features/FeatureDocumentsSection'
 import type { Todo } from '@/services/todoService'
 import type { Feature } from '@/services/featureService'
-import { toast } from '@/hooks/useToast'
-
-const statusIcons = {
-  new: Circle,
-  in_progress: Clock,
-  done: CheckCircle2,
-  tested: CheckCircle2,
-  merged: CheckCircle2,
-}
-
-const statusColors = {
-  new: 'text-muted-foreground',
-  in_progress: 'text-primary',
-  done: 'text-success',
-  tested: 'text-warning',
-  merged: 'text-accent',
-}
 
 export function FeatureDetail() {
   const { projectId, featureId } = useParams<{ projectId: string; featureId: string }>()
@@ -197,271 +177,51 @@ export function FeatureDetail() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title={
-          <div className="flex items-center gap-2 sm:gap-4">
-            <Link to={`/projects/${projectId}`}>
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className={iconSize('sm')} />
-              </Button>
-            </Link>
-            <span className="truncate">{feature.name}</span>
-          </div>
-        }
-        description={feature.description}
-        actions={
-          <div className="flex items-center gap-2">
-            <Badge 
-              variant={
-                feature.status === 'done' ? 'success' :
-                feature.status === 'tested' ? 'warning' :
-                feature.status === 'in_progress' ? 'info' :
-                feature.status === 'merged' ? 'accent' : 'muted'
-              }
-              className="text-base sm:text-lg px-2 sm:px-3 py-1"
-            >
-              {feature.status}
-            </Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setFeatureEditorOpen(true)}
-              className="w-full sm:w-auto"
-            >
-              <Edit className={`mr-2 ${iconSize('sm')}`} />
-              Edit
-            </Button>
-          </div>
-        }
+      <FeatureHeader
+        projectId={projectId!}
+        feature={feature}
+        onEdit={() => setFeatureEditorOpen(true)}
       />
 
-      {/* Progress Overview */}
-      <Card className="border-l-4 border-l-primary">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Progress Overview</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="space-y-3">
-            <div>
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="text-muted-foreground">Overall Progress</span>
-                <span className="font-semibold text-base">{feature.progress_percentage ?? 0}%</span>
-              </div>
-              <div className="w-full bg-secondary rounded-full h-2">
-                <div
-                  className="bg-primary h-2 rounded-full transition-all"
-                  style={{ width: `${feature.progress_percentage ?? 0}%` }}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-5 gap-2">
-              <div className="text-center">
-                <div className="text-lg font-bold">{feature.total_todos ?? 0}</div>
-                <div className="text-xs text-muted-foreground">Total</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-muted-foreground">{todosByStatus.new.length}</div>
-                <div className="text-xs text-muted-foreground">New</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-primary">{todosByStatus.in_progress.length}</div>
-                <div className="text-xs text-muted-foreground">In Progress</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-success">{todosByStatus.done.length}</div>
-                <div className="text-xs text-muted-foreground">Done</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-success">{feature.completed_todos ?? 0}</div>
-                <div className="text-xs text-muted-foreground">Completed</div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <FeatureProgressOverview
+        feature={feature}
+        todosByStatus={todosByStatus}
+      />
 
-      {/* Todos Section */}
-      <div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-          <h2 className="text-xl sm:text-2xl font-bold">Todos</h2>
-          <Button 
-            onClick={() => {
-              setEditingTodo(null)
-              setTodoEditorOpen(true)
-            }}
-            disabled={todosLoading}
-            className="w-full sm:w-auto"
-          >
-            <Plus className={`mr-2 ${iconSize('sm')}`} />
-            New Todo
-          </Button>
-        </div>
+      <FeatureTodosSection
+        todos={todos}
+        sortedTodos={sortedTodos}
+        todosByStatus={todosByStatus}
+        isLoading={todosLoading}
+        onCreateTodo={() => {
+          setEditingTodo(null)
+          setTodoEditorOpen(true)
+        }}
+        onEditTodo={(todo) => {
+          setEditingTodo(todo)
+          setTodoEditorOpen(true)
+        }}
+        onDeleteTodo={async (todo) => {
+          await deleteTodo(todo.id)
+        }}
+        onStatusChange={async (todo, newStatus) => {
+          await updateTodoStatus(todo.id, newStatus, todo.version)
+        }}
+        onRefetch={refetchTodos}
+      />
 
-        {todosLoading ? (
-          <LoadingState variant="combined" size="md" skeletonCount={3} />
-        ) : todos.length === 0 ? (
-          <EmptyState
-            icon={<CheckSquare className="h-12 w-12 text-muted-foreground" />}
-            title="No todos yet"
-            description="Create your first todo to get started"
-            action={{
-              label: 'Create Todo',
-              onClick: () => {
-                setEditingTodo(null)
-                setTodoEditorOpen(true)
-              }
-            }}
-            variant="compact"
-          />
-        ) : (
-          <div className="space-y-4">
-            {/* Todo Status Columns */}
-            {(['new', 'in_progress', 'done'] as const).map((status) => {
-              const statusTodos = todosByStatus[status]
-              if (statusTodos.length === 0) return null
-
-              const StatusIcon = statusIcons[status]
-              const statusColor = statusColors[status]
-
-              return (
-                <div key={status}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <StatusIcon className={`${iconSize('md')} ${statusColor}`} />
-                    <h3 className="font-semibold capitalize">{status.replace('_', ' ')}</h3>
-                    <Badge variant="outline" className="ml-2">{statusTodos.length}</Badge>
-                  </div>
-                  <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-                    {statusTodos.map((todo, todoIndex) => {
-                      // Calculate todo number: find position in sorted todos
-                      const todoNumber = sortedTodos.findIndex(t => t.id === todo.id) + 1
-                      
-                      return (
-                        <TodoCard
-                          key={todo.id}
-                          todo={todo}
-                          number={todoNumber}
-                          onEdit={(todo) => {
-                            setEditingTodo(todo)
-                            setTodoEditorOpen(true)
-                          }}
-                          onDelete={async (todo) => {
-                            if (confirm('Are you sure you want to delete this todo?')) {
-                              await deleteTodo(todo.id)
-                              refetchTodos()
-                            }
-                          }}
-                          onStatusChange={async (todo, newStatus) => {
-                            try {
-                              await updateTodoStatus(todo.id, newStatus, todo.version)
-                              refetchTodos()
-                            } catch (error: any) {
-                              if (error.isConflict) {
-                                // Show conflict warning
-                                toast.warning('Conflict detected', error.message + '\n\nPlease refresh the page to get the latest version.')
-                                // Refresh todos to get latest data
-                                refetchTodos()
-                              } else {
-                                toast.error('Failed to update todo', error.message || 'An error occurred')
-                              }
-                            }
-                          }}
-                        />
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Documents Section */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <h2 className="text-xl sm:text-2xl font-bold">Documents</h2>
-          <Button onClick={() => {
-            setEditingDocument(null)
-            setDocumentEditorOpen(true)
-          }}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Document
-          </Button>
-        </div>
-        {isLoadingDocuments ? (
-          <LoadingState variant="combined" size="md" skeletonCount={3} />
-        ) : documents.length === 0 ? (
-          <EmptyState
-            icon={<FileText className="h-12 w-12 text-muted-foreground" />}
-            title="No documents yet"
-            description="Create your first document for this feature"
-            variant="compact"
-          />
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {documents.map((document) => {
-              // Get preview of content (first 200 characters, strip markdown)
-              const preview = document.content
-                ? document.content
-                    .replace(/[#*_`\[\]]/g, '')
-                    .replace(/\n/g, ' ')
-                    .trim()
-                    .substring(0, 200)
-                : 'No content'
-
-              return (
-                <Card key={document.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => {
-                  setEditingDocument(document)
-                  setDocumentEditorOpen(true)
-                }}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="mb-1">{document.title}</CardTitle>
-                        <CardDescription className="line-clamp-1">
-                          {document.type.replace('_', ' ')}
-                        </CardDescription>
-                      </div>
-                      <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {/* Content Preview */}
-                      <div className="text-sm text-muted-foreground line-clamp-3 min-h-[3.5rem]">
-                        {preview}
-                        {document.content && document.content.length > 200 && '...'}
-                      </div>
-                      
-                      <div className="flex items-center justify-between text-sm pt-2 border-t">
-                        <Badge variant="outline" className="capitalize text-xs">
-                          {document.type.replace('_', ' ')}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          v{document.version}
-                        </span>
-                      </div>
-                      
-                      {document.tags && document.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 pt-1">
-                          {document.tags.slice(0, 3).map((tag) => (
-                            <span
-                              key={tag}
-                              className="px-2 py-0.5 text-xs bg-secondary rounded-md"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-        )}
-      </div>
+      <FeatureDocumentsSection
+        documents={documents}
+        isLoading={isLoadingDocuments}
+        onCreateDocument={() => {
+          setEditingDocument(null)
+          setDocumentEditorOpen(true)
+        }}
+        onEditDocument={(document) => {
+          setEditingDocument(document)
+          setDocumentEditorOpen(true)
+        }}
+      />
 
       {/* Todo Editor Dialog */}
       <TodoEditor
