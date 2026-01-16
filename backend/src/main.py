@@ -1,8 +1,10 @@
 """FastAPI application entry point."""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, ORJSONResponse
+from fastapi.responses import Response
 from src.config import settings
+import orjson
 from contextlib import asynccontextmanager
 import os
 import logging
@@ -61,7 +63,7 @@ async def lifespan(app: FastAPI):
     pass
 
 
-# Create FastAPI app with lifespan
+# Create FastAPI app with lifespan and optimized JSON serialization
 app = FastAPI(
     title="InTracker API",
     description="AI-first project management system API",
@@ -69,6 +71,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
+    default_response_class=ORJSONResponse,
 )
 
 # CORS middleware
@@ -244,7 +247,9 @@ async def global_exception_handler(request, exc):
     # Always log the error for debugging
     logging.error(f"Unhandled exception: {exc}", exc_info=True)
     
-    return JSONResponse(
+    from src.api.utils.json_response import OptimizedJSONResponse
+    
+    return OptimizedJSONResponse(
         status_code=500,
         content={
             "error": "Internal server error",

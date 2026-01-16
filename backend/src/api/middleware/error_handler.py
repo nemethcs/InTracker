@@ -2,13 +2,13 @@
 from typing import Optional
 from datetime import datetime
 from fastapi import HTTPException, Request, status
-from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import ValidationError
 import logging
 
 from src.api.schemas.error import ErrorResponse, ErrorDetail
+from src.api.utils.json_response import OptimizedJSONResponse
 from src.config import settings
 from src.utils.error_logger import log_error, log_http_error
 
@@ -21,7 +21,7 @@ def create_error_response(
     status_code: int = status.HTTP_400_BAD_REQUEST,
     details: Optional[list[ErrorDetail]] = None,
     error_code: Optional[str] = None,
-) -> JSONResponse:
+) -> OptimizedJSONResponse:
     """Create a standardized error response.
     
     Args:
@@ -42,13 +42,13 @@ def create_error_response(
         timestamp=datetime.utcnow().isoformat() + "Z",
     )
     
-    return JSONResponse(
+    return OptimizedJSONResponse(
         status_code=status_code,
         content=error_response.model_dump(exclude_none=True),
     )
 
 
-def handle_http_exception(request: Request, exc: HTTPException) -> JSONResponse:
+def handle_http_exception(request: Request, exc: HTTPException) -> OptimizedJSONResponse:
     """Handle HTTPException with standardized error format."""
     # Map HTTP status codes to error types
     error_type_map = {
@@ -92,7 +92,7 @@ def handle_http_exception(request: Request, exc: HTTPException) -> JSONResponse:
     )
 
 
-def handle_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+def handle_validation_error(request: Request, exc: RequestValidationError) -> OptimizedJSONResponse:
     """Handle Pydantic validation errors with standardized format."""
     details = []
     
@@ -124,7 +124,7 @@ def handle_validation_error(request: Request, exc: RequestValidationError) -> JS
     )
 
 
-def handle_generic_exception(request: Request, exc: Exception) -> JSONResponse:
+def handle_generic_exception(request: Request, exc: Exception) -> OptimizedJSONResponse:
     """Handle generic exceptions with standardized format."""
     # Log the error with comprehensive context
     log_error(
