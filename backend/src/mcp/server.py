@@ -182,30 +182,16 @@ async def list_resources() -> list[Resource]:
 
 @server.read_resource()
 async def read_resource(uri: str) -> str:
-    """Read a resource by URI."""
-    # Parse URI format: intracker://resource-type/{id}
-    if not uri.startswith("intracker://"):
-        raise ValueError(f"Invalid resource URI: {uri}")
+    """Read a resource."""
+    # Convert URI to string (MCP SDK may pass AnyUrl object)
+    uri_str = str(uri)
     
-    uri_str = uri.replace("intracker://", "")
-    parts = uri_str.split("/")
-    
-    if len(parts) < 2:
-        raise ValueError(f"Invalid resource URI format: {uri}")
-    
-    resource_type = parts[0]
-    resource_id = parts[1]
-    
-    # Route to appropriate resource handler
-    if resource_type == "project":
-        from src.mcp.resources.project_resources import get_project_resource
-        return await get_project_resource(resource_id)
-    elif resource_type == "feature":
-        from src.mcp.resources.feature_resources import get_feature_resource
-        return await get_feature_resource(resource_id)
-    elif resource_type == "document":
-        from src.mcp.resources.document_resources import get_document_resource
-        return await get_document_resource(resource_id)
+    if uri_str.startswith("intracker://project/"):
+        return await project_resources.read_project_resource(uri_str)
+    elif uri_str.startswith("intracker://feature/"):
+        return await feature_resources.read_feature_resource(uri_str)
+    elif uri_str.startswith("intracker://document/"):
+        return await document_resources.read_document_resource(uri_str)
     else:
         raise ValueError(f"Unknown resource URI: {uri_str}")
 
