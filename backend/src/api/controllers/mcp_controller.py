@@ -60,6 +60,7 @@ async def mcp_health_check():
 class MCPSSEASGIApp:
     """ASGI app wrapper for MCP SSE endpoint."""
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        print(f"🔌 MCPSSEASGIApp called: {scope['method']} {scope['path']}", flush=True)
         if scope["type"] != "http" or scope["method"] != "GET":
             from starlette.responses import Response
             response = Response(status_code=405)
@@ -74,13 +75,16 @@ class MCPSSEASGIApp:
                 api_key = value.decode()
                 break
         
+        print(f"🔑 API key present: {bool(api_key)}", flush=True)
         try:
             user_id = verify_api_key(api_key)
+            print(f"✅ API key verified, user_id: {user_id}", flush=True)
             # Set the user_id in MCP middleware for this connection
             if user_id:
                 from src.mcp.middleware.auth import set_mcp_api_key
                 set_mcp_api_key(api_key)  # This will extract and set user_id
         except HTTPException as e:
+            print(f"❌ API key verification failed: {e.detail}", flush=True)
             # Return error response and stop processing
             # Don't re-raise to avoid global exception handler duplicate response
             response = JSONResponse(
@@ -95,9 +99,11 @@ class MCPSSEASGIApp:
         # When entered, it returns (read_stream, write_stream)
         # We need to run the MCP server with these streams
         try:
+            print("🔄 Establishing MCP SSE connection...", flush=True)
             cm = sse_transport.connect_sse(scope, receive, send)
             async with cm as streams:
                 read_stream, write_stream = streams
+                print("✅ MCP SSE streams established, starting server...", flush=True)
                 await mcp_server.run(
                     read_stream,
                     write_stream,
@@ -106,14 +112,16 @@ class MCPSSEASGIApp:
         except Exception as e:
             # If MCP server fails, don't let global exception handler catch it
             # as it may have already sent a response
-            import logging
-            logging.error(f"MCP SSE connection error: {e}", exc_info=True)
+            print(f"❌ MCP SSE connection error: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
             # Don't re-raise - response may have already been sent
 
 
 class MCPMessagesASGIApp:
     """ASGI app wrapper for MCP messages endpoint."""
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        print(f"📨 MCPMessagesASGIApp called: {scope['method']} {scope['path']}", flush=True)
         if scope["type"] != "http" or scope["method"] != "POST":
             from starlette.responses import Response
             response = Response(status_code=405)
@@ -151,8 +159,9 @@ class MCPMessagesASGIApp:
         except Exception as e:
             # If handle_post_message fails, don't let global exception handler catch it
             # as it may have already sent a response
-            import logging
-            logging.error(f"MCP handle_post_message error: {e}", exc_info=True)
+            print(f"❌ MCP handle_post_message error: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
             # Don't re-raise - response may have already been sent
 
 
@@ -170,8 +179,9 @@ async def mcp_sse_endpoint(request: Request):
         await app(request.scope, request.receive, request._send)
     except Exception as e:
         # Log but don't raise - ASGI app may have already sent response
-        import logging
-        logging.error(f"MCP SSE endpoint error: {e}", exc_info=True)
+        print(f"❌ MCP SSE endpoint error: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
     # Don't return anything - ASGI app already handled the response
 
 
