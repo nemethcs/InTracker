@@ -99,16 +99,9 @@ class MCPSSEASGIApp:
         # When entered, it returns (read_stream, write_stream)
         # We need to run the MCP server with these streams
         try:
-            print("🔄 Establishing MCP SSE connection...", flush=True)
-            print(f"🔗 Request path: {scope.get('path', 'N/A')}", flush=True)
             cm = sse_transport.connect_sse(scope, receive, send)
-            print("🔗 Context manager created, entering...", flush=True)
             async with cm as streams:
-                print("🔗 Context manager entered, got streams", flush=True)
                 read_stream, write_stream = streams
-                print("✅ MCP SSE streams established, starting server...", flush=True)
-                # mcp_server.run() runs indefinitely until connection closes
-                # This is normal - it waits for messages from the client
                 await mcp_server.run(
                     read_stream,
                     write_stream,
