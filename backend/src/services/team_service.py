@@ -248,16 +248,29 @@ class TeamService:
     def get_team_members_with_users(
         db: Session,
         team_id: UUID,
-    ) -> List[Tuple[TeamMember, "User"]]:
-        """Get all members of a team with user information."""
+        skip: int = 0,
+        limit: Optional[int] = None,
+    ) -> Tuple[List[Tuple[TeamMember, "User"]], int]:
+        """Get all members of a team with user information, with pagination."""
         from src.database.models import User
-        return (
+        
+        # Base query
+        query = (
             db.query(TeamMember, User)
             .join(User, TeamMember.user_id == User.id)
             .filter(TeamMember.team_id == team_id)
             .order_by(TeamMember.joined_at.asc())
-            .all()
         )
+        
+        # Get total count
+        total = query.count()
+        
+        # Apply pagination
+        if limit is not None:
+            query = query.offset(skip).limit(limit)
+        
+        members = query.all()
+        return members, total
 
     @staticmethod
     def is_team_leader(

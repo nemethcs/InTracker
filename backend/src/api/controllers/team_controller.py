@@ -16,6 +16,7 @@ from src.api.schemas.team import (
     TeamUpdateRequest,
     TeamResponse,
     TeamMemberResponse,
+    TeamMemberListResponse,
     TeamListResponse,
     TeamInvitationResponse,
     TeamLanguageRequest,
@@ -200,13 +201,15 @@ async def delete_team(
         )
 
 
-@router.get("/{team_id}/members", response_model=list[TeamMemberResponse])
+@router.get("/{team_id}/members", response_model=TeamMemberListResponse)
 async def get_team_members(
     team_id: UUID,
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Number of items per page"),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get all members of a team. User must be a member or admin."""
+    """Get all members of a team with pagination. User must be a member or admin."""
     user_id = UUID(current_user["user_id"])
     user_role = current_user.get("role")
 
@@ -217,20 +220,31 @@ async def get_team_members(
             detail="You are not a member of this team",
         )
 
-    members_with_users = TeamService.get_team_members_with_users(db, team_id)
+    skip = (page - 1) * page_size
+    members_with_users, total = TeamService.get_team_members_with_users(
+        db, team_id, skip=skip, limit=page_size
+    )
+    
     # Convert UUIDs to strings for response and include user information
-    return [
-        {
-            "id": str(member.id),
-            "team_id": str(member.team_id),
-            "user_id": str(member.user_id),
-            "role": member.role,
-            "joined_at": member.joined_at,
-            "user_name": user.name,
-            "user_email": user.email,
-        }
+    members = [
+        TeamMemberResponse(
+            id=str(member.id),
+            team_id=str(member.team_id),
+            user_id=str(member.user_id),
+            role=member.role,
+            joined_at=member.joined_at,
+            user_name=user.name,
+            user_email=user.email,
+        )
         for member, user in members_with_users
     ]
+    
+    return TeamMemberListResponse(
+        members=members,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.post("/{team_id}/members", response_model=TeamMemberResponse, status_code=status.HTTP_201_CREATED)
