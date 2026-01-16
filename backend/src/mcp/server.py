@@ -16,6 +16,22 @@ from src.mcp.tools import (
     onboarding,
     team,
 )
+from src.mcp.tools.project_context import (
+    get_project_context_tool,
+    get_resume_context_tool,
+    get_project_structure_tool,
+    get_active_todos_tool,
+)
+from src.mcp.tools.project_crud import (
+    get_create_project_tool,
+    get_list_projects_tool,
+    get_update_project_tool,
+    get_identify_project_by_path_tool,
+)
+from src.mcp.tools.project_workflow import (
+    get_load_cursor_rules_tool,
+    get_enforce_workflow_tool,
+)
 from src.mcp.server_handlers import (
     handle_project_tool,
     handle_feature_tool,
@@ -41,16 +57,16 @@ async def list_tools() -> list[Tool]:
     """List all available tools."""
     return [
         # Project tools
-        project.get_project_context_tool(),
-        project.get_resume_context_tool(),
-        project.get_project_structure_tool(),
-        project.get_active_todos_tool(),
-        project.get_create_project_tool(),
-        project.get_list_projects_tool(),
-        project.get_update_project_tool(),
-        project.get_identify_project_by_path_tool(),
-        project.get_load_cursor_rules_tool(),
-        project.get_enforce_workflow_tool(),
+        get_project_context_tool(),
+        get_resume_context_tool(),
+        get_project_structure_tool(),
+        get_active_todos_tool(),
+        get_create_project_tool(),
+        get_list_projects_tool(),
+        get_update_project_tool(),
+        get_identify_project_by_path_tool(),
+        get_load_cursor_rules_tool(),
+        get_enforce_workflow_tool(),
         # Feature tools
         feature.get_create_feature_tool(),
         feature.get_get_feature_tool(),
@@ -64,38 +80,46 @@ async def list_tools() -> list[Tool]:
         todo.get_create_todo_tool(),
         todo.get_update_todo_status_tool(),
         todo.get_list_todos_tool(),
+        todo.get_assign_todo_tool(),
+        todo.get_link_todo_to_feature_tool(),
         todo.get_delete_todo_tool(),
         # Session tools
         session.get_start_session_tool(),
+        session.get_update_session_tool(),
         session.get_end_session_tool(),
         # Document tools
         document.get_get_document_tool(),
         document.get_list_documents_tool(),
+        document.get_create_document_tool(),
         # GitHub tools
-        github.get_list_repositories_tool(),
-        github.get_get_repository_info_tool(),
-        github.get_list_branches_tool(),
-        github.get_list_issues_tool(),
-        github.get_list_pull_requests_tool(),
-        github.get_import_issues_tool(),
-        github.get_import_milestones_tool(),
+        github.get_connect_github_repo_tool(),
+        github.get_get_repo_info_tool(),
+        github.get_get_branches_tool(),
+        github.get_link_element_to_issue_tool(),
+        github.get_get_github_issue_tool(),
+        github.get_create_github_issue_tool(),
+        github.get_link_todo_to_pr_tool(),
+        github.get_get_github_pr_tool(),
+        github.get_create_github_pr_tool(),
         github.get_create_branch_for_feature_tool(),
         github.get_link_branch_to_feature_tool(),
+        github.get_get_feature_branches_tool(),
+        github.get_get_branch_status_tool(),
+        github.get_get_commits_for_feature_tool(),
+        github.get_parse_commit_message_tool(),
         # Idea tools
+        idea.get_create_idea_tool(),
         idea.get_list_ideas_tool(),
         idea.get_get_idea_tool(),
-        idea.get_create_idea_tool(),
         idea.get_update_idea_tool(),
-        idea.get_delete_idea_tool(),
         idea.get_convert_idea_to_project_tool(),
         # Import tools
+        import_tools.get_parse_file_structure_tool(),
         import_tools.get_import_github_issues_tool(),
         import_tools.get_import_github_milestones_tool(),
+        import_tools.get_analyze_codebase_tool(),
         # Onboarding tools
-        onboarding.get_create_team_tool(),
-        onboarding.get_create_project_tool(),
-        onboarding.get_create_feature_tool(),
-        onboarding.get_create_todo_tool(),
+        onboarding.get_verify_connection_tool(),
         # Team tools
         team.get_list_teams_tool(),
         team.get_get_team_tool(),
