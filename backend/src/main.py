@@ -136,6 +136,9 @@ app.include_router(team_controller.router)
 app.include_router(mcp_key_controller.router)
 app.include_router(audit_controller.router)
 
+# Setup MCP server with fastapi-mcp (must be after router inclusion)
+mcp_controller.setup_mcp(app)
+
 
 @app.get("/api")
 async def api_info():
