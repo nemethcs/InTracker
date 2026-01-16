@@ -100,7 +100,6 @@ class MCPSSEASGIApp:
         # We need to run the MCP server with these streams
         try:
             print("🔄 Establishing MCP SSE connection...", flush=True)
-            print(f"🔗 SSE endpoint: {sse_transport.endpoint}", flush=True)
             print(f"🔗 Request path: {scope.get('path', 'N/A')}", flush=True)
             cm = sse_transport.connect_sse(scope, receive, send)
             print("🔗 Context manager created, entering...", flush=True)
