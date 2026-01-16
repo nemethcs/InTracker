@@ -110,27 +110,20 @@ class MCPSSEASGIApp:
                 print("🚀 Starting mcp_server.run()...", flush=True)
                 print(f"📥 Read stream type: {type(read_stream)}", flush=True)
                 print(f"📤 Write stream type: {type(write_stream)}", flush=True)
+                # mcp_server.run() runs indefinitely until connection closes
+                # This is normal - it waits for messages from the client
                 try:
-                    # Wrap run in a timeout to see if it's hanging
-                    import asyncio
-                    print("⏳ Waiting for mcp_server.run() to complete (or timeout)...", flush=True)
-                    await asyncio.wait_for(
-                        mcp_server.run(
-                            read_stream,
-                            write_stream,
-                            init_options,
-                        ),
-                        timeout=30.0  # 30 second timeout for debugging
+                    await mcp_server.run(
+                        read_stream,
+                        write_stream,
+                        init_options,
                     )
-                    print("✅ mcp_server.run() completed", flush=True)
-                except asyncio.TimeoutError:
-                    print("⏰ mcp_server.run() timed out after 30 seconds - it's hanging!", flush=True)
-                    print("💡 This usually means the client didn't send initialization message", flush=True)
+                    print("✅ mcp_server.run() completed (connection closed)", flush=True)
                 except Exception as run_error:
                     print(f"❌ Error in mcp_server.run(): {run_error}", flush=True)
                     import traceback
                     traceback.print_exc()
-                    raise
+                    # Don't re-raise - connection may have closed normally
         except Exception as e:
             # If MCP server fails, don't let global exception handler catch it
             # as it may have already sent a response
