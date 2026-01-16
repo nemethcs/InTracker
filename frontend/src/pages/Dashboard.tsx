@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { QueryState } from '@/components/ui/QueryState'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { LoadingState } from '@/components/ui/LoadingState'
+import { VirtualizedGrid } from '@/components/ui/VirtualizedGrid'
 import { ProjectEditor } from '@/components/projects/ProjectEditor'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FolderKanban, Plus } from 'lucide-react'
@@ -229,66 +230,141 @@ export function Dashboard() {
                     {teamProjects.length} {teamProjects.length === 1 ? 'project' : 'projects'}
                   </Badge>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {teamProjects.map((project) => {
-                    const statusVariants: Record<string, 'success' | 'warning' | 'destructive' | 'info' | 'muted'> = {
-                      active: 'success',
-                      paused: 'warning',
-                      blocked: 'destructive',
-                      completed: 'info',
-                      archived: 'muted',
-                    }
-                    const statusVariant = statusVariants[project.status] || 'muted'
-                    
-                    return (
-                      <Link key={project.id} to={`/projects/${project.id}`} className="group">
-                        <Card className="h-full hover:shadow-lg transition-all duration-200 cursor-pointer border-2 hover:border-primary/50">
-                          <CardHeader className="pb-3">
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <CardTitle className="text-lg font-semibold line-clamp-2 group-hover:text-primary transition-colors">
-                                {project.name}
-                              </CardTitle>
-                              <Badge variant={statusVariant} className="text-xs font-medium shrink-0">
-                                {project.status}
-                              </Badge>
-                            </div>
-                            <CardDescription className="text-sm line-clamp-2 min-h-[2.5rem]">
-                              {project.description || 'No description'}
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent className="pt-0">
-                            <div className="space-y-2.5">
-                              {project.last_session_at && (
-                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                  <span>Last session</span>
-                                  <span className="font-medium">{format(new Date(project.last_session_at), 'MMM d, yyyy')}</span>
+                {teamProjects.length > 20 ? (
+                  <div className="h-[500px]">
+                    <VirtualizedGrid
+                      items={teamProjects}
+                      columns={(width) => {
+                        if (width >= 1280) return 4
+                        if (width >= 1024) return 3
+                        if (width >= 640) return 2
+                        return 1
+                      }}
+                      gap={16}
+                      itemHeight={240}
+                      renderItem={(project) => {
+                        const statusVariants: Record<string, 'success' | 'warning' | 'destructive' | 'info' | 'muted'> = {
+                          active: 'success',
+                          paused: 'warning',
+                          blocked: 'destructive',
+                          completed: 'info',
+                          archived: 'muted',
+                        }
+                        const statusVariant = statusVariants[project.status] || 'muted'
+                        
+                        return (
+                          <Link to={`/projects/${project.id}`} className="group">
+                            <Card className="h-full hover:shadow-lg transition-all duration-200 cursor-pointer border-2 hover:border-primary/50">
+                              <CardHeader className="pb-3">
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <CardTitle className="text-lg font-semibold line-clamp-2 group-hover:text-primary transition-colors">
+                                    {project.name}
+                                  </CardTitle>
+                                  <Badge variant={statusVariant} className="text-xs font-medium shrink-0">
+                                    {project.status}
+                                  </Badge>
                                 </div>
-                              )}
-                              {project.tags && project.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 pt-1">
-                                  {project.tags.slice(0, 3).map((tag) => (
-                                    <Badge
-                                      key={tag}
-                                      variant="outline"
-                                      className="text-xs px-2 py-0.5 font-normal"
-                                    >
-                                      {tag}
-                                    </Badge>
-                                  ))}
-                                  {project.tags.length > 3 && (
-                                    <Badge variant="outline" className="text-xs px-2 py-0.5 font-normal">
-                                      +{project.tags.length - 3}
-                                    </Badge>
+                                <CardDescription className="text-sm line-clamp-2 min-h-[2.5rem]">
+                                  {project.description || 'No description'}
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent className="pt-0">
+                                <div className="space-y-2.5">
+                                  {project.last_session_at && (
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                      <span>Last session</span>
+                                      <span className="font-medium">{format(new Date(project.last_session_at), 'MMM d, yyyy')}</span>
+                                    </div>
+                                  )}
+                                  {project.tags && project.tags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 pt-1">
+                                      {project.tags.slice(0, 3).map((tag) => (
+                                        <Badge
+                                          key={tag}
+                                          variant="outline"
+                                          className="text-xs px-2 py-0.5 font-normal"
+                                        >
+                                          {tag}
+                                        </Badge>
+                                      ))}
+                                      {project.tags.length > 3 && (
+                                        <Badge variant="outline" className="text-xs px-2 py-0.5 font-normal">
+                                          +{project.tags.length - 3}
+                                        </Badge>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </Link>
-                    )
-                  })}
-                </div>
+                              </CardContent>
+                            </Card>
+                          </Link>
+                        )
+                      }}
+                      containerClassName="h-full"
+                    />
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {teamProjects.map((project) => {
+                      const statusVariants: Record<string, 'success' | 'warning' | 'destructive' | 'info' | 'muted'> = {
+                        active: 'success',
+                        paused: 'warning',
+                        blocked: 'destructive',
+                        completed: 'info',
+                        archived: 'muted',
+                      }
+                      const statusVariant = statusVariants[project.status] || 'muted'
+                      
+                      return (
+                        <Link key={project.id} to={`/projects/${project.id}`} className="group">
+                          <Card className="h-full hover:shadow-lg transition-all duration-200 cursor-pointer border-2 hover:border-primary/50">
+                            <CardHeader className="pb-3">
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <CardTitle className="text-lg font-semibold line-clamp-2 group-hover:text-primary transition-colors">
+                                  {project.name}
+                                </CardTitle>
+                                <Badge variant={statusVariant} className="text-xs font-medium shrink-0">
+                                  {project.status}
+                                </Badge>
+                              </div>
+                              <CardDescription className="text-sm line-clamp-2 min-h-[2.5rem]">
+                                {project.description || 'No description'}
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-0">
+                              <div className="space-y-2.5">
+                                {project.last_session_at && (
+                                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                    <span>Last session</span>
+                                    <span className="font-medium">{format(new Date(project.last_session_at), 'MMM d, yyyy')}</span>
+                                  </div>
+                                )}
+                                {project.tags && project.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1.5 pt-1">
+                                    {project.tags.slice(0, 3).map((tag) => (
+                                      <Badge
+                                        key={tag}
+                                        variant="outline"
+                                        className="text-xs px-2 py-0.5 font-normal"
+                                      >
+                                        {tag}
+                                      </Badge>
+                                    ))}
+                                    {project.tags.length > 3 && (
+                                      <Badge variant="outline" className="text-xs px-2 py-0.5 font-normal">
+                                        +{project.tags.length - 3}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )
           })}
