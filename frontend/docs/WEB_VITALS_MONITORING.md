@@ -11,10 +11,11 @@ The frontend application includes Web Vitals performance monitoring to track Cor
 - **Measures**: Loading performance - how long it takes for the largest content element to be visible
 - **Impact**: User perception of page load speed
 
-### FID (First Input Delay)
-- **Target**: < 100 milliseconds
-- **Measures**: Interactivity - time from first user interaction to browser response
+### INP (Interaction to Next Paint)
+- **Target**: < 200 milliseconds
+- **Measures**: Interactivity - time from user interaction to visual feedback (replaces FID in Web Vitals v5)
 - **Impact**: User perception of page responsiveness
+- **Note**: FID (First Input Delay) was deprecated in favor of INP, which provides a more comprehensive measure of interactivity
 
 ### CLS (Cumulative Layout Shift)
 - **Target**: < 0.1

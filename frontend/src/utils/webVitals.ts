@@ -3,13 +3,13 @@
  * 
  * Tracks Core Web Vitals and other performance metrics:
  * - LCP (Largest Contentful Paint)
- * - FID (First Input Delay)
+ * - INP (Interaction to Next Paint) - replaces FID in Web Vitals v5
  * - CLS (Cumulative Layout Shift)
  * - FCP (First Contentful Paint)
  * - TTFB (Time to First Byte)
  */
 
-import { onCLS, onFCP, onFID, onLCP, onTTFB, type Metric } from 'web-vitals'
+import { onCLS, onFCP, onINP, onLCP, onTTFB, type Metric } from 'web-vitals'
 
 interface WebVitalsConfig {
   endpoint?: string
