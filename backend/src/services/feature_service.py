@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from src.database.models import Feature, ProjectElement, FeatureElement, Todo
 from src.database.base import set_current_user_id, reset_current_user_id
+from src.services.cache_service import CacheService, CacheTTL
 
 
 class FeatureService:
@@ -65,6 +66,10 @@ class FeatureService:
 
             db.commit()
             db.refresh(feature)
+            
+            # Invalidate feature list cache for the project
+            CacheService.clear_cache_by_pattern(f"features_by_project:{project_id}:*")
+            
             return feature
         finally:
             if token:
@@ -91,7 +96,26 @@ class FeatureService:
                   "created_at_desc", "created_at_asc", "name_asc", "name_desc"
             skip: Number of features to skip (for pagination)
             limit: Maximum number of features to return (None for no limit)
+        
+        Results are cached to improve performance for frequently accessed feature lists.
         """
+        # Build cache key from parameters
+        cache_key = f"features_by_project:{project_id}:status:{status or 'all'}:sort:{sort or 'updated_at_desc'}:skip:{skip}:limit:{limit or 'all'}"
+        
+        # Try cache first
+        cached = CacheService.get_cache(cache_key)
+        if cached:
+            # Reconstruct Feature objects from cached IDs
+            feature_ids = cached.get("feature_ids", [])
+            if feature_ids:
+                features = db.query(Feature).filter(Feature.id.in_([UUID(fid) for fid in feature_ids])).all()
+                # Maintain order from cache
+                feature_dict = {str(f.id): f for f in features}
+                features = [feature_dict[fid] for fid in feature_ids if fid in feature_dict]
+                total = cached.get("total", len(features))
+                return features, total
+        
+        # Cache miss - query database
         query = db.query(Feature).filter(Feature.project_id == project_id)
 
         if status:
@@ -123,6 +147,15 @@ class FeatureService:
             query = query.limit(limit)
         
         features = query.all()
+        
+        # Cache result (store only IDs to avoid serialization issues)
+        if features:
+            feature_ids = [str(f.id) for f in features]
+            CacheService.set_cache(
+                cache_key,
+                {"feature_ids": feature_ids, "total": total},
+                ttl=CacheTTL.MEDIUM
+            )
 
         return features, total
 
@@ -158,6 +191,11 @@ class FeatureService:
 
             db.commit()
             db.refresh(feature)
+            
+            # Invalidate cache
+            CacheService.invalidate_feature_cache(str(feature_id))
+            CacheService.clear_cache_by_pattern(f"features_by_project:{feature.project_id}:*")
+            
             return feature
         finally:
             if token:
@@ -170,6 +208,12 @@ class FeatureService:
         if not feature:
             return False
 
+        project_id = feature.project_id
+        
+        # Invalidate cache before deletion
+        CacheService.invalidate_feature_cache(str(feature_id))
+        CacheService.clear_cache_by_pattern(f"features_by_project:{project_id}:*")
+        
         db.delete(feature)
         db.commit()
         return True
@@ -226,6 +270,10 @@ class FeatureService:
             # If all todos are "new", keep feature status as "new"
         
         db.commit()
+        
+        # Invalidate feature cache (progress changed)
+        CacheService.invalidate_feature_cache(str(feature_id))
+        CacheService.clear_cache_by_pattern(f"features_by_project:{feature.project_id}:*")
 
         return {"total": total, "completed": completed, "percentage": percentage}
 
