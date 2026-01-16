@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Link } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -11,7 +12,7 @@ interface FeatureCardProps {
   number?: number
 }
 
-export function FeatureCard({ feature, projectId, onEdit, number }: FeatureCardProps) {
+export const FeatureCard = memo(function FeatureCard({ feature, projectId, onEdit, number }: FeatureCardProps) {
   return (
     <Link to={`/projects/${projectId}/features/${feature.id}`}>
       <Card className="hover:shadow-elevated hover-lift transition-smooth cursor-pointer h-full relative">
@@ -77,4 +78,4 @@ export function FeatureCard({ feature, projectId, onEdit, number }: FeatureCardP
       </Card>
     </Link>
   )
-}
+})

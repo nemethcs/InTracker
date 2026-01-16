@@ -1,4 +1,5 @@
 import api from './api'
+import { getErrorMessage, isConflictError, getCurrentVersion, type ApiError } from '@/utils/apiError'
 
 export interface Todo {
   id: string
@@ -79,12 +80,14 @@ export const todoService = {
     try {
       const response = await api.put(`/todos/${id}`, data)
       return response.data
-    } catch (error: any) {
+    } catch (error) {
       // Handle conflict (409) - optimistic locking failure
-      if (error.response?.status === 409) {
-        const conflictError = new Error(error.response?.data?.detail || 'Todo was modified by another user. Please refresh and try again.')
-        ;(conflictError as any).isConflict = true
-        ;(conflictError as any).currentVersion = error.response?.data?.current_version
+      if (isConflictError(error)) {
+        const conflictError = new Error(
+          getErrorMessage(error) || 'Todo was modified by another user. Please refresh and try again.'
+        ) as ApiError
+        conflictError.isConflict = true
+        conflictError.currentVersion = getCurrentVersion(error)
         throw conflictError
       }
       throw error

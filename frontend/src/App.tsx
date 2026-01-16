@@ -1,23 +1,55 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useAuth } from '@/hooks/useAuth'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { Toaster } from '@/components/ui/toast'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
-import { Dashboard } from '@/pages/Dashboard'
-import { ProjectDetail } from '@/pages/ProjectDetail'
-import { FeatureDetail } from '@/pages/FeatureDetail'
-import { Todos } from '@/pages/Todos'
-import { Documents } from '@/pages/Documents'
-import { Settings } from '@/pages/Settings'
-import { Ideas } from '@/pages/Ideas'
+
+// Create a QueryClient instance with default options
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes - data is fresh for 5 minutes
+      gcTime: 1000 * 60 * 10, // 10 minutes - cache is kept for 10 minutes (formerly cacheTime)
+      retry: 2, // Retry failed requests 2 times
+      refetchOnWindowFocus: false, // Don't refetch on window focus
+      refetchOnReconnect: true, // Refetch when network reconnects
+    },
+    mutations: {
+      retry: 1, // Retry failed mutations once
+    },
+  },
+})
+
+// Eagerly loaded components (needed for initial render)
 import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
-// AdminLogin and AdminDashboard removed - admin functions integrated into Teams and Settings
-import { Teams } from '@/pages/Teams'
-import { Onboarding } from '@/pages/Onboarding'
-import { Users } from '@/pages/Users'
-import { CursorGuide } from '@/pages/CursorGuide'
+
+// Helper function to lazy load named exports
+const lazyNamed = <T extends React.ComponentType<any>>(
+  importFn: () => Promise<{ [key: string]: T }>,
+  exportName: string
+) => {
+  return lazy(async () => {
+    const module = await importFn()
+    return { default: module[exportName] as T }
+  })
+}
+
+// Lazy loaded route components
+const Dashboard = lazyNamed(() => import('@/pages/Dashboard'), 'Dashboard')
+const ProjectDetail = lazyNamed(() => import('@/pages/ProjectDetail'), 'ProjectDetail')
+const FeatureDetail = lazyNamed(() => import('@/pages/FeatureDetail'), 'FeatureDetail')
+const Todos = lazyNamed(() => import('@/pages/Todos'), 'Todos')
+const Documents = lazyNamed(() => import('@/pages/Documents'), 'Documents')
+const Settings = lazyNamed(() => import('@/pages/Settings'), 'Settings')
+const Ideas = lazyNamed(() => import('@/pages/Ideas'), 'Ideas')
+const Teams = lazyNamed(() => import('@/pages/Teams'), 'Teams')
+const Onboarding = lazyNamed(() => import('@/pages/Onboarding'), 'Onboarding')
+const Users = lazyNamed(() => import('@/pages/Users'), 'Users')
+const CursorGuide = lazyNamed(() => import('@/pages/CursorGuide'), 'CursorGuide')
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user } = useAuth()
@@ -58,12 +90,23 @@ function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+// Loading fallback component for lazy loaded routes
+function RouteLoadingFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <LoadingSpinner size="lg" />
+    </div>
+  )
+}
+
 function App() {
   return (
-    <BrowserRouter>
-      <ErrorBoundary>
-        <Toaster />
-        <Routes>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <ErrorBoundary>
+          <Toaster />
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
@@ -197,9 +240,11 @@ function App() {
             </MainLayout>
           </ProtectedRoute>
         } />
-        </Routes>
-      </ErrorBoundary>
-    </BrowserRouter>
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
+      </BrowserRouter>
+    </QueryClientProvider>
   )
 }
 

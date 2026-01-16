@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useTodoStore } from '@/stores/todoStore'
 
 export function useTodos(featureId?: string, elementId?: string, projectId?: string) {
@@ -7,7 +8,14 @@ export function useTodos(featureId?: string, elementId?: string, projectId?: str
     isLoading,
     error,
     fetchTodos,
-  } = useTodoStore()
+  } = useTodoStore(
+    useShallow((state) => ({
+      todos: state.todos,
+      isLoading: state.isLoading,
+      error: state.error,
+      fetchTodos: state.fetchTodos,
+    }))
+  )
 
   const lastFeatureId = useRef<string | undefined>(undefined)
   const lastElementId = useRef<string | undefined>(undefined)

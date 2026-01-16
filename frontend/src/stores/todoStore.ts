@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { todoService, type Todo, type TodoCreate, type TodoUpdate } from '@/services/todoService'
 import { signalrService } from '@/services/signalrService'
+import type { TodoUpdateData } from '@/types/signalr'
 
 interface TodoState {
   todos: Todo[]
@@ -16,7 +17,7 @@ interface TodoState {
 
 export const useTodoStore = create<TodoState>((set, get) => {
   // Subscribe to SignalR todo updates
-  signalrService.on('todoUpdated', (data: { todoId: string; projectId: string; userId: string; changes: any }) => {
+  signalrService.on('todoUpdated', (data: TodoUpdateData) => {
     const { todos } = get()
     const todoIndex = todos.findIndex(t => t.id === data.todoId)
     

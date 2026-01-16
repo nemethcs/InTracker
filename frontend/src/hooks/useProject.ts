@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useProjectStore } from '@/stores/projectStore'
 
 export function useProject(projectId?: string, teamId?: string, status?: string) {
@@ -10,7 +11,17 @@ export function useProject(projectId?: string, teamId?: string, status?: string)
     fetchProjects,
     fetchProject,
     setCurrentProject,
-  } = useProjectStore()
+  } = useProjectStore(
+    useShallow((state) => ({
+      projects: state.projects,
+      currentProject: state.currentProject,
+      isLoading: state.isLoading,
+      error: state.error,
+      fetchProjects: state.fetchProjects,
+      fetchProject: state.fetchProject,
+      setCurrentProject: state.setCurrentProject,
+    }))
+  )
 
   const lastProjectId = useRef<string | undefined>(undefined)
   const lastTeamId = useRef<string | undefined>(undefined)

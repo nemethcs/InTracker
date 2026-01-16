@@ -127,7 +127,8 @@ export const adminService = {
 
   async getTeamMembers(teamId: string): Promise<TeamMember[]> {
     const response = await api.get(`/teams/${teamId}/members`)
-    return response.data
+    // Backend returns TeamMemberListResponse with members array
+    return response.data.members || []
   },
 
   async addTeamMember(teamId: string, userId: string, role: string = 'member'): Promise<TeamMember> {
