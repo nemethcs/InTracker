@@ -107,26 +107,13 @@ class MCPSSEASGIApp:
                 print("🔗 Context manager entered, got streams", flush=True)
                 read_stream, write_stream = streams
                 print("✅ MCP SSE streams established, starting server...", flush=True)
-                print("📋 Creating initialization options...", flush=True)
-                init_options = mcp_server.create_initialization_options()
-                print(f"📋 Init options created: {init_options}", flush=True)
-                print("🚀 Starting mcp_server.run()...", flush=True)
-                print(f"📥 Read stream type: {type(read_stream)}", flush=True)
-                print(f"📤 Write stream type: {type(write_stream)}", flush=True)
                 # mcp_server.run() runs indefinitely until connection closes
                 # This is normal - it waits for messages from the client
-                try:
-                    await mcp_server.run(
-                        read_stream,
-                        write_stream,
-                        init_options,
-                    )
-                    print("✅ mcp_server.run() completed (connection closed)", flush=True)
-                except Exception as run_error:
-                    print(f"❌ Error in mcp_server.run(): {run_error}", flush=True)
-                    import traceback
-                    traceback.print_exc()
-                    # Don't re-raise - connection may have closed normally
+                await mcp_server.run(
+                    read_stream,
+                    write_stream,
+                    mcp_server.create_initialization_options(),
+                )
         except Exception as e:
             # If MCP server fails, don't let global exception handler catch it
             # as it may have already sent a response
