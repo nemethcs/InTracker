@@ -27,18 +27,29 @@ const queryClient = new QueryClient({
 import { Login } from '@/pages/Login'
 import { Register } from '@/pages/Register'
 
+// Helper function to lazy load named exports
+const lazyNamed = <T extends React.ComponentType<any>>(
+  importFn: () => Promise<{ [key: string]: T }>,
+  exportName: string
+) => {
+  return lazy(async () => {
+    const module = await importFn()
+    return { default: module[exportName] as T }
+  })
+}
+
 // Lazy loaded route components
-const Dashboard = lazy(() => import('@/pages/Dashboard'))
-const ProjectDetail = lazy(() => import('@/pages/ProjectDetail'))
-const FeatureDetail = lazy(() => import('@/pages/FeatureDetail'))
-const Todos = lazy(() => import('@/pages/Todos'))
-const Documents = lazy(() => import('@/pages/Documents'))
-const Settings = lazy(() => import('@/pages/Settings'))
-const Ideas = lazy(() => import('@/pages/Ideas'))
-const Teams = lazy(() => import('@/pages/Teams'))
-const Onboarding = lazy(() => import('@/pages/Onboarding'))
-const Users = lazy(() => import('@/pages/Users'))
-const CursorGuide = lazy(() => import('@/pages/CursorGuide'))
+const Dashboard = lazyNamed(() => import('@/pages/Dashboard'), 'Dashboard')
+const ProjectDetail = lazyNamed(() => import('@/pages/ProjectDetail'), 'ProjectDetail')
+const FeatureDetail = lazyNamed(() => import('@/pages/FeatureDetail'), 'FeatureDetail')
+const Todos = lazyNamed(() => import('@/pages/Todos'), 'Todos')
+const Documents = lazyNamed(() => import('@/pages/Documents'), 'Documents')
+const Settings = lazyNamed(() => import('@/pages/Settings'), 'Settings')
+const Ideas = lazyNamed(() => import('@/pages/Ideas'), 'Ideas')
+const Teams = lazyNamed(() => import('@/pages/Teams'), 'Teams')
+const Onboarding = lazyNamed(() => import('@/pages/Onboarding'), 'Onboarding')
+const Users = lazyNamed(() => import('@/pages/Users'), 'Users')
+const CursorGuide = lazyNamed(() => import('@/pages/CursorGuide'), 'CursorGuide')
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user } = useAuth()
